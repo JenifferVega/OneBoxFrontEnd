@@ -25,6 +25,9 @@ interface Attachment {
 interface ProjectAttachmentsProps {
   projectId: string
   projectName: string
+  /** ¿El usuario actual es dueño del proyecto?
+   *  Default true (compatibilidad con instancias que no pasen el prop). */
+  isOwner?: boolean
   /** Callback cuando se sube un nuevo adjunto que generó insights nuevos. */
   onInsightsGenerated?: (count: number) => void
 }
@@ -59,7 +62,7 @@ function formatDate(iso: string): string {
   }
 }
 
-export default function ProjectAttachments({ projectId, projectName, onInsightsGenerated }: ProjectAttachmentsProps) {
+export default function ProjectAttachments({ projectId, projectName, isOwner = true, onInsightsGenerated }: ProjectAttachmentsProps) {
   const auth = useAuth()
   const token = auth.user?.access_token || ''
   const userId = auth.user?.profile?.sub || ''
@@ -322,14 +325,17 @@ export default function ProjectAttachments({ projectId, projectName, onInsightsG
                   >
                     {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                   </button>
-                  <button
-                    onClick={() => handleDelete(att.attachmentId)}
-                    disabled={isDeleting || isDownloading}
-                    className="p-2 text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
-                    title="Eliminar"
-                  >
-                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                  </button>
+                  {/* Borrar adjunto: solo owner. */}
+                  {isOwner && (
+                    <button
+                      onClick={() => handleDelete(att.attachmentId)}
+                      disabled={isDeleting || isDownloading}
+                      className="p-2 text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
+                      title="Eliminar"
+                    >
+                      {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    </button>
+                  )}
                 </div>
               </motion.div>
             )

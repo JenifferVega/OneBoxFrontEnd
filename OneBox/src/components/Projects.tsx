@@ -45,6 +45,9 @@ interface Project {
   slaMetrics: { respuestaCliente: string; tareasResponsable: number; respuestaPartner: string; tareasBlockeadas24h: number };
   startDate: string; tasks: ProjectTask[]; aiActions: ProjectAction[];
   notifications?: ProjectNotification[];
+  // Permisos calculados por el backend:
+  isOwner?: boolean;            // true → dueño; false → invitado
+  role?: 'owner' | 'invitedByEmail' | 'invitedByLink' | 'collaborator';
 }
 
 const ChannelIcon = ({ type, className = 'w-3.5 h-3.5' }: { type: string; className?: string }) => {
@@ -538,19 +541,28 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                     <Clock className="w-3.5 h-3.5" /> {p.daysLeft} días restantes
                   </span>
                 )}
-                <button
-                  onClick={() => setConfirmDelete(p)}
-                  disabled={deletingProject === p.projectId}
-                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Eliminar proyecto"
-                >
-                  {deletingProject === p.projectId ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-3.5 h-3.5" />
-                  )}
-                  Eliminar
-                </button>
+                {/* Owner-only: solo el dueño del proyecto puede eliminarlo. */}
+                {p.isOwner !== false && (
+                  <button
+                    onClick={() => setConfirmDelete(p)}
+                    disabled={deletingProject === p.projectId}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Eliminar proyecto"
+                  >
+                    {deletingProject === p.projectId ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
+                    Eliminar
+                  </button>
+                )}
+                {/* Badge "Invitado" para que se sepa visualmente el rol. */}
+                {p.isOwner === false && (
+                  <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300" title="Estás invitado a este proyecto">
+                    👤 Invitado
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -1044,6 +1056,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
             <ProjectAttachments
               projectId={p.projectId}
               projectName={p.name}
+              isOwner={p.isOwner !== false}
               onInsightsGenerated={() => {
                 // Refrescar el proyecto para ver los nuevos insights
                 api.getProjects(token).then(data => {
@@ -1064,7 +1077,12 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider">Equipo del Proyecto</h3>
-              {!editingPhones ? (
+              {/* Botones owner-only: añadir/invitar/editar teléfonos. Los invitados solo ven la lista. */}
+              {!editingPhones && p.isOwner === false ? (
+                <span className="text-[10px] text-white/30 italic" title="Solo el dueño del proyecto puede modificar el equipo">
+                  Solo lectura
+                </span>
+              ) : !editingPhones ? (
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => { setNewMember({ nombre: '', email: '', telefono: '', rol: '' }); setAddingMember(true) }}
