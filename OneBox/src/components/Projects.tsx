@@ -1560,16 +1560,25 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusBadge status={proyecto.status} />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setConfirmDelete(proyecto)
-                    }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                    title="Eliminar proyecto"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {/* Owner-only: papelera en la card de la grid. */}
+                  {proyecto.isOwner !== false && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setConfirmDelete(proyecto)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                      title="Eliminar proyecto"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {/* Badge "Invitado" cuando no es owner (en la card de la grid). */}
+                  {proyecto.isOwner === false && (
+                    <span className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-300" title="Estás invitado">
+                      👤
+                    </span>
+                  )}
                 </div>
               </div>
 
