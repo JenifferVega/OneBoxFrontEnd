@@ -3,6 +3,8 @@ import { motion } from 'framer-motion'
 import { useAuth } from 'react-oidc-context'
 import { MessageSquare, Plus, LogOut } from 'lucide-react'
 import { PageType } from '../App'
+import NotificationsPanel from './NotificationsPanel'
+import { clearUserSession } from '../services/api'
 
 interface LayoutProps {
   children: ReactNode
@@ -26,6 +28,8 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
     const domain = import.meta.env.VITE_COGNITO_DOMAIN
     const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID
     const logoutUri = import.meta.env.VITE_REDIRECT_URI || 'http://localhost:5173'
+    // Limpiar TODA la sesión local antes de redirigir
+    clearUserSession()
     auth.removeUser()
     window.location.href = `https://${domain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`
   }
@@ -76,6 +80,7 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
                   Nuevo proyecto
                 </button>
               )}
+              <NotificationsPanel />
               <div className="flex items-center gap-2.5 pl-3 border-l border-white/10">
                 <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
                   {userInitials}

@@ -15,9 +15,11 @@ import {
 
 interface LandingPageProps {
   onGetStarted: () => void
+  onLogin?: () => void
 }
 
-export default function LandingPage({ onGetStarted }: LandingPageProps) {
+export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps) {
+  const handleLogin = onLogin || onGetStarted
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* Navbar */}
@@ -37,8 +39,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
           
           <div className="flex items-center gap-3">
-            <button 
-              onClick={onGetStarted}
+            <button
+              onClick={handleLogin}
               className="text-sm text-slate-600 hover:text-slate-900 transition-colors"
             >
               Iniciar sesión
