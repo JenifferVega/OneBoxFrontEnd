@@ -71,8 +71,8 @@ export const api = {
   updateTask: (taskId: string, data: any, token: string) =>
     fetchAPI(`/api/tasks/${taskId}`, token, { method: 'PUT', body: JSON.stringify(data) }),
 
-  deleteTask: (taskId: string, token: string) =>
-    fetchAPI(`/api/tasks/${taskId}`, token, { method: 'DELETE' }),
+  deleteTask: (taskId: string, token: string, cascade: boolean = false) =>
+    fetchAPI(`/api/tasks/${taskId}?cascade=${cascade ? 'true' : 'false'}`, token, { method: 'DELETE' }),
 
   inviteUserToProject: (projectId: string, email: string, token: string) =>
     fetchAPI(`/api/projects/${projectId}/invite`, token, { method: 'POST', body: JSON.stringify({ email }) }),

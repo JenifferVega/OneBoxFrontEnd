@@ -26,6 +26,10 @@ interface ProjectTask {
   blockedReason?: string;
   startDate?: string;
   dueDate?: string;
+  // Subtareas (1 nivel)
+  parentTaskId?: string;       // '' o ausente = raíz
+  subtasksCount?: number;      // solo en padres
+  subtasksDone?: number;       // solo en padres
   tags?: string[];
 }
 interface ProjectAction {
@@ -131,7 +135,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
   // CRUD de tareas (crear/editar/borrar)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)  // null = crear, string = editar
-  const [taskForm, setTaskForm] = useState({ text: '', description: '', status: 'pending', assignedTo: '', startDate: '', dueDate: '' })
+  const [taskForm, setTaskForm] = useState({ text: '', description: '', status: 'pending', assignedTo: '', startDate: '', dueDate: '', parentTaskId: '' })
   const [savingTask, setSavingTask] = useState(false)
   const [confirmDeleteTask, setConfirmDeleteTask] = useState<ProjectTask | null>(null)
   const [deletingTask, setDeletingTask] = useState(false)
@@ -363,6 +367,22 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                       className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-violet-500" />
                   </div>
                 </div>
+                {/* Subtarea de: dropdown con tareas raíz del proyecto (1 nivel). */}
+                <div>
+                  <label className="text-xs text-white/60">Subtarea de</label>
+                  <select
+                    value={taskForm.parentTaskId}
+                    onChange={e => setTaskForm({ ...taskForm, parentTaskId: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="">(ninguna — tarea raíz)</option>
+                    {(selectedProject?.tasks || [])
+                      .filter(t => !t.parentTaskId && t.id !== editingTaskId)
+                      .map(t => (
+                        <option key={t.id} value={t.id}>{t.text}</option>
+                      ))}
+                  </select>
+                </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">
                 <button onClick={() => setTaskModalOpen(false)} disabled={savingTask}
@@ -379,6 +399,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                         assigned_to: taskForm.assignedTo,
                         start_date: taskForm.startDate || null,
                         due_date: taskForm.dueDate || null,
+                        parent_task_id: taskForm.parentTaskId || '',
                       }
                       if (editingTaskId) {
                         await api.updateTask(editingTaskId, { ...payload, projectId: p.projectId }, token)
@@ -414,23 +435,53 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
                   <Trash2 className="w-5 h-5 text-red-400" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <h3 className="text-lg font-bold text-white">Borrar tarea</h3>
                   <p className="text-sm text-white/60 mt-1">
                     ¿Seguro que quieres borrar <strong className="text-white">"{confirmDeleteTask.text}"</strong>? <strong className="text-red-400">No se puede deshacer.</strong>
                   </p>
+                  {(confirmDeleteTask.subtasksCount || 0) > 0 && (
+                    <p className="text-xs text-amber-300/80 mt-3 bg-amber-500/10 border border-amber-500/20 rounded-md p-2">
+                      ⚠️ Esta tarea tiene <strong>{confirmDeleteTask.subtasksCount} subtarea{(confirmDeleteTask.subtasksCount || 0) > 1 ? 's' : ''}</strong>. Elige qué hacer con ellas:
+                    </p>
+                  )}
                 </div>
               </div>
-              <div className="flex justify-end gap-2 mt-6">
+              <div className="flex justify-end gap-2 mt-6 flex-wrap">
                 <button onClick={() => setConfirmDeleteTask(null)} disabled={deletingTask}
                   className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 disabled:opacity-50">Cancelar</button>
+                {(confirmDeleteTask.subtasksCount || 0) > 0 && (
+                  <button
+                    disabled={deletingTask}
+                    onClick={async () => {
+                      if (!confirmDeleteTask) return
+                      setDeletingTask(true)
+                      try {
+                        await api.deleteTask(confirmDeleteTask.id, token, false)  // cascade=false: huérfanos a raíz
+                        const data = await api.getProjects(token)
+                        if (Array.isArray(data)) {
+                          setProyectos(data)
+                          const updated = data.find((proj: Project) => proj.projectId === p.projectId)
+                          if (updated) setSelectedProject(updated)
+                        }
+                        setConfirmDeleteTask(null)
+                      } catch (err) { console.error('Error borrando tarea (sin cascade):', err) }
+                      finally { setDeletingTask(false) }
+                    }}
+                    className="px-3 py-2 text-sm font-medium bg-amber-600/80 hover:bg-amber-600 text-white rounded-lg disabled:opacity-50"
+                  >
+                    Borrar solo esta (mantener subtareas)
+                  </button>
+                )}
                 <button
                   disabled={deletingTask}
                   onClick={async () => {
                     if (!confirmDeleteTask) return
                     setDeletingTask(true)
                     try {
-                      await api.deleteTask(confirmDeleteTask.id, token)
+                      // cascade=true cuando hay subtareas → borrar todo el árbol.
+                      const hasChildren = (confirmDeleteTask.subtasksCount || 0) > 0
+                      await api.deleteTask(confirmDeleteTask.id, token, hasChildren)
                       const data = await api.getProjects(token)
                       if (Array.isArray(data)) {
                         setProyectos(data)
@@ -443,7 +494,9 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   }}
                   className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
                 >
-                  {deletingTask ? (<><Loader2 className="w-4 h-4 animate-spin" /> Borrando...</>) : (<><Trash2 className="w-4 h-4" /> Sí, borrar</>)}
+                  {deletingTask ? (<><Loader2 className="w-4 h-4 animate-spin" /> Borrando...</>) : (
+                    <><Trash2 className="w-4 h-4" /> {(confirmDeleteTask.subtasksCount || 0) > 0 ? 'Borrar todo (incluyendo subtareas)' : 'Sí, borrar'}</>
+                  )}
                 </button>
               </div>
             </div>
@@ -734,7 +787,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   <button
                     onClick={() => {
                       setEditingTaskId(null)
-                      setTaskForm({ text: '', description: '', status: 'pending', assignedTo: '', startDate: '', dueDate: '' })
+                      setTaskForm({ text: '', description: '', status: 'pending', assignedTo: '', startDate: '', dueDate: '', parentTaskId: '' })
                       setTaskModalOpen(true)
                     }}
                     className="flex items-center gap-1 px-2.5 py-1 text-xs bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 border border-violet-500/30 rounded-md transition-colors"
@@ -755,10 +808,38 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                         if (taskFilter === 'pending') return !isDone(t.status) && t.status !== 'blocked'
                         return true
                       })
-                  const visibleTasks = showAllTasks ? filteredTasks : filteredTasks.slice(0, 3)
-                  return visibleTasks.length > 0 ? visibleTasks.map(task => (
-                  <div key={task.id} className="bg-[#161625] rounded-xl p-4 border border-white/5">
-                    <div className="flex items-start gap-3">
+                  // Si NO hay filtro ni búsqueda, agrupar jerárquicamente:
+                  // [raíz1, hijo1.1, hijo1.2, raíz2, hijo2.1, ...].
+                  // Con filtro/búsqueda, render plano para no esconder coincidencias.
+                  const isFilteringOrSearching = taskFilter !== 'all' || isSearching
+                  const orderedTasks: ProjectTask[] = isFilteringOrSearching
+                    ? filteredTasks
+                    : (() => {
+                        const roots = filteredTasks.filter(t => !t.parentTaskId)
+                        const result: ProjectTask[] = []
+                        for (const root of roots) {
+                          result.push(root)
+                          result.push(...filteredTasks.filter(t => t.parentTaskId === root.id))
+                        }
+                        // No olvidar las "huérfanas" (con parentTaskId que no está en filtradas)
+                        for (const t of filteredTasks) {
+                          if (t.parentTaskId && !roots.find(r => r.id === t.parentTaskId) && !result.includes(t)) {
+                            result.push(t)
+                          }
+                        }
+                        return result
+                      })()
+                  const visibleTasks = showAllTasks ? orderedTasks : orderedTasks.slice(0, 4)
+                  return visibleTasks.length > 0 ? visibleTasks.map((task, idx) => {
+                    const isSubtask = !!task.parentTaskId
+                    const nextTask = visibleTasks[idx + 1]
+                    // Mostrar botón "+ Subtarea" después de la última fila del grupo de una raíz.
+                    const showAddSubtaskButton = !isFilteringOrSearching && !isSubtask
+                      && (!nextTask || nextTask.parentTaskId !== task.id)
+                    return (
+                    <div key={task.id} className={isSubtask ? 'ml-6 pl-3 border-l-2 border-white/10' : ''}>
+                      <div className={`bg-[#161625] rounded-xl border border-white/5 ${isSubtask ? 'p-3' : 'p-4'}`}>
+                        <div className="flex items-start gap-3">
                       <button
                         onClick={async (e) => {
                           e.stopPropagation()
@@ -825,6 +906,12 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                                 </span>
                               )
                             })()}
+                            {/* Indicador de subtareas: solo en padres (raíz con hijos). */}
+                            {!isSubtask && (task.subtasksCount || 0) > 0 && (
+                              <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-violet-500/10 text-violet-300 border border-violet-500/20" title={`${task.subtasksDone || 0} de ${task.subtasksCount} subtareas completadas`}>
+                                {task.subtasksDone || 0}/{task.subtasksCount} subt.
+                              </span>
+                            )}
                             {/* Otros tags del backend que NO sean de estado */}
                             {(task.tags || []).filter(t => !['Pendiente', 'Completada', 'Bloqueada', 'En curso'].includes(t)).map((tag, i) => (
                               <span key={i} className={`px-2 py-0.5 text-[10px] font-bold rounded ${
@@ -849,6 +936,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                                   assignedTo: task.assignedTo.nombre === 'Sin asignar' ? '' : (task.assignedTo.nombre || ''),
                                   startDate: task.startDate || '',
                                   dueDate: task.dueDate || '',
+                                  parentTaskId: task.parentTaskId || '',
                                 })
                                 setTaskModalOpen(true)
                               }}
@@ -947,7 +1035,24 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                       </div>
                     </div>
                   </div>
-                )) : (
+                  {/* Botón "+ Subtarea" — solo en tareas raíz, al final de su grupo. */}
+                  {showAddSubtaskButton && (
+                    <div className="ml-6 mt-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingTaskId(null)
+                          setTaskForm({ text: '', description: '', status: 'pending', assignedTo: '', startDate: '', dueDate: '', parentTaskId: task.id })
+                          setTaskModalOpen(true)
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1 text-[11px] bg-white/5 hover:bg-violet-500/15 hover:text-violet-300 text-white/40 border border-white/10 hover:border-violet-500/30 rounded-md transition-colors"
+                      >
+                        <Plus className="w-3 h-3" /> Subtarea
+                      </button>
+                    </div>
+                  )}
+                </div>
+                )}) : (
                   <div className="bg-[#161625] rounded-xl p-8 border border-white/5 text-center">
                     <p className="text-white/30 text-sm">
                       {taskFilter !== 'all'

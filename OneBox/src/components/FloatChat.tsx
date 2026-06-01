@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useAuth } from 'react-oidc-context'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MessageSquare,
@@ -14,6 +15,7 @@ import {
   AlertCircle,
   RotateCcw
 } from 'lucide-react'
+import { getUserId, getUserEmail } from '../services/api'
 
 const AGENT_API = import.meta.env.VITE_AGENT_API || 'https://TU-LAMBDA-URL.lambda-url.us-east-1.on.aws/'
 
@@ -32,6 +34,11 @@ interface HistoryMessage {
 }
 
 export default function ChatFloat() {
+  // Auth: el chatbot DEBE enviar credenciales para que el backend aísle datos
+  // por usuario. Sin esto el endpoint /chat devuelve 401 (fix de seguridad
+  // crítico — antes el agente usaba un USER_ID global y filtraba datos de
+  // otros usuarios).
+  const auth = useAuth()
   const [abierto, setAbierto] = useState(false)
   const [mensajes, setMensajes] = useState<Mensaje[]>([
     {
@@ -99,9 +106,23 @@ export default function ChatFloat() {
     setEstadoAgente('Pensando...')
 
     try {
+      // SEGURIDAD: mandar identidad del usuario para que el agente filtre
+      // datos por su uid (NO por un USER_ID global). Sin headers válidos el
+      // backend responde 401.
+      const token = auth.user?.access_token || ''
+      const userId = getUserId()
+      const userEmail = getUserEmail()
+      if (!userId || !token) {
+        throw new Error('Sesión no iniciada — inicia sesión para usar el chatbot.')
+      }
       const response = await fetch(AGENT_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-user-id': userId,
+          'x-user-email': userEmail,
+        },
         body: JSON.stringify({
           message: textoUsuario,
           history: history
