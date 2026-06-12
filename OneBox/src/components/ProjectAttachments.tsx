@@ -148,10 +148,26 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
     setDownloadingId(attachmentId)
     try {
       const result = await api.getAttachmentDownloadUrl(projectId, attachmentId, token)
-      if (result?.url) {
-        // Abrir en nueva pestaña / descargar
-        window.open(result.url, '_blank')
+      if (!result?.url) {
+        alert('No se pudo obtener el link de descarga.')
+        return
       }
+      // ⚠️ ANTES usaba window.open(url, '_blank'). Problema: tras un `await`
+      // el browser ya NO está en contexto de user-gesture síncrono y muchos
+      // navegadores bloquean la nueva pestaña como popup → el botón parecía
+      // no hacer nada.
+      //
+      // Ahora usamos un anchor temporal con el atributo `download` y le
+      // disparamos click(). Esto se trata como descarga, no como popup
+      // → funciona siempre, incluso con popup blocker estricto.
+      const a = document.createElement('a')
+      a.href = result.url
+      a.download = fileName || result.fileName || 'archivo'
+      a.rel = 'noopener noreferrer'
+      // Algunos navegadores requieren que el anchor esté en el DOM
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
     } catch (err) {
       console.error('[Attachments] download error:', err)
       alert('No se pudo descargar el archivo.')

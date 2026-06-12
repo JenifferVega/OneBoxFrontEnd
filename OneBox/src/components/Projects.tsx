@@ -9,8 +9,12 @@ import {
   Phone, Send, Bell, Trash2, Loader2, UserPlus, Ban, Unlock, Plus, Pencil, Calendar
 } from 'lucide-react'
 import { PageType } from '../App'
-import ChannelsPanel from './ChannelsPanel'
+// ChannelsPanel — import comentado. El componente sigue en src/components/
+// listo para activar desde 'Configuración / Integraciones' cuando Gmail/WhatsApp
+// entren en uso real. Ver nota en el sidebar del dashboard.
+// import ChannelsPanel from './ChannelsPanel'
 import ProjectInsightsSidebar from './ProjectInsightsSidebar'
+import ProjectGantt from './ProjectGantt'
 import ProjectAttachments from './ProjectAttachments'
 
 interface ProjectTeamMember {
@@ -115,8 +119,11 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
   // Filtro global: muestra todas las tareas de todos los proyectos en un estado específico
   const [globalTaskFilter, setGlobalTaskFilter] = useState<'completed' | 'pending' | 'blocked' | null>(null)
   const [loading, setLoading] = useState(true)
+  // Edición masiva de contactos (email + teléfono) del equipo.
+  // Antes solo se podían editar teléfonos. Ahora ambos campos por miembro.
   const [editingPhones, setEditingPhones] = useState(false)
   const [phoneEdits, setPhoneEdits] = useState<Record<string, string>>({})
+  const [emailEdits, setEmailEdits] = useState<Record<string, string>>({})
   const [savingPhones, setSavingPhones] = useState(false)
   const [taskFilter, setTaskFilter] = useState<'all' | 'completed' | 'pending' | 'blocked'>('all')
   const [showAllTasks, setShowAllTasks] = useState(false)
@@ -125,9 +132,8 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
   const [deletingProject, setDeletingProject] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null)
   // Alta de participante (fix #11)
-  const [addingMember, setAddingMember] = useState(false)
-  const [newMember, setNewMember] = useState({ nombre: '', email: '', telefono: '', rol: '' })
-  const [savingMember, setSavingMember] = useState(false)
+  // (state addingMember/newMember/savingMember eliminado — el flujo de añadir
+  // participante ahora vive en el modal unificado inviteModalOpen)
   // Bloqueo manual de tareas (con motivo)
   const [blockingTaskId, setBlockingTaskId] = useState<string | null>(null)
   const [blockReason, setBlockReason] = useState('')
@@ -139,12 +145,27 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
   const [savingTask, setSavingTask] = useState(false)
   const [confirmDeleteTask, setConfirmDeleteTask] = useState<ProjectTask | null>(null)
   const [deletingTask, setDeletingTask] = useState(false)
-  // Invitar usuarios al proyecto
+  // Modal unificado de añadir/invitar (reemplaza los 3 botones viejos).
+  // El form pide nombre, rol, email y/o teléfono, y un checkbox para enviar invitación.
   const [inviteModalOpen, setInviteModalOpen] = useState(false)
-  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteForm, setInviteForm] = useState({
+    name: '',
+    role: '',
+    email: '',
+    phone: '',
+    sendNotification: true,
+  })
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteResultMsg, setInviteResultMsg] = useState('')
   const [inviteError, setInviteError] = useState('')
+  // share_url devuelto por el backend cuando Cognito NO mandó email automático
+  // (el invitado ya existe como EXTERNAL_PROVIDER o CONFIRMED). El invitante
+  // copia este link y lo manda manualmente por WhatsApp / Slack / etc.
+  const [inviteShareUrl, setInviteShareUrl] = useState('')
+  const [shareUrlCopied, setShareUrlCopied] = useState(false)
+  // Eliminación de participante: guarda el ProjectTeamMember a confirmar
+  const [removeMemberTarget, setRemoveMemberTarget] = useState<ProjectTeamMember | null>(null)
+  const [removingMember, setRemovingMember] = useState(false)
 
   const userId = auth.user?.profile?.sub || ''
 
@@ -503,28 +524,137 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
           </div>
         )}
 
-        {/* Modal Invitar usuario al proyecto */}
+        {/* Modal confirmar eliminación de participante */}
+        {removeMemberTarget && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => !removingMember && setRemoveMemberTarget(null)}>
+            <div className="bg-[#12121E] border border-white/10 rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                  <X className="w-5 h-5 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Eliminar a {removeMemberTarget.nombre}</h3>
+                  <p className="text-sm text-white/60 mt-1">
+                    Se quitará del equipo de <strong className="text-white">{p.name}</strong>.
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2 text-sm text-white/70 mb-6 pl-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-amber-400 mt-0.5">·</span>
+                  <span>Sus tareas asignadas quedarán como <strong>"Sin asignar"</strong> (no se borran).</span>
+                </div>
+                {removeMemberTarget.email && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-400 mt-0.5">·</span>
+                    <span>Si tenía invitación aceptada, <strong>perderá el acceso</strong> al proyecto.</span>
+                  </div>
+                )}
+                <div className="flex items-start gap-2">
+                  <span className="text-white/40 mt-0.5">·</span>
+                  <span className="text-white/40">No se enviará ninguna notificación.</span>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setRemoveMemberTarget(null)} disabled={removingMember}
+                  className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 disabled:opacity-50">
+                  Cancelar
+                </button>
+                <button
+                  disabled={removingMember}
+                  onClick={async () => {
+                    if (!removeMemberTarget) return
+                    setRemovingMember(true)
+                    try {
+                      await api.removeParticipant(p.projectId, {
+                        email: removeMemberTarget.email || '',
+                        phone: removeMemberTarget.telefono || '',
+                        name: removeMemberTarget.nombre || '',
+                      }, token)
+                      // Refrescar proyectos
+                      const data = await api.getProjects(token)
+                      if (Array.isArray(data)) {
+                        setProyectos(data)
+                        const updated = data.find((proj: Project) => proj.projectId === p.projectId)
+                        if (updated) setSelectedProject(updated)
+                      }
+                      setRemoveMemberTarget(null)
+                    } catch (err) {
+                      console.error('Error eliminando participante:', err)
+                    } finally {
+                      setRemovingMember(false)
+                    }
+                  }}
+                  className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
+                >
+                  {removingMember ? (<><Loader2 className="w-4 h-4 animate-spin" /> Eliminando...</>) : (<><Trash2 className="w-4 h-4" /> Eliminar</>)}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal unificado: Añadir + Invitar (email/WhatsApp).
+            Reemplaza los 3 botones que había antes (Añadir / Invitar / WhatsApp).
+            - email y/o teléfono (al menos uno).
+            - checkbox para enviar notificación (email + WhatsApp) o solo registrar contacto.
+        */}
         {inviteModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={() => !sendingInvite && setInviteModalOpen(false)}>
             <div className="bg-[#12121E] border border-white/10 rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
               <div className="flex items-start gap-4 mb-4">
-                <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
-                  <Send className="w-5 h-5 text-cyan-400" />
+                <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center flex-shrink-0">
+                  <UserPlus className="w-5 h-5 text-violet-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Invitar usuario al proyecto</h3>
+                  <h3 className="text-lg font-bold text-white">Añadir persona al proyecto</h3>
                   <p className="text-sm text-white/60 mt-1">
-                    Le llegará un correo con una contraseña temporal. Al primer login se unirá automáticamente a <strong className="text-white">{p.name}</strong>.
+                    Rellena email y/o WhatsApp. Si marcas "enviar invitación", recibirá un aviso por cada canal que pongas.
                   </p>
                 </div>
               </div>
-              <div>
-                <label className="text-xs text-white/60">Correo del invitado</label>
-                <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                  placeholder="alguien@ejemplo.com" autoFocus disabled={sendingInvite}
-                  className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-cyan-500 disabled:opacity-50" />
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-white/60">Nombre *</label>
+                    <input type="text" value={inviteForm.name} onChange={e => setInviteForm({ ...inviteForm, name: e.target.value })}
+                      placeholder="María Pérez" autoFocus disabled={sendingInvite}
+                      className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500 disabled:opacity-50" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-white/60">Rol</label>
+                    <input type="text" value={inviteForm.role} onChange={e => setInviteForm({ ...inviteForm, role: e.target.value })}
+                      placeholder="Diseñadora" disabled={sendingInvite}
+                      className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500 disabled:opacity-50" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-white/60 flex items-center gap-1.5"><Mail className="w-3 h-3 text-sky-400" /> Email</label>
+                  <input type="email" value={inviteForm.email} onChange={e => setInviteForm({ ...inviteForm, email: e.target.value })}
+                    placeholder="alguien@ejemplo.com" disabled={sendingInvite}
+                    className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-sky-500 disabled:opacity-50" />
+                  <p className="text-[10px] text-white/30 mt-0.5">Le llegará correo con cuenta de acceso a la app.</p>
+                </div>
+                <div>
+                  <label className="text-xs text-white/60 flex items-center gap-1.5"><MessageCircle className="w-3 h-3 text-green-400" /> WhatsApp</label>
+                  <input type="tel" value={inviteForm.phone} onChange={e => setInviteForm({ ...inviteForm, phone: e.target.value })}
+                    placeholder="+34 600 000 000" disabled={sendingInvite}
+                    className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-green-500 disabled:opacity-50" />
+                  <p className="text-[10px] text-white/30 mt-0.5">Recibirá WhatsApp avisando que fue añadido y notificaciones del proyecto.</p>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer select-none pt-1">
+                  <input type="checkbox" checked={inviteForm.sendNotification}
+                    onChange={e => setInviteForm({ ...inviteForm, sendNotification: e.target.checked })}
+                    disabled={sendingInvite}
+                    className="w-4 h-4 rounded border-white/20 bg-[#0E0E18] text-violet-500 focus:ring-violet-500 focus:ring-offset-0" />
+                  Enviar invitación ahora
+                  <span className="text-[10px] text-white/40">(si lo desmarcas, solo guarda el contacto sin notificar)</span>
+                </label>
               </div>
+
               {inviteError && (
                 <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                   <p className="text-sm text-red-400">{inviteError}</p>
@@ -535,6 +665,44 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   <p className="text-sm text-emerald-400">{inviteResultMsg}</p>
                 </div>
               )}
+              {/* Caja de "Compartir link" — aparece SOLO cuando el backend
+                  detecta que Cognito no envió email (porque el invitado ya
+                  tenía cuenta como EXTERNAL_PROVIDER de Google o CONFIRMED).
+                  Damos al invitante el link directo para que avise él mismo
+                  por WhatsApp / Slack / email manual. */}
+              {inviteShareUrl && (
+                <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2">
+                  <p className="text-xs text-amber-200/90 font-medium">
+                    📎 Comparte este link con el invitado (cópialo y mándalo por WhatsApp o Slack):
+                  </p>
+                  <div className="flex items-stretch gap-2">
+                    <input
+                      readOnly
+                      value={inviteShareUrl}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      className="flex-1 min-w-0 px-2.5 py-1.5 bg-[#0E0E18] border border-amber-500/20 rounded-md text-xs text-white/80 font-mono outline-none"
+                    />
+                    <button
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(inviteShareUrl)
+                          setShareUrlCopied(true)
+                          setTimeout(() => setShareUrlCopied(false), 2000)
+                        } catch {
+                          // Fallback: selección manual
+                        }
+                      }}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                        shareUrlCopied
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                      }`}
+                    >
+                      {shareUrlCopied ? '✓ Copiado' : 'Copiar'}
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="flex justify-end gap-2 mt-6">
                 <button onClick={() => setInviteModalOpen(false)} disabled={sendingInvite}
                   className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 disabled:opacity-50">
@@ -542,20 +710,62 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 </button>
                 {!inviteResultMsg && (
                   <button
-                    disabled={sendingInvite || !inviteEmail.trim() || !inviteEmail.includes('@')}
+                    disabled={
+                      sendingInvite ||
+                      !inviteForm.name.trim() ||
+                      (!inviteForm.email.trim() && !inviteForm.phone.trim())
+                    }
                     onClick={async () => {
                       setSendingInvite(true); setInviteError(''); setInviteResultMsg('')
                       try {
-                        const res = await api.inviteUserToProject(p.projectId, inviteEmail.trim().toLowerCase(), token)
-                        setInviteResultMsg(res?.message || 'Invitación enviada con éxito.')
-                        setInviteEmail('')
+                        const res = await api.inviteUserToProject(p.projectId, {
+                          email: inviteForm.email.trim().toLowerCase(),
+                          phone: inviteForm.phone.trim(),
+                          name: inviteForm.name.trim(),
+                          role: inviteForm.role.trim() || 'Invitado',
+                          sendNotification: inviteForm.sendNotification,
+                        }, token)
+                        // Componer mensaje según qué se hizo
+                        const parts: string[] = []
+                        if (res?.notified) {
+                          if (res?.email?.success === false) parts.push(`⚠️ Email falló: ${res.email.error}`)
+                          else if (inviteForm.email) {
+                            // El backend pone needs_manual_share=true cuando el invitado
+                            // ya existe como EXTERNAL_PROVIDER o CONFIRMED y Cognito
+                            // NO envía email — hay que avisar manualmente.
+                            if (res?.email?.needs_manual_share) {
+                              parts.push('⚠️ Cognito no manda email (cuenta existente). Usa el link de abajo.')
+                            } else {
+                              parts.push('✉️ Email enviado')
+                            }
+                          }
+                          if (res?.whatsapp?.status === 'sent' || res?.whatsapp?.status === 'queued' || res?.whatsapp?.status === 'test_simulated') parts.push('📱 WhatsApp enviado')
+                          else if (res?.whatsapp?.error) parts.push(`⚠️ WhatsApp falló: ${res.whatsapp.error}`)
+                        } else {
+                          parts.push('Contacto guardado sin notificación')
+                        }
+                        setInviteResultMsg(parts.join(' · ') || 'Listo')
+                        // Guardar share_url si el backend lo manda
+                        if (res?.email?.share_url) {
+                          setInviteShareUrl(res.email.share_url)
+                          setShareUrlCopied(false)
+                        } else {
+                          setInviteShareUrl('')
+                        }
+                        // Refrescar lista
+                        const data = await api.getProjects(token)
+                        if (Array.isArray(data)) {
+                          setProyectos(data)
+                          const updated = data.find((proj: Project) => proj.projectId === p.projectId)
+                          if (updated) setSelectedProject(updated)
+                        }
                       } catch (err: any) {
-                        setInviteError(err?.message?.substring(0, 200) || 'Error enviando la invitación')
+                        setInviteError(err?.message?.substring(0, 200) || 'Error guardando')
                       } finally { setSendingInvite(false) }
                     }}
-                    className="px-4 py-2 text-sm font-medium bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
+                    className="px-4 py-2 text-sm font-medium bg-violet-600 hover:bg-violet-500 text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
                   >
-                    {sendingInvite ? (<><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>) : (<><Send className="w-4 h-4" /> Enviar invitación</>)}
+                    {sendingInvite ? (<><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>) : (<><UserPlus className="w-4 h-4" /> {inviteForm.sendNotification ? 'Añadir e invitar' : 'Solo añadir'}</>)}
                   </button>
                 )}
               </div>
@@ -664,6 +874,50 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 </span>
               </div>
             )}
+          </div>
+
+          {/* VISTA GANTT — primera cosa que ves al entrar al proyecto.
+              Cambia automáticamente al seleccionar otro proyecto (cada
+              detalle carga sus propias tasks). Click en una barra → abre
+              el modal de edición de esa tarea (reusa el flujo existente). */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                Vista Gantt
+                <span className="text-[10px] font-normal text-white/40 px-2 py-0.5 bg-white/5 rounded-full">
+                  por fechas de tareas
+                </span>
+              </h2>
+            </div>
+            <ProjectGantt
+              tasks={(p.tasks || []).map(t => ({
+                id: t.id,
+                text: t.text,
+                status: t.status,
+                startDate: t.startDate,
+                dueDate: t.dueDate,
+                assignedTo: typeof t.assignedTo === 'string'
+                  ? t.assignedTo
+                  : (t.assignedTo as any)?.nombre || '',
+              }))}
+              onTaskClick={(taskId) => {
+                const task = (p.tasks || []).find(x => x.id === taskId)
+                if (!task) return
+                setEditingTaskId(taskId)
+                setTaskForm({
+                  text: task.text,
+                  description: task.description || '',
+                  status: task.status,
+                  assignedTo: typeof task.assignedTo === 'string'
+                    ? task.assignedTo
+                    : (task.assignedTo as any)?.nombre || '',
+                  startDate: task.startDate || '',
+                  dueDate: task.dueDate || '',
+                  parentTaskId: task.parentTaskId || '',
+                })
+                setTaskModalOpen(true)
+              }}
+            />
           </div>
 
           {/* Stats row clickeables (filtro de tareas) */}
@@ -843,10 +1097,15 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                       <button
                         onClick={async (e) => {
                           e.stopPropagation()
-                          // Ciclo: pending → in_progress → done → pending
+                          // Ciclo completo de 4 estados (inglés en código):
+                          //   pending → in_progress → blocked → done → pending
+                          // Nota: si llega a 'blocked' por el ciclo rápido,
+                          // queda SIN motivo registrado. Para añadir motivo,
+                          // usa el modal de edición o el botón rojo "Bloquear".
                           const newStatus =
                             isDone(task.status) ? 'pending' :
-                            task.status === 'in_progress' ? 'done' :
+                            task.status === 'blocked' ? 'done' :
+                            task.status === 'in_progress' ? 'blocked' :
                             task.status === 'pending' ? 'in_progress' :
                             'pending'
                           try {
@@ -1189,32 +1448,43 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 </span>
               ) : !editingPhones ? (
                 <div className="flex items-center gap-2">
+                  {/* BOTÓN ÚNICO: Añadir/Invitar (reemplaza los 3 viejos).
+                      Abre el modal unificado donde se llena nombre, rol, email
+                      y/o WhatsApp, con checkbox para enviar o solo guardar. */}
                   <button
-                    onClick={() => { setNewMember({ nombre: '', email: '', telefono: '', rol: '' }); setAddingMember(true) }}
-                    className="flex items-center gap-1 text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
+                    onClick={() => {
+                      setInviteForm({ name: '', role: '', email: '', phone: '', sendNotification: true })
+                      setInviteResultMsg('')
+                      setInviteError('')
+                      setInviteShareUrl('')
+                      setShareUrlCopied(false)
+                      setInviteModalOpen(true)
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-violet-300 bg-violet-500/15 hover:bg-violet-500/25 border border-violet-500/30 rounded-md transition-colors"
+                    title="Añadir contacto y opcionalmente enviar invitación por email/WhatsApp"
                   >
                     <UserPlus className="w-3 h-3" />
-                    Añadir
+                    Añadir / Invitar
                   </button>
-                  <button
-                    onClick={() => { setInviteEmail(''); setInviteResultMsg(''); setInviteError(''); setInviteModalOpen(true) }}
-                    className="flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 transition-colors"
-                    title="Invitar por correo con cuenta"
-                  >
-                    <Send className="w-3 h-3" />
-                    Invitar
-                  </button>
+                  {/* Edición masiva de contactos (email + teléfono) — botón discreto.
+                      Útil cuando ya tienes el equipo y solo quieres actualizar canales. */}
                   <button
                     onClick={() => {
                       const phones: Record<string, string> = {}
-                      p.team.forEach(m => { phones[m.nombre] = m.telefono || '' })
+                      const emails: Record<string, string> = {}
+                      p.team.forEach(m => {
+                        phones[m.nombre] = m.telefono || ''
+                        emails[m.nombre] = m.email || ''
+                      })
                       setPhoneEdits(phones)
+                      setEmailEdits(emails)
                       setEditingPhones(true)
                     }}
-                    className="flex items-center gap-1 text-[10px] text-green-400 hover:text-green-300 transition-colors"
+                    className="flex items-center gap-1 text-[10px] text-white/40 hover:text-white/70 transition-colors"
+                    title="Editar email y teléfono de todos los miembros"
                   >
-                    <Phone className="w-3 h-3" />
-                    WhatsApp
+                    <Pencil className="w-3 h-3" />
+                    Editar contactos
                   </button>
                 </div>
               ) : (
@@ -1223,18 +1493,27 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                     onClick={async () => {
                       setSavingPhones(true)
                       try {
+                        // Mandar email Y teléfono actualizados desde los inputs de edición.
+                        // Si el usuario no tocó un campo, lo dejamos como estaba originalmente.
                         const updatedParticipants = p.team.map(m => ({
                           nombre: m.nombre,
                           rol: m.rol,
-                          email: m.email || '',
-                          telefono: phoneEdits[m.nombre] || '',
+                          email: (emailEdits[m.nombre] ?? m.email ?? '').trim().toLowerCase(),
+                          telefono: (phoneEdits[m.nombre] ?? m.telefono ?? '').trim(),
                         }))
                         await api.updateParticipants(p.projectId, updatedParticipants, token)
-                        const updated = { ...p, team: p.team.map(m => ({ ...m, telefono: phoneEdits[m.nombre] || '' })) }
+                        const updated = {
+                          ...p,
+                          team: p.team.map(m => ({
+                            ...m,
+                            email: (emailEdits[m.nombre] ?? m.email ?? '').trim().toLowerCase(),
+                            telefono: (phoneEdits[m.nombre] ?? m.telefono ?? '').trim(),
+                          }))
+                        }
                         setSelectedProject(updated)
                         setProyectos(prev => prev.map(pr => pr.projectId === p.projectId ? updated : pr))
                       } catch (err) {
-                        console.error('Error saving phones:', err)
+                        console.error('Error saving contacts:', err)
                       }
                       setSavingPhones(false)
                       setEditingPhones(false)
@@ -1253,76 +1532,10 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 </div>
               )}
             </div>
-            {addingMember && (
-              <div className="mb-3 p-3 bg-[#161625] border border-violet-500/20 rounded-xl space-y-2">
-                <input
-                  value={newMember.nombre}
-                  onChange={e => setNewMember({ ...newMember, nombre: e.target.value })}
-                  placeholder="Nombre *"
-                  className="w-full px-2.5 py-1.5 bg-[#0E0E1A] border border-white/10 rounded-lg text-xs text-white placeholder-white/30 focus:border-violet-500/40 outline-none"
-                />
-                <input
-                  value={newMember.rol}
-                  onChange={e => setNewMember({ ...newMember, rol: e.target.value })}
-                  placeholder="Rol (ej: Desarrollador)"
-                  className="w-full px-2.5 py-1.5 bg-[#0E0E1A] border border-white/10 rounded-lg text-xs text-white placeholder-white/30 focus:border-violet-500/40 outline-none"
-                />
-                <input
-                  value={newMember.email}
-                  onChange={e => setNewMember({ ...newMember, email: e.target.value })}
-                  placeholder="Email (canal Gmail)"
-                  className="w-full px-2.5 py-1.5 bg-[#0E0E1A] border border-white/10 rounded-lg text-xs text-white placeholder-white/30 focus:border-violet-500/40 outline-none"
-                />
-                <input
-                  value={newMember.telefono}
-                  onChange={e => setNewMember({ ...newMember, telefono: e.target.value })}
-                  placeholder="+34 600 000 000 (canal WhatsApp)"
-                  className="w-full px-2.5 py-1.5 bg-[#0E0E1A] border border-white/10 rounded-lg text-xs text-white placeholder-white/30 focus:border-violet-500/40 outline-none"
-                />
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    onClick={async () => {
-                      if (!newMember.nombre.trim()) return
-                      setSavingMember(true)
-                      try {
-                        const existing = p.team.map(m => ({
-                          nombre: m.nombre, rol: m.rol, email: m.email || '', telefono: m.telefono || ''
-                        }))
-                        const toAdd = {
-                          nombre: newMember.nombre.trim(),
-                          rol: newMember.rol.trim() || 'Participante',
-                          email: newMember.email.trim(),
-                          telefono: newMember.telefono.trim(),
-                        }
-                        await api.updateParticipants(p.projectId, [...existing, toAdd], token)
-                        const ini = toAdd.nombre.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?'
-                        const updated = {
-                          ...p,
-                          team: [...p.team, { ...toAdd, iniciales: ini, color: 'from-violet-500 to-indigo-600', tareas: 0 }]
-                        }
-                        setSelectedProject(updated)
-                        setProyectos(prev => prev.map(pr => pr.projectId === p.projectId ? updated : pr))
-                        setNewMember({ nombre: '', email: '', telefono: '', rol: '' })
-                        setAddingMember(false)
-                      } catch (err) {
-                        console.error('Error añadiendo participante:', err)
-                      }
-                      setSavingMember(false)
-                    }}
-                    disabled={savingMember || !newMember.nombre.trim()}
-                    className="flex-1 px-2.5 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[11px] font-medium rounded-lg transition-colors"
-                  >
-                    {savingMember ? 'Guardando...' : 'Añadir participante'}
-                  </button>
-                  <button
-                    onClick={() => { setAddingMember(false); setNewMember({ nombre: '', email: '', telefono: '', rol: '' }) }}
-                    className="px-2.5 py-1.5 text-white/40 hover:text-white/70 text-[11px]"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* El antiguo form inline addingMember se eliminó.
+                El modal unificado (inviteModalOpen) lo reemplaza: ambos casos
+                (registrar sin notificar / invitar con email/WhatsApp) usan
+                ese único flujo con el checkbox "Enviar invitación ahora". */}
             <div className="space-y-2">
               {p.team.map((member, i) => (
                 <div key={i}>
@@ -1336,7 +1549,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                         <p className="text-[11px] text-white/40">{member.rol}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 group">
                       {!editingPhones && (
                         <div className="flex items-center gap-1">
                           {member.email && (
@@ -1355,16 +1568,42 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                         </div>
                       )}
                       <span className="text-xs text-white/40">{member.tareas} tarea{member.tareas !== 1 ? 's' : ''}</span>
+                      {/* Botón eliminar participante — solo owner, aparece en hover.
+                          Las tareas asignadas quedan como "Sin asignar", y si era
+                          invitado pierde acceso al proyecto. */}
+                      {!editingPhones && p.isOwner !== false && (
+                        <button
+                          onClick={() => setRemoveMemberTarget(member)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 -mr-1 rounded hover:bg-red-500/20 text-white/40 hover:text-red-400"
+                          title={`Eliminar a ${member.nombre} del proyecto`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   {editingPhones && (
-                    <div className="ml-10 mt-1">
-                      <input
-                        value={phoneEdits[member.nombre] || ''}
-                        onChange={e => setPhoneEdits({ ...phoneEdits, [member.nombre]: e.target.value })}
-                        className="w-full px-2.5 py-1.5 bg-[#161625] border border-white/10 rounded-lg text-xs text-white/70 placeholder-white/20 focus:border-green-500/40 outline-none transition-all"
-                        placeholder="+34 600 000 000"
-                      />
+                    <div className="ml-10 mt-1 space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <Mail className="w-3 h-3 text-sky-400 flex-shrink-0" />
+                        <input
+                          type="email"
+                          value={emailEdits[member.nombre] ?? ''}
+                          onChange={e => setEmailEdits({ ...emailEdits, [member.nombre]: e.target.value })}
+                          className="flex-1 px-2.5 py-1.5 bg-[#161625] border border-white/10 rounded-lg text-xs text-white/70 placeholder-white/20 focus:border-sky-500/40 outline-none transition-all"
+                          placeholder="email@ejemplo.com"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <MessageCircle className="w-3 h-3 text-green-400 flex-shrink-0" />
+                        <input
+                          type="tel"
+                          value={phoneEdits[member.nombre] ?? ''}
+                          onChange={e => setPhoneEdits({ ...phoneEdits, [member.nombre]: e.target.value })}
+                          className="flex-1 px-2.5 py-1.5 bg-[#161625] border border-white/10 rounded-lg text-xs text-white/70 placeholder-white/20 focus:border-green-500/40 outline-none transition-all"
+                          placeholder="+34 600 000 000"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1437,15 +1676,13 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
 
   return (
     <div className="flex h-[calc(100vh-56px)]">
-      {/* Left sidebar - SOLO canales (filtros movidos al header como pills) */}
-      <aside className="w-64 border-r border-white/5 bg-[#0E0E1A] flex-shrink-0 overflow-y-auto">
-        <div className="p-4">
-          <ChannelsPanel
-            onNavigate={onNavigate}
-            gmailConnected={gmailConectado}
-          />
-        </div>
-      </aside>
+      {/* Sidebar de canales conectados ELIMINADO del dashboard principal.
+          Razón: la integración con Gmail/WhatsApp existe en el código pero
+          en la práctica nadie la tiene conectada todavía, ocupaba ancho
+          valioso sin aportar al flujo diario. Si en el futuro Gmail entra
+          en uso real, este panel se rehabilita desde una vista de
+          'Configuración / Integraciones'. ChannelsPanel.tsx queda en el
+          repo como código dormido — listo para reactivar. */}
 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto p-6">
@@ -1485,24 +1722,41 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
           </div>
         </div>
 
-        {/* Stats bar — cards clickeables que filtran tareas globalmente */}
+        {/* Stats bar — cards clickeables que filtran tareas globalmente.
+            Tipo `action` describe qué hace cada card al click:
+              - 'filter'    → toggla filtro de tareas globalmente
+              - 'reset'     → limpia cualquier filtro activo
+              - null        → decorativa, sin interacción
+
+            Antes 'Proyectos totales' y 'Mensajes procesados hoy' eran cards
+            muertas: visualmente parecían clickeables pero no hacían nada.
+            Ahora 'Proyectos totales' resetea filtros (UX limpio para volver
+            al estado "todos"), e 'Insights IA' se identifica como decorativa
+            con el label correcto (antes mentía: contaba INSIGHTS generados
+            por la IA en TODA la historia, no "mensajes enviados hoy"). */}
         <div className="grid grid-cols-5 gap-4 mb-6">
-          {[
-            { icon: FolderKanban, value: stats.total, label: 'Proyectos totales', color: 'text-white/60', filterValue: null as 'completed' | 'pending' | 'blocked' | null },
-            { icon: CheckCircle2, value: stats.totalTareasCompletadas, label: 'Tareas completadas', color: 'text-emerald-400', filterValue: 'completed' as const },
-            { icon: AlertCircle, value: stats.totalTareasPendientes, label: 'Tareas pendientes', color: 'text-amber-400', filterValue: 'pending' as const },
-            { icon: Shield, value: stats.totalTareasBloqueadas, label: 'Tareas bloqueadas', color: 'text-red-400', filterValue: 'blocked' as const },
-            { icon: Zap, value: stats.totalMensajes, label: 'Mensajes procesados hoy', color: 'text-violet-400', filterValue: null as 'completed' | 'pending' | 'blocked' | null },
-          ].map((stat, i) => {
+          {([
+            { icon: FolderKanban, value: stats.total, label: 'Proyectos totales', color: 'text-white/60', action: 'reset', filterValue: null, hint: globalTaskFilter ? 'Click para quitar filtro' : '' },
+            { icon: CheckCircle2, value: stats.totalTareasCompletadas, label: 'Tareas completadas', color: 'text-emerald-400', action: 'filter', filterValue: 'completed' as const, hint: 'Click para ver detalle' },
+            { icon: AlertCircle, value: stats.totalTareasPendientes, label: 'Tareas pendientes', color: 'text-amber-400', action: 'filter', filterValue: 'pending' as const, hint: 'Click para ver detalle' },
+            { icon: Shield, value: stats.totalTareasBloqueadas, label: 'Tareas bloqueadas', color: 'text-red-400', action: 'filter', filterValue: 'blocked' as const, hint: 'Click para ver detalle' },
+            // "Insights IA" = cuenta total de insights generados por la IA
+            // al analizar los proyectos (NO son mensajes enviados Twilio —
+            // esos viven en onebox-notifications). Decorativa por ahora.
+            { icon: Zap, value: stats.totalMensajes, label: 'Insights IA', color: 'text-violet-400', action: null, filterValue: null, hint: '' },
+          ] as const).map((stat, i) => {
             const Icon = stat.icon
-            const isClickable = stat.filterValue !== null
-            const isActive = stat.filterValue && globalTaskFilter === stat.filterValue
+            const isClickable = stat.action !== null
+            const isActive = stat.action === 'filter' && globalTaskFilter === stat.filterValue
             return (
               <button
                 key={i}
                 onClick={() => {
-                  if (!isClickable) return
-                  setGlobalTaskFilter(globalTaskFilter === stat.filterValue ? null : stat.filterValue)
+                  if (stat.action === 'filter') {
+                    setGlobalTaskFilter(globalTaskFilter === stat.filterValue ? null : stat.filterValue)
+                  } else if (stat.action === 'reset') {
+                    setGlobalTaskFilter(null)
+                  }
                 }}
                 disabled={!isClickable}
                 className={`text-left bg-[#161625] rounded-xl p-4 border transition-all ${
@@ -1521,8 +1775,8 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   {isActive && <span className="text-[9px] font-bold text-white/60">FILTRADO</span>}
                 </div>
                 <p className="text-[11px] text-white/30">{stat.label}</p>
-                {isClickable && !isActive && (
-                  <p className="text-[10px] text-white/20 mt-1 italic">Click para ver detalle</p>
+                {isClickable && !isActive && stat.hint && (
+                  <p className="text-[10px] text-white/20 mt-1 italic">{stat.hint}</p>
                 )}
               </button>
             )

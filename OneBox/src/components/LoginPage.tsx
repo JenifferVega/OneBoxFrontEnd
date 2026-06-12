@@ -25,6 +25,12 @@ export default function LoginPage() {
     auth.signinRedirect({ extraQueryParams: { identity_provider: 'Google' } })
   }
 
+  // Microsoft SSO. El nombre 'Microsoft' debe coincidir EXACTAMENTE con el
+  // ProviderName configurado en Cognito (us-east-1_b76prubhx → IdP OIDC).
+  function handleMicrosoftLogin() {
+    auth.signinRedirect({ extraQueryParams: { identity_provider: 'Microsoft' } })
+  }
+
   function reset(toMode: Mode) {
     setError(''); setInfo(''); setCode(''); setMode(toMode)
   }
@@ -274,6 +280,23 @@ export default function LoginPage() {
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
                 Continuar con Google
+              </button>
+              {/* SSO con Microsoft (Entra ID + cuentas personales).
+                  El IdP 'Microsoft' está configurado en el User Pool como OIDC
+                  apuntando a login.microsoftonline.com/common. El Pre-SignUp
+                  Lambda vincula automáticamente si el mismo email ya existe
+                  vía Google o nativo. */}
+              <button
+                onClick={handleMicrosoftLogin}
+                className="w-full mt-3 py-3 px-4 bg-white hover:bg-slate-50 rounded-xl font-semibold text-slate-800 transition-all flex items-center justify-center gap-3 shadow-lg"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 23 23">
+                  <path fill="#F25022" d="M1 1h10v10H1z" />
+                  <path fill="#7FBA00" d="M12 1h10v10H12z" />
+                  <path fill="#00A4EF" d="M1 12h10v10H1z" />
+                  <path fill="#FFB900" d="M12 12h10v10H12z" />
+                </svg>
+                Continuar con Microsoft
               </button>
             </>
           )}

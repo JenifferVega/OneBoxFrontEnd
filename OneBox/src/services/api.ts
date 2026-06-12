@@ -74,8 +74,26 @@ export const api = {
   deleteTask: (taskId: string, token: string, cascade: boolean = false) =>
     fetchAPI(`/api/tasks/${taskId}?cascade=${cascade ? 'true' : 'false'}`, token, { method: 'DELETE' }),
 
-  inviteUserToProject: (projectId: string, email: string, token: string) =>
-    fetchAPI(`/api/projects/${projectId}/invite`, token, { method: 'POST', body: JSON.stringify({ email }) }),
+  /** Añade / invita a un participante al proyecto.
+   *  - email y/o phone (al menos uno).
+   *  - name y role opcionales.
+   *  - sendNotification=false → solo registra el contacto sin enviar email/WhatsApp.
+   */
+  inviteUserToProject: (
+    projectId: string,
+    data: { email?: string; phone?: string; name?: string; role?: string; sendNotification?: boolean },
+    token: string,
+  ) =>
+    fetchAPI(`/api/projects/${projectId}/invite`, token, {
+      method: 'POST',
+      body: JSON.stringify({
+        email: data.email || '',
+        phone: data.phone || '',
+        name: data.name || '',
+        role: data.role || '',
+        send_notification: data.sendNotification !== false,
+      }),
+    }),
 
   getInsights: (token: string, type?: string) =>
     fetchAPI(`/api/insights${type ? `?type=${type}` : ''}`, token),
@@ -90,6 +108,25 @@ export const api = {
 
   updateParticipants: (projectId: string, participants: any[], token: string) =>
     fetchAPI(`/api/projects/${projectId}/participants`, token, { method: 'PUT', body: JSON.stringify({ participants }) }),
+
+  /** Elimina un participante del equipo del proyecto.
+   *  Identifica por email (preferido) o phone o name.
+   *  - Sus tareas asignadas quedan como "Sin asignar".
+   *  - Si tenía invitación aceptada, se revoca (pierde acceso).
+   */
+  removeParticipant: (
+    projectId: string,
+    target: { email?: string; phone?: string; name?: string },
+    token: string,
+  ) =>
+    fetchAPI(`/api/projects/${projectId}/participants`, token, {
+      method: 'DELETE',
+      body: JSON.stringify({
+        email: target.email || '',
+        phone: target.phone || '',
+        name: target.name || '',
+      }),
+    }),
 
   getNotifications: (token: string, projectId?: string) =>
     fetchAPI(`/api/notifications${projectId ? `?projectId=${projectId}` : ''}`, token),

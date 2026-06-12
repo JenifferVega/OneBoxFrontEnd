@@ -9,11 +9,12 @@ import LandingPage from './components/Landingpage'
 import OnboardingForm, { PendingProject } from './components/OnboardingForm'
 import LoginPage from './components/LoginPage'
 import FloatChat from './components/FloatChat'
+import NotificationsPage from './components/NotificationsPage'
 import { setUserId, setUserEmail, getUserId, clearUserSession, api } from './services/api'
 
 const PENDING_PROJECT_KEY = 'onebox_pending_project'
 
-export type PageType = 'proyectos' | 'inteligencia' | 'centro-ordenes' | 'wizard' | 'conectar-gmail'
+export type PageType = 'proyectos' | 'inteligencia' | 'centro-ordenes' | 'wizard' | 'conectar-gmail' | 'notificaciones'
 
 export default function App() {
   const auth = useAuth()
@@ -276,6 +277,8 @@ export default function App() {
         )
       case 'conectar-gmail':
         return <ConectarGmail onNavigate={setCurrentPage} onConectado={() => setGmailConectado(true)} gmailConectado={gmailConectado} />
+      case 'notificaciones':
+        return <NotificationsPage onNavigate={setCurrentPage} />
       case 'centro-ordenes':
         return (
           <div className="flex items-center justify-center h-[calc(100vh-56px)]">

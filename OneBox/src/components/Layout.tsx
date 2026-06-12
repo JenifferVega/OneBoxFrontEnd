@@ -80,7 +80,7 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
                   Nuevo proyecto
                 </button>
               )}
-              <NotificationsPanel />
+              <NotificationsPanel onOpen={() => onNavigate('notificaciones')} />
               <div className="flex items-center gap-2.5 pl-3 border-l border-white/10">
                 <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
                   {userInitials}

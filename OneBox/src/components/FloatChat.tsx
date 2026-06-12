@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, Fragment } from 'react'
 import { useAuth } from 'react-oidc-context'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -33,27 +33,160 @@ interface HistoryMessage {
   content: string
 }
 
+// ============================================================================
+// PERSISTENCIA DEL CHAT EN localStorage
+// ----------------------------------------------------------------------------
+// El history (lo que se manda al backend) y los mensajes (lo que ve el usuario)
+// se guardan localmente para que sobrevivan al refresh de la página. El key se
+// scopea por uid → si te logueas como otra persona en el mismo navegador, ves
+// chat separado y no contaminas el de nadie más.
+//
+// Límite duro: las últimas MAX_PERSIST entradas. Más allá de eso, el chat se
+// rota (queda solo lo más reciente) para no reventar localStorage (~5MB).
+// Cada Mensaje + HistoryMessage pesa poco, 50 entradas son ~30-50KB típicos.
+// ============================================================================
+const MAX_PERSIST = 50
+
+function storageKey(uid: string, suffix: string): string {
+  return `onebox_chat_${suffix}_${uid || 'anon'}`
+}
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return fallback
+    return JSON.parse(raw) as T
+  } catch {
+    return fallback
+  }
+}
+
+function saveToStorage(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    /* localStorage lleno o desactivado (modo privado). Fallar silencioso es OK:
+       el chat sigue funcionando en memoria, solo no se persistirá. */
+  }
+}
+
+// Los Mensaje se serializan con timestamp como Date, pero al pasar por JSON
+// se convierte en string ISO. Hay que reconvertirlo o la UI explota al llamar
+// .toLocaleTimeString(). Esta función reanima los mensajes cargados de storage.
+function reviveMensajes(arr: any[]): Mensaje[] {
+  if (!Array.isArray(arr)) return []
+  return arr.map(m => ({
+    ...m,
+    timestamp: m?.timestamp ? new Date(m.timestamp) : new Date(),
+  }))
+}
+
+// ¿Son dos fechas el mismo día (ignorando hora)?
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+// Etiqueta de día estilo WhatsApp: "Hoy", "Ayer", o "lunes 2 jun" si es de
+// esta semana, o "2 jun 2026" si es más antiguo. Usado en el separador
+// que aparece entre mensajes de días distintos en el chat.
+function getDateLabel(date: Date): string {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const weekAgo = new Date(today)
+  weekAgo.setDate(today.getDate() - 6)
+
+  if (isSameDay(date, today)) return 'Hoy'
+  if (isSameDay(date, yesterday)) return 'Ayer'
+  if (date >= weekAgo) {
+    // Dentro de la última semana: nombre del día capitalizado, ej. "lunes 2 jun"
+    const dia = date.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' })
+    return dia.charAt(0).toUpperCase() + dia.slice(1)
+  }
+  // Más antiguo: fecha corta
+  return date.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 export default function ChatFloat() {
   // Auth: el chatbot DEBE enviar credenciales para que el backend aísle datos
   // por usuario. Sin esto el endpoint /chat devuelve 401 (fix de seguridad
   // crítico — antes el agente usaba un USER_ID global y filtraba datos de
   // otros usuarios).
   const auth = useAuth()
+  // uid actual del usuario logueado — sirve para keyear el localStorage por
+  // persona, así dos cuentas que usen el mismo navegador no se pisan el chat.
+  // Mientras Cognito carga es undefined: en ese tiempo no leemos ni escribimos
+  // storage (esperar a tener uid real evita corromper data o cargar el chat
+  // equivocado).
+  const uid = auth.user?.profile?.sub || ''
+  const isReady = !!uid
+
+  const MENSAJE_BIENVENIDA: Mensaje = {
+    id: '1',
+    tipo: 'asistente',
+    contenido: '¡Hola! Soy el asistente inteligente de OneBox. Puedo buscar tus correos, analizar contenido y sugerirte acciones.\n\nPrueba preguntándome:\n• "Muéstrame mis correos recientes"\n• "¿Tengo correos con adjuntos?"\n• "Busca correos de Santiago"',
+    timestamp: new Date()
+  }
+
   const [abierto, setAbierto] = useState(false)
-  const [mensajes, setMensajes] = useState<Mensaje[]>([
-    {
-      id: '1',
-      tipo: 'asistente',
-      contenido: '¡Hola! Soy el asistente inteligente de OneBox. Puedo buscar tus correos, analizar contenido y sugerirte acciones.\n\nPrueba preguntándome:\n• "Muéstrame mis correos recientes"\n• "¿Tengo correos con adjuntos?"\n• "Busca correos de Santiago"',
-      timestamp: new Date()
-    }
-  ])
+  // Estado inicial sin tocar localStorage. Cuando uid esté listo, un effect
+  // carga lo guardado. Así evitamos: (1) leer la key 'anon' por error, y
+  // (2) que el render inicial se rompa si lo guardado tiene timestamps
+  // serializados como strings.
+  const [mensajes, setMensajes] = useState<Mensaje[]>([MENSAJE_BIENVENIDA])
   const [input, setInput] = useState('')
   const [procesando, setProcesando] = useState(false)
   const [estadoAgente, setEstadoAgente] = useState<string>('Conectado')
   const [history, setHistory] = useState<HistoryMessage[]>([])
+  // session_id: identificador de esta conversación. Se mantiene hasta que el
+  // usuario apriete "Reset" (limpiarChat), donde se rota. Se manda al backend
+  // en cada request (campo opcional, hoy se ignora pero lo dejamos listo para
+  // cuando el backend persista conversaciones por sesión).
+  const [sessionId, setSessionId] = useState<string>('')
+  // hydrated: marca cuando ya hidratamos desde storage. Mientras false, los
+  // effects de persistencia NO escriben (evita pisar lo guardado con el state
+  // inicial vacío durante el primer render).
+  const [hydrated, setHydrated] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Hidratación: cuando uid esté disponible, cargar el chat guardado.
+  // Se ejecuta una vez al login y otra vez si cambia de usuario en el mismo
+  // navegador (cosa rara pero posible).
+  useEffect(() => {
+    if (!isReady) return
+    const storedMensajes = loadFromStorage<any[]>(storageKey(uid, 'mensajes'), [])
+    if (storedMensajes.length > 0) {
+      setMensajes(reviveMensajes(storedMensajes))
+    }
+    const storedHistory = loadFromStorage<HistoryMessage[]>(storageKey(uid, 'history'), [])
+    setHistory(storedHistory)
+    let sid = loadFromStorage<string>(storageKey(uid, 'session_id'), '')
+    if (!sid) {
+      sid = crypto.randomUUID()
+      saveToStorage(storageKey(uid, 'session_id'), sid)
+    }
+    setSessionId(sid)
+    setHydrated(true)
+  }, [uid, isReady])
+
+  // Persistir cada cambio (rotamos a MAX_PERSIST últimas para no crecer infinito).
+  // Solo escribimos cuando ya hidratamos: si no, en el primer render el state
+  // inicial (vacío) pisaría lo guardado en disco.
+  useEffect(() => {
+    if (!hydrated || !isReady) return
+    saveToStorage(storageKey(uid, 'mensajes'), mensajes.slice(-MAX_PERSIST))
+  }, [mensajes, uid, hydrated, isReady])
+
+  useEffect(() => {
+    if (!hydrated || !isReady) return
+    saveToStorage(storageKey(uid, 'history'), history.slice(-MAX_PERSIST))
+  }, [history, uid, hydrated, isReady])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -125,7 +258,11 @@ export default function ChatFloat() {
         },
         body: JSON.stringify({
           message: textoUsuario,
-          history: history
+          history: history,
+          // session_id: agrupa los mensajes de esta conversación. Backend lo
+          // recibe pero hoy no lo persiste — listo para cuando se añada
+          // persistencia server-side de conversaciones.
+          session_id: sessionId,
         })
       })
 
@@ -178,7 +315,7 @@ export default function ChatFloat() {
     } finally {
       setProcesando(false)
     }
-  }, [input, procesando, history])
+  }, [input, procesando, history, sessionId, uid, auth.user?.access_token])
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -196,6 +333,11 @@ export default function ChatFloat() {
     }])
     setHistory([])
     setEstadoAgente('Conectado')
+    // Generar nuevo session_id — esto es una conversación distinta.
+    // El useEffect de session_id se dispara y lo persiste solo.
+    const fresh = crypto.randomUUID()
+    setSessionId(fresh)
+    saveToStorage(storageKey(uid, 'session_id'), fresh)
   }
 
   const usarSugerencia = (texto: string) => {
@@ -273,9 +415,22 @@ export default function ChatFloat() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {mensajes.map((mensaje) => (
+              {mensajes.map((mensaje, idx) => {
+                // Separador de fecha estilo WhatsApp: aparece antes del primer
+                // mensaje y cada vez que el día cambia respecto al mensaje anterior.
+                const prev = idx > 0 ? mensajes[idx - 1] : null
+                const showDateDivider =
+                  !prev || !isSameDay(prev.timestamp, mensaje.timestamp)
+                return (
+                <Fragment key={mensaje.id}>
+                  {showDateDivider && (
+                    <div className="flex justify-center my-2">
+                      <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-slate-800/60 px-3 py-1 rounded-full">
+                        {getDateLabel(mensaje.timestamp)}
+                      </span>
+                    </div>
+                  )}
                 <motion.div
-                  key={mensaje.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={`flex gap-2.5 ${
@@ -354,7 +509,9 @@ export default function ChatFloat() {
                     </div>
                   )}
                 </motion.div>
-              ))}
+                </Fragment>
+                )
+              })}
               <div ref={messagesEndRef} />
             </div>
 
