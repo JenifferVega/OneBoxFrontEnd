@@ -206,11 +206,15 @@ export default function ProjectInsightsSidebar({
                     <div className="px-3 pb-3 space-y-2">
                       {items.map(insight => {
                         const key = insight.insightId || insight.id || Math.random().toString()
-                        // Para tipos "narrativos" mostramos description; para resto, title.
-                        const isNarrative = ['summary', 'key_insight', 'project_characterization', 'client_profile'].includes(insight.type)
-                        const text = isNarrative
+                        // El contenido rico de la IA vive en distintos campos según el tipo:
+                        // - 'summary': la narrativa va en description (el title es solo la etiqueta "Resumen del Proyecto").
+                        // - key_insight / project_characterization / client_profile: el contenido real va en
+                        //   title/detected; su description es una etiqueta genérica del backend
+                        //   ("Tipo real del proyecto detectado por IA", etc.), por eso NO debe mostrarse.
+                        const contentInDescription = insight.type === 'summary'
+                        const text = contentInDescription
                           ? (insight.description || insight.action || insight.title || insight.detected || '')
-                          : (insight.title || insight.detected || insight.description || '')
+                          : (insight.title || insight.detected || insight.description || insight.action || '')
                         return (
                           <div
                             key={key}
