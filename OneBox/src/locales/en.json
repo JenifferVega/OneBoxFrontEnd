@@ -1,0 +1,925 @@
+{
+  "nav": {
+    "projects": "Projects",
+    "intelligence": "Intelligence",
+    "organizations": "Organizations"
+  },
+  "common": {
+    "newProject": "New project",
+    "logout": "Log out",
+    "language": "Idioma / Language",
+    "back": "Back",
+    "or": "or"
+  },
+  "login": {
+    "titles": {
+      "loginH": "Welcome to OneBox",
+      "loginP": "Sign in to continue",
+      "registerH": "Create your account",
+      "registerP": "Sign up with your email",
+      "confirmH": "Verify your email",
+      "confirmP": "Enter the code we sent to {{email}}",
+      "confirmPFallback": "Enter the code we sent to your inbox",
+      "forgotH": "Recover password",
+      "forgotP": "We’ll send a code to your email",
+      "resetH": "New password",
+      "resetP": "Enter the code and your new password",
+      "newPasswordH": "Set your password",
+      "newPasswordP": "This is your first sign-in. Choose your own password."
+    },
+    "info": {
+      "tempPassword": "Your password was temporary. Set a new one to continue.",
+      "notConfirmed": "Your email isn’t verified yet. We sent you a code.",
+      "codeSent": "We sent a verification code to your email.",
+      "forgotSent": "We sent a code to reset your password.",
+      "passwordReset": "Password updated. You can sign in now.",
+      "codeResent": "Code resent."
+    },
+    "field": {
+      "name": "Name",
+      "email": "Email",
+      "code": "Verification code",
+      "password": "Password",
+      "newPassword": "New password"
+    },
+    "passwordHint": "At least 8 characters, with an uppercase letter and a number.",
+    "submit": {
+      "login": "Sign in",
+      "register": "Create account",
+      "confirm": "Verify",
+      "forgot": "Send code",
+      "reset": "Change password",
+      "newPassword": "Set password and enter"
+    },
+    "resendCode": "Resend code",
+    "forgotLink": "Forgot your password?",
+    "registerLink": "Create account",
+    "haveAccount": "Already have an account?",
+    "loginLink": "Sign in",
+    "continueGoogle": "Continue with Google",
+    "continueMicrosoft": "Continue with Microsoft",
+    "footerCopyright": "© 2026 OneBox"
+  },
+  "platform": {
+    "title": "Organization management",
+    "subtitle": "Accounts, members and invitations — OneBox staff only.",
+    "metrics": {
+      "orgsTotal": "Total orgs",
+      "orgsActive": "Active orgs",
+      "membersTotal": "Total members",
+      "pendingInvitations": "Pending invitations"
+    },
+    "filters": {
+      "all": "All",
+      "active": "Active",
+      "suspended": "Suspended",
+      "archived": "Archived"
+    },
+    "searchPlaceholder": "Search by name, domain, owner email…",
+    "newOrg": "New organization",
+    "loading": "Loading organizations…",
+    "noSearchMatch": "No organization matches your search.",
+    "noResults": "No organizations with this filter yet.",
+    "memberCount_one": "{{count}} member",
+    "memberCount_other": "{{count}} members",
+    "createdOn": "Created {{date}}",
+    "planLabel": "plan",
+    "createOrg": {
+      "title": "New organization",
+      "helper": "The owner will get an email with a signup link. On signup they’re linked as <strong>owner</strong> of the new org.",
+      "fieldName": "Organization name",
+      "fieldNamePlaceholder": "e.g. Acme Corp",
+      "fieldOwnerEmail": "Owner email",
+      "fieldOwnerEmailPlaceholder": "owner@company.com",
+      "fieldDomain": "Domain (optional)",
+      "fieldDomainPlaceholder": "company.com",
+      "fieldPlan": "Plan",
+      "cancel": "Cancel",
+      "submit": "Create and notify"
+    },
+    "status": {
+      "active": "Active",
+      "suspended": "Suspended",
+      "archived": "Archived"
+    },
+    "detail": {
+      "title": "Organization details",
+      "loading": "Loading…",
+      "errorLoad": "Error loading details",
+      "subtitle": "{{ref}} · plan {{plan}} · created {{date}}",
+      "actions": {
+        "reactivate": "Reactivate",
+        "suspend": "Suspend",
+        "archive": "Archive",
+        "removeMember": "Remove member from org",
+        "cancelInvitation": "Cancel invitation"
+      },
+      "confirm": {
+        "suspend": "Suspend this organization? Users will lose access but data stays intact.",
+        "archive": "Archive this organization? It’s a soft-delete: data remains but the org stops operating.",
+        "reactivate": "Reactivate this organization?",
+        "removeMember": "Remove {{email}} from this organization?\n\nTheir membership is deleted. Their Cognito account is NOT removed — they can still log in but won’t see this org.",
+        "cancelInvitation": "Cancel the invitation{{target}}?"
+      },
+      "msg": {
+        "statusChanged": "Status changed to \"{{status}}\".",
+        "statusError": "Error: {{error}}",
+        "statusErrorFallback": "couldn’t change status",
+        "memberRemoved": "Member {{email}} removed.",
+        "memberRemoveErrorFallback": "couldn’t remove",
+        "invitationCancelled": "Invitation cancelled.",
+        "invitationCancelErrorFallback": "couldn’t cancel"
+      },
+      "membersHeader": "Members ({{count}})",
+      "membersEmpty": "No members registered yet.",
+      "memberRoleLine": "{{role}} · since {{date}}",
+      "superAdminBadge": "super admin",
+      "invitationsHeader": "Pending invitations ({{count}})",
+      "invitationsEmpty": "No pending invitations.",
+      "invitationLine": "{{context}} · role: {{role}} · since {{date}}",
+      "invitationCtxProject": "project: {{name}}",
+      "invitationCtxType": "type: {{type}}"
+    },
+    "errors": {
+      "loadData": "Error loading data",
+      "createOrg": "Error creating organization"
+    }
+  },
+  "gantt": {
+    "emptyTitle": "No tasks with assigned dates yet.",
+    "emptyHint": "Edit any task and give it a start and end date to see it here.",
+    "hideLabel": "Hide {{label}}",
+    "showLabel": "Show {{label}}",
+    "statusLabels": {
+      "pending": "Pending",
+      "in_progress": "In progress",
+      "done": "Completed",
+      "blocked": "Blocked"
+    },
+    "countSummary_one": "{{shown}} of {{total}} task",
+    "countSummary_other": "{{shown}} of {{total}} tasks",
+    "noneMatch": "No task matches the selected filter.",
+    "showAll": "Show all statuses",
+    "assignedTo": "Assigned to: {{name}}",
+    "participantsHeader": "Participants",
+    "filterByAssignee": "See only {{name}}'s tasks",
+    "clearAssigneeFilter": "Clear filter"
+  },
+  "uploader": {
+    "processing": "Processing...",
+    "defaultLabel": "Upload a document",
+    "defaultHint": "PDF, Word, TXT or image — the AI reads it and creates the project automatically",
+    "aiReading": "The AI is reading the document, this can take 10-20 seconds",
+    "dropOrClick": "Drop here or click · max 10 MB",
+    "removeTooltip": "Remove",
+    "invalidFormat": "Unsupported format. Allowed: {{formats}}",
+    "tooLarge": "The file is over {{max}} MB."
+  },
+  "gmail": {
+    "connected": {
+      "title": "Gmail Connected",
+      "subtitle": "Your Gmail account is linked correctly",
+      "lastSync": "Last sync: 5 min ago",
+      "viewInbox": "View Inbox"
+    },
+    "connect": {
+      "title": "Connect Gmail",
+      "subtitle": "Link your Gmail account to start smart analysis",
+      "cardTitle": "Connect your Gmail account",
+      "cardText": "OneBox will securely analyze your emails to identify projects, people and relationships automatically.",
+      "permissions": {
+        "readTitle": "Read your emails",
+        "readDesc": "To analyze the content and detect projects",
+        "inboxTitle": "Access your inbox",
+        "inboxDesc": "To read and organize messages",
+        "readonlyTitle": "Read-only",
+        "readonlyDesc": "We won’t modify or send emails"
+      },
+      "securityTitle": "100% secure connection",
+      "securityDesc": "We use Google OAuth 2.0. We never store your password and you can revoke access at any time.",
+      "connectBtn": "Connect with Google"
+    },
+    "connecting": {
+      "title": "Connecting with Gmail...",
+      "subtitle": "Authorizing read-only permissions",
+      "step1": "Verifying credentials",
+      "step2": "Requesting permissions",
+      "step3": "Establishing connection"
+    },
+    "success": {
+      "title": "Connected successfully!",
+      "subtitle": "Your Gmail account is ready to be analyzed",
+      "goToProjects": "Go to Projects"
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "q1": "Are my emails safe?",
+      "a1": "Yes, we use end-to-end encryption and never share your data.",
+      "q2": "Can I disconnect Gmail?",
+      "a2": "Yes, you can revoke access at any time from settings.",
+      "q3": "What data gets analyzed?",
+      "a3": "We only analyze sender, subject and content to detect projects and relationships."
+    }
+  },
+  "notifications": {
+    "bellTitle": "Notifications",
+    "backToProjects": "Back to projects",
+    "title": "Notifications",
+    "unreadBadge_one": "{{count}} unread",
+    "unreadBadge_other": "{{count}} unread",
+    "subtitle": "Everything sent for your projects, grouped so you find it fast.",
+    "refresh": "Refresh",
+    "markAllRead": "Mark all as read",
+    "filterLabel": "Filter:",
+    "filterAll": "All",
+    "filterUnread": "Unread only",
+    "filterAllChannels": "All channels",
+    "filterCount": "{{shown}} of {{total}} notifications",
+    "loading": "Loading notifications...",
+    "empty": "No notifications match the filters.",
+    "groupUnread_one": "{{count}} unread",
+    "groupUnread_other": "{{count}} unread",
+    "groupTotal": "{{count}} total",
+    "markRead": "Mark read",
+    "relative": {
+      "now": "just now",
+      "minutes": "{{count}} min ago",
+      "hours": "{{count}}h ago",
+      "days": "{{count}}d ago"
+    },
+    "types": {
+      "project_created": "Project created",
+      "insights_generated": "New insights",
+      "task_created": "New task",
+      "risk": "Risk",
+      "whatsapp": "WhatsApp",
+      "email": "Email",
+      "document_analyzed": "Document analyzed",
+      "text_analyzed": "Text analyzed",
+      "system": "System"
+    }
+  },
+  "chat": {
+    "welcome": "Hi! I’m the OneBox smart assistant. I can search your emails, analyze content and suggest actions.\n\nTry asking me:\n• \"Show me my recent emails\"\n• \"Do I have emails with attachments?\"\n• \"Search emails from Santiago\"",
+    "reset": "Chat reset. How can I help you?",
+    "statusConnected": "Connected",
+    "statusThinking": "Thinking...",
+    "statusError": "Connection error",
+    "resetTooltip": "Reset chat",
+    "loading": "Analyzing your query...",
+    "suggestions": {
+      "recent": "My recent emails",
+      "attachments": "Emails with attachments",
+      "onebox": "OneBox emails"
+    },
+    "inputPlaceholder": "Ask me about your emails...",
+    "inputWaiting": "Waiting for reply...",
+    "errors": {
+      "notAuthed": "Session not started — sign in to use the chatbot.",
+      "unknown": "Unknown error",
+      "generic": "There was an error processing your query.",
+      "network": "⚠️ Couldn’t connect to the agent. Verify that the backend URL is correct in VITE_AGENT_API."
+    }
+  },
+  "wizard": {
+    "chooseTitle": "New project",
+    "chooseSubtitle": "How do you want to start?",
+    "cancel": "← Cancel and back",
+    "back": "← Back",
+    "backToUpload": "← Upload another document",
+    "chooser": {
+      "pasteBadge": "Fastest",
+      "pasteTitle": "Paste a conversation",
+      "pasteDesc": "Copy a WhatsApp chat or an email thread and paste it here. The AI will detect tasks, risks and decisions.",
+      "pasteFooter": "Pasted text → continue",
+      "documentTitle": "Upload a document",
+      "documentDesc": "Brief, minutes, proposal or PDF. The AI reads it and creates the project with everything.",
+      "documentFooter": "PDF, Word, TXT, image → continue",
+      "manualTitle": "Fill in the form",
+      "manualDesc": "Fill the project fields manually: name, team, channels, dates.",
+      "manualFooter": "3 guided steps → continue"
+    },
+    "paste": {
+      "title": "Create project from a conversation",
+      "subtitle": "Paste a WhatsApp chat, email thread or any text. The AI will detect tasks, risks and decisions, and create the project automatically.",
+      "loading": "🤖 The AI is analyzing the text...",
+      "attachmentNote": "The text is saved as an attachment of the project."
+    },
+    "document": {
+      "title": "Create project from a document",
+      "subtitle": "The AI will read the document’s content and automatically generate the project’s name, description and insights.",
+      "loading": "🤖 The AI is reading the document...",
+      "uploaderLabel": "Upload your document",
+      "uploaderHint": "Minutes, brief, proposal, requirements... the AI will infer everything",
+      "attachmentNote": "The document stays attached to the project and you can download it later."
+    },
+    "review": {
+      "title": "Review the project before creating",
+      "subtitle": "The AI analyzed <1>{{fileName}}</1> ({{chars}} characters). Review, edit whatever you want and pick channels before creating the project.",
+      "nameLabel": "Project name",
+      "typeLabel": "Project type",
+      "typePlaceholder": "e.g. Web Development, Marketing, HR... or whatever you need",
+      "typeHint": "You can pick a suggestion or type your own.",
+      "descriptionLabel": "Description",
+      "descriptionHint": "Generated by AI — you can edit it.",
+      "timingLabel": "Project timing",
+      "timingOptional": "(optional, recommended)",
+      "timingPlaceholder": "e.g. 8 weeks, Q3 2026, delivery 30/06/2026...",
+      "timingHint": "Approximate project timeframe. It can be a duration or a date.",
+      "channelsHint": "Pick at least one. These channels will be used for notifications and communication."
+    },
+    "manual": {
+      "backCta": "Back to start",
+      "sidebar": {
+        "title": "New project",
+        "previewLabel": "Preview",
+        "teamLabel": "Team",
+        "channelsLabel": "Channels",
+        "deliveryLabel": "Delivery"
+      },
+      "step1": {
+        "title": "What’s your project called?",
+        "subtitle": "Define the name, type and description of the project.",
+        "nameLabel": "Project name",
+        "namePlaceholder": "e.g. Web Portal Redesign",
+        "typeLabel": "Project type",
+        "typeCustomPlaceholder": "Or type a custom type...",
+        "descriptionLabel": "Description",
+        "descriptionHint": "Required — minimum 15 characters. The AI uses it to suggest tasks and participants.",
+        "descriptionPlaceholder": "Briefly describe the project scope..."
+      },
+      "step2": {
+        "title": "Who works on this project?",
+        "subtitle": "Search by name. The system detects if someone was already added.",
+        "searchPlaceholder": "Search by name...",
+        "selectedTeam": "Selected team",
+        "phonePlaceholder": "+34 600 000 000",
+        "externalPlaceholder": "Invite external by email..."
+      },
+      "step3": {
+        "title": "Channels and timing",
+        "subtitle": "Pick the communication channels and the estimated delivery date.",
+        "channelsLabel": "Communication channels",
+        "deliveryLabel": "Estimated delivery date",
+        "summaryTitle": "Project summary",
+        "summaryName": "Name",
+        "summaryTeam": "Team",
+        "summaryChannels": "Channels",
+        "summaryDelivery": "Delivery",
+        "summaryDescription": "Description"
+      },
+      "detectedTasks": {
+        "emailPlaceholder": "📧 email@company.com",
+        "phonePlaceholder": "📱 +34 600 000 000",
+        "noChannelHint": "Will be added as participant without a notification channel",
+        "noChannelBadge": "No notification channel",
+        "removeTooltip": "Remove person",
+        "addPersonTitle": "Add person to the team",
+        "namePlaceholder": "Name (e.g. Ana Lopez)",
+        "rolePlaceholder": "Role (e.g. Designer, PM)",
+        "emailPlaceholderOptional": "📧 email@company.com (optional)",
+        "phonePlaceholderOptional": "📱 +34 600 000 000 (optional)",
+        "taskTextPlaceholder": "Task text",
+        "assigneeTooltip": "Assignee",
+        "startDateTooltip": "Start date",
+        "dueDateTooltip": "Due date",
+        "ghostAssignee": "This person is no longer on the team. They’ll be left unassigned when created."
+      }
+    }
+  },
+  "insightsSidebar": {
+    "backToAll": "← All projects",
+    "title": "AI analysis",
+    "loading": "Loading insights...",
+    "emptyTitle": "No insights yet",
+    "emptyHint": "The AI will analyze your project in seconds",
+    "sections": {
+      "key_insight": "Key insight",
+      "project_characterization": "Real type",
+      "client_profile": "Client profile",
+      "work_done": "Work done",
+      "task_created": "Pending tasks",
+      "blocker": "Client blockers",
+      "risk": "Risks",
+      "tech_issue": "Technical issues",
+      "decision": "Decisions",
+      "metric": "Metrics"
+    },
+    "channelsSection": "Project channels",
+    "footerFiltered": "{{shown}} of {{total}} insight{{s}} match your search",
+    "footerGenerated": "{{count}} insight{{s}} generated by AI",
+    "noMatch": "No insight matches"
+  },
+  "attachments": {
+    "header": "Project attachments",
+    "subtitle": "Upload documents related to the project. The AI will analyze them and generate insights.",
+    "pasteBtn": "Paste text",
+    "uploadBtn": "Upload document",
+    "panelPasteHint": "Paste a conversation or text. The AI will detect tasks, risks and decisions.",
+    "panelDocHint": "The AI will read the document and generate new insights for this project.",
+    "loadingText": "🤖 The AI is analyzing the text...",
+    "processingDoc": "Processing document...",
+    "uploadLabel": "Attach a document",
+    "uploadHint": "PDF, Word, TXT or image — max 10 MB",
+    "emptyTitle": "No attachments yet",
+    "emptyHint": "Upload minutes, briefs, proposals or any related doc.",
+    "aiRead": "AI read {{count}} characters",
+    "downloadTooltip": "Download",
+    "deleteTooltip": "Delete",
+    "confirmDelete": "Delete this attachment? This can’t be undone.",
+    "deleteError": "Couldn’t delete the attachment."
+  },
+  "intelligence": {
+    "title": "Intelligence Center",
+    "subtitle": "{{count}} logged actions · Real-time data from DynamoDB",
+    "period": {
+      "today": "Today",
+      "last48h": "Last 48h",
+      "thisWeek": "This week",
+      "thisMonth": "This month"
+    },
+    "metrics": {
+      "processed": "Processed messages",
+      "executed": "Executed actions",
+      "needsReview": "Need review",
+      "unclassified": "Unclassified",
+      "accuracy": "Classification accuracy"
+    },
+    "filters": {
+      "typeHeader": "Filter by type",
+      "projectHeader": "Filter by project",
+      "channelHeader": "Filter by channel",
+      "typeAll": "All actions",
+      "typeExecuted": "Executed",
+      "typeNeedsReview": "Need review",
+      "typeErrors": "Errors"
+    },
+    "actionCard": {
+      "detected": "DETECTED",
+      "executed": "EXECUTED",
+      "executedBadge": "Executed",
+      "needsReviewBadge": "Needs review",
+      "errorBadge": "Error"
+    },
+    "rightPanel": {
+      "accuracyTitle": "Classification accuracy",
+      "accuracyCurrent": "Current accuracy",
+      "accuracyDetail": "{{done}} executed actions out of {{total}}",
+      "actionsByType": "Actions by type",
+      "activity7days": "Activity last 7 days",
+      "activeProjects": "Projects with AI activity",
+      "registeredActions_one": "{{count}} registered action",
+      "registeredActions_other": "{{count}} registered actions"
+    },
+    "loading": "Loading data…",
+    "empty": "No actions in this period.",
+    "reviewBtn": "Review",
+    "unclassified": "Unclassified",
+    "noAiActivity": "No AI activity registered",
+    "typeLabels": {
+      "task_created": "Tasks created",
+      "decision": "Decisions",
+      "followup": "Follow-ups / Emails",
+      "blocker": "Blockers",
+      "risk": "Risks",
+      "sla": "SLA / Escalations",
+      "notification": "Notifications",
+      "classification": "Auto-classification",
+      "summary": "Summaries"
+    }
+  },
+  "projects": {
+    "sla": {
+      "onTrack": "On track",
+      "atRisk": "At risk",
+      "overdue": "SLA overdue",
+      "paused": "Paused",
+      "delivered": "Delivered"
+    },
+    "status": {
+      "active": "Active",
+      "paused": "Paused",
+      "finished": "Finished"
+    },
+    "list": {
+      "title": "Your projects",
+      "subtitle": "{{total}} projects · {{blocked}} blocked tasks · Real-time data",
+      "filters": {
+        "all": "All",
+        "active": "Active",
+        "atRisk": "At risk",
+        "overdue": "Overdue",
+        "paused": "Paused"
+      },
+      "stats": {
+        "totalProjects": "Total projects",
+        "tasksCompleted": "Completed tasks",
+        "tasksPending": "Pending tasks",
+        "tasksBlocked": "Blocked tasks",
+        "aiInsights": "AI insights",
+        "hintDetail": "Click to see details",
+        "hintClear": "Click to clear filter"
+      },
+      "filtered": "FILTERED",
+      "globalFilterLabels": {
+        "completed": "completed",
+        "pending": "pending",
+        "blocked": "blocked"
+      },
+      "loading": "Loading projects from DynamoDB...",
+      "emptyNoProjects": "You don’t have any projects yet",
+      "emptyHint": "Create your first project with the \"New project\" button",
+      "emptyNoMatch": "No matching projects",
+      "emptyNoMatchHint": "Try another filter or change your search"
+    },
+    "card": {
+      "deleteTooltip": "Delete project",
+      "invitedTooltip": "You’re invited",
+      "delivery": "Delivery: {{date}} · {{days}} days",
+      "pausedSince": "Paused since: {{date}}",
+      "closedOn": "Closed: {{date}}",
+      "progress": "Progress",
+      "statsDone": "Done",
+      "statsPending": "Pending",
+      "statsBlocked": "Blocked",
+      "statsAiMessages": "AI messages"
+    },
+    "detail": {
+      "editTooltip": "Edit project",
+      "deleteTooltip": "Delete project",
+      "invitedTooltip": "You’re invited to this project",
+      "invitedBadge": "Guest",
+      "delete": "Delete",
+      "daysLeft": "{{count}} days left",
+      "searchPlaceholder": "Search in this project: tasks, risks, decisions, insights...",
+      "clearSearch": "Clear search",
+      "searching": "Searching: \"{{query}}\"",
+      "searchCompletedSuffix": "completed",
+      "searchPendingSuffix": "pending",
+      "searchBlockedSuffix": "blocked",
+      "searchActionsSuffix": "AI actions",
+      "ganttTitle": "Gantt view",
+      "ganttSubtitle": "by task dates",
+      "stats": {
+        "completed": "COMPLETED",
+        "pending": "PENDING",
+        "blocked": "BLOCKED",
+        "aiMessages": "AI PROCESSED MESSAGES",
+        "subOfTotal": "of {{total}} total tasks",
+        "subOfMatches": "of {{total}} matches",
+        "subMatching": "matching your search",
+        "subAiActionsMatching": "matching AI actions",
+        "subDueToday": "{{count}} due today",
+        "subRequireAction": "Need action",
+        "subChannels": "100% classified · {{count}} channels",
+        "clickToFilter": "Click to filter",
+        "filtered": "FILTERED"
+      },
+      "filterBarPrefix": "Filtering tasks: ",
+      "filterStatuses": {
+        "completed": "Completed",
+        "pending": "Pending",
+        "blocked": "Blocked"
+      },
+      "removeFilter": "Clear filter",
+      "progressTitle": "Overall project progress",
+      "progressPct": "{{value}}% complete",
+      "progressBlocked": "Progress blocked:",
+      "progressStats": {
+        "done": "Completed",
+        "inProgress": "In progress",
+        "pending": "Pending"
+      },
+      "tasks": {
+        "header": "Tasks",
+        "headerCompleted": "Completed tasks",
+        "headerPending": "Pending tasks",
+        "headerBlocked": "Blocked tasks",
+        "viewAll": "View all ({{count}})",
+        "viewLess": "View less",
+        "newTask": "New task",
+        "subtask": "Subtask",
+        "editTooltip": "Edit task",
+        "deleteTooltip": "Delete task",
+        "unassigned": "Unassigned",
+        "clickToComplete": "Click to mark as completed",
+        "clickToUnmark": "Click to mark as pending",
+        "blockedTooltip": "Blocked task",
+        "statusLabels": {
+          "done": "COMPLETED:",
+          "blocked": "BLOCKED:",
+          "in_progress": "IN PROGRESS:",
+          "waiting": "WAITING:",
+          "pending": "PENDING:"
+        },
+        "statusTags": {
+          "done": "Completed",
+          "blocked": "Blocked",
+          "in_progress": "In progress",
+          "pending": "Pending"
+        },
+        "subtasksAbbrev": "sub.",
+        "subtasksTooltip": "{{done}} of {{total}} subtasks completed",
+        "blockReasonPlaceholder": "Blocking reason...",
+        "block": "Block",
+        "unblock": "Unblock",
+        "cancel": "Cancel",
+        "blockedReasonPrefix": "Reason:",
+        "emptyForFilter": "No {{status}} tasks",
+        "emptyForAssignee": "No tasks assigned to {{name}}",
+        "emptyDefault": "No tasks defined for this project",
+        "filterByAssignee": "Showing only tasks for {{name}}"
+      },
+      "aiActions": {
+        "header": "AI-executed actions",
+        "detected": "DETECTED",
+        "executed": "EXECUTED"
+      },
+      "notifications": {
+        "header": "Notifications sent",
+        "subheader": "Email"
+      },
+      "team": {
+        "header": "Project team",
+        "readOnlyHint": "Only the project owner can modify the team",
+        "addTooltip": "Add a contact and optionally send an invitation by email/WhatsApp",
+        "addLabel": "Add / Invite",
+        "editTooltip": "Edit email and phone of all members",
+        "editLabel": "Edit contacts",
+        "taskCount_one": "{{count}} task",
+        "taskCount_other": "{{count}} tasks",
+        "noChannel": "no channel",
+        "emailPlaceholder": "email@example.com",
+        "phonePlaceholder": "+34 600 000 000",
+        "empty": "No team assigned",
+        "filterByAssignee": "See only {{name}}'s tasks",
+        "clearAssigneeFilter": "Clear filter",
+        "filterSummaryHeader": "{{name}}'s tasks",
+        "filterSummaryCount_one": "{{count}} task found",
+        "filterSummaryCount_other": "{{count}} tasks found",
+        "filterSummaryMore": "Show {{count}} more",
+        "filterSummaryLess": "Show less"
+      },
+      "channels": {
+        "header": "Active channels",
+        "empty": "No channels configured"
+      },
+      "tags": {
+        "header": "Active tags (AI)"
+      },
+      "slaPanel": {
+        "header": "Project SLA",
+        "responseAvg": "Avg. response to client",
+        "unassignedTasks": "Tasks without owner",
+        "partnerResponse": "Partner response pending",
+        "blockedOver24h": "Tasks blocked > 24h"
+      }
+    },
+    "modals": {
+      "cancel": "Cancel",
+      "close": "Close",
+      "delete": {
+        "title": "Delete project",
+        "prompt": "Are you sure you want to delete <1>{{name}}</1>? This will also remove its insights, tasks and notifications. <2>This can’t be undone.</2>",
+        "deleting": "Deleting...",
+        "confirm": "Yes, delete"
+      },
+      "edit": {
+        "title": "Edit project",
+        "subtitle": "Change the project’s basic data. Only the owner can edit.",
+        "name": "Name *",
+        "description": "Description",
+        "type": "Type",
+        "typePlaceholder": "Marketing, Backend, Design...",
+        "status": "Status",
+        "statusActive": "Active",
+        "statusPaused": "Paused",
+        "statusFinished": "Finished",
+        "deliveryDate": "Delivery date",
+        "timing": "Timing (free text)",
+        "timingPlaceholder": "8 weeks, Q3 2026...",
+        "saving": "Saving...",
+        "save": "Save changes",
+        "error": "Error saving changes"
+      },
+      "task": {
+        "titleEdit": "Edit task",
+        "titleNew": "New task",
+        "text": "Title *",
+        "textPlaceholder": "What needs to be done?",
+        "description": "Description",
+        "descriptionPlaceholder": "Details, context...",
+        "status": "Status",
+        "statusPending": "Pending",
+        "statusInProgress": "In progress",
+        "statusBlocked": "Blocked",
+        "statusDone": "Completed",
+        "assignTo": "Assign to",
+        "unassigned": "Unassigned",
+        "startDate": "Start date",
+        "endDate": "End date",
+        "parentTask": "Subtask of",
+        "noParent": "(none — root task)",
+        "create": "Create task",
+        "save": "Save changes"
+      },
+      "deleteTask": {
+        "title": "Delete task",
+        "prompt": "Are you sure you want to delete <1>\"{{text}}\"</1>? <2>This can’t be undone.</2>",
+        "subtasksWarning_one": "⚠️ This task has <1>{{count}} subtask</1>. Choose what to do with it:",
+        "subtasksWarning_other": "⚠️ This task has <1>{{count}} subtasks</1>. Choose what to do with them:",
+        "keepSubtasks": "Delete only this (keep subtasks)",
+        "deleting": "Deleting...",
+        "confirmAll": "Delete all (including subtasks)",
+        "confirmSingle": "Yes, delete"
+      },
+      "removeMember": {
+        "title": "Remove {{name}}",
+        "subtitle": "They’ll be removed from the team of <1>{{project}}</1>.",
+        "bullet1": "Their assigned tasks will become <1>\"Unassigned\"</1> (they’re kept).",
+        "bullet2": "If they had accepted the invitation, they’ll <1>lose access</1> to the project.",
+        "bullet3": "No notification will be sent.",
+        "removing": "Removing...",
+        "confirm": "Remove"
+      },
+      "invite": {
+        "title": "Add someone to the project",
+        "subtitle": "Fill in email and/or WhatsApp. If you check \"send invitation\", they get a notice on each channel you provide.",
+        "name": "Name *",
+        "namePlaceholder": "Maria Perez",
+        "role": "Role",
+        "rolePlaceholder": "Designer",
+        "emailHint": "They’ll receive an email with a login to the app.",
+        "emailPlaceholder": "someone@example.com",
+        "phoneHint": "They’ll get a WhatsApp letting them know they were added, and project notifications.",
+        "phonePlaceholder": "+34 600 000 000",
+        "sendNow": "Send invitation now",
+        "sendNowHint": "(if you uncheck it, we only save the contact without notifying)",
+        "sharePrompt": "📎 Share this link with the invitee (copy it and send it via WhatsApp or Slack):",
+        "copy": "Copy",
+        "copied": "✓ Copied",
+        "saving": "Saving...",
+        "addAndInvite": "Add and invite",
+        "onlyAdd": "Only add",
+        "resultEmailFailed": "⚠️ Email failed: {{error}}",
+        "resultEmailUndelivered": "⚠️ We couldn’t deliver the email. Share the link below.",
+        "resultEmailSent": "✉️ Email sent",
+        "resultWhatsappSent": "📱 WhatsApp sent",
+        "resultWhatsappFailed": "⚠️ WhatsApp failed: {{error}}",
+        "resultNoNotify": "Contact saved without notification",
+        "resultDone": "Done",
+        "errorSaving": "Error saving",
+        "defaultRole": "Guest"
+      }
+    }
+  },
+  "onboarding": {
+    "haveAccountCta": "Already have an account? Sign in",
+    "badge": "Before you start",
+    "title": "Set up your first project",
+    "subtitle": {
+      "choose": "How do you want to create your first project?",
+      "document": "Upload a document (brief, minutes, proposal) and the AI will generate the project automatically with its name, description and insights.",
+      "manual": "Tell us which channels you’ll use and the project details. After you sign in, we’ll set it up in your dashboard."
+    },
+    "chooser": {
+      "paste": {
+        "badge": "Fastest",
+        "title": "Paste a conversation",
+        "description": "Copy a WhatsApp chat or an email thread and paste it here. The AI will detect tasks, risks and decisions.",
+        "footer": "Pasted text → continue"
+      },
+      "document": {
+        "title": "Upload a document",
+        "description": "Brief, minutes, proposal or PDF. The AI reads it and creates the project with everything.",
+        "footer": "PDF, Word, TXT, image → continue"
+      },
+      "manual": {
+        "title": "Fill in the form",
+        "description": "Fill the fields manually: name, team, channels, dates.",
+        "footer": "3 guided steps → continue"
+      }
+    },
+    "changeMode": "Change option",
+    "document": {
+      "label": "Upload your document",
+      "hint": "The AI will read it and create the project automatically. After signing in you’ll see everything in your dashboard.",
+      "loadingText": "Preparing document and signing in...",
+      "noteLabel": "📌 Note:",
+      "noteText": "Limited to 4 MB for this initial upload. If your file is larger, use the manual form and attach the document later from the project dashboard.",
+      "footerHint": "When you continue, we’ll ask you to sign in. The AI will process the document afterwards."
+    },
+    "paste": {
+      "sourceLabel": "Where is the text from?",
+      "sourceWhatsapp": "WhatsApp",
+      "sourceGmail": "Gmail / Email",
+      "sourceOther": "Other text",
+      "textareaLabel": "Paste your conversation or text here",
+      "placeholderWhatsapp": "Example:\n12/11/25, 13:14 - Santi: New project...\n12/11/25, 13:17 - Belen: The access works...",
+      "placeholderGmail": "Paste the full email thread here...",
+      "placeholderOther": "Paste any text describing the project here...",
+      "empty": "No content yet",
+      "underMin": "{{count}} characters — minimum 50",
+      "count": "{{count}} characters",
+      "clear": "Clear",
+      "info": "After signing in, the AI will analyze the text and you’ll see a review screen where you can edit name, type, channels and participants before creating the project.",
+      "footerHint": "When you continue, we’ll ask you to sign in. The AI will analyze the text afterwards."
+    },
+    "manual": {
+      "channelsLabel": "Which channels will you use?",
+      "channelsHint": "(select at least one)",
+      "emailsLabel": "Add team emails",
+      "emailsHint": "These emails will receive project notifications. Your sign-in email is included automatically.",
+      "whatsappLabel": "Add WhatsApp numbers",
+      "whatsappHint": "International format: country prefix + number (no spaces).",
+      "add": "Add",
+      "remove": "Remove",
+      "nameLabel": "Project name",
+      "namePlaceholder": "Q2 launch",
+      "typeLabel": "Project type",
+      "typePlaceholder": "e.g. Web Development, Marketing... or whatever you need",
+      "typeHint": "Pick a suggestion or type your own.",
+      "descriptionLabel": "Project description",
+      "descriptionPlaceholder": "Briefly describe what this project is and its goals...",
+      "footerHint": "When you continue, we’ll ask you to sign in to save your project."
+    },
+    "continueCta": "Continue and sign in",
+    "preparing": "Preparing...",
+    "errors": {
+      "fileTooBig": "The file is over 4 MB. Upload a smaller one or use the manual form and attach it later.",
+      "docReadFailed": "Couldn’t read the document. Try again or use the manual form.",
+      "pasteTooShort": "Paste at least one conversation or paragraph (minimum 50 characters).",
+      "pasteTooLong": "The text is too long. Trim it to under 100,000 characters.",
+      "emailInvalid": "Invalid email",
+      "emailDuplicate": "That email is already added"
+    }
+  },
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "howItWorks": "How it works",
+      "pricing": "Pricing",
+      "login": "Log in",
+      "getStarted": "Get started"
+    },
+    "hero": {
+      "betaBadge": "Now in public beta",
+      "headlinePart1": "All your conversations",
+      "headlinePart2": "in one place",
+      "description": "OneBox removes the friction between channels. It unifies WhatsApp, Slack, Email and more into a smart inbox your whole team can use.",
+      "descriptionStrong": "And it runs real actions inside your projects.",
+      "ctaPrimary": "Start for free",
+      "ctaSecondary": "Watch demo",
+      "trust1": "14-day free trial",
+      "trust2": "No credit card required",
+      "trust3": "Set up in minutes",
+      "scrollHint": "Discover more"
+    },
+    "how": {
+      "title": "How it works",
+      "subtitle": "From fragmented channels to unified clarity in three simple steps",
+      "step1Title": "Create a project",
+      "step1Desc": "Define your project, add participants and connect the channels you use.",
+      "step2Title": "AI detects actions",
+      "step2Desc": "Our AI understands requests, blockers and decisions across your conversations.",
+      "step3Title": "Real execution",
+      "step3Desc": "Tasks get created, the team is notified, blockers are flagged — automatically."
+    },
+    "diff": {
+      "eyebrow": "Why OneBox",
+      "headlinePart1": "We aren’t another inbox.",
+      "headlinePart2": "We’re execution.",
+      "description": "Decisions live in conversations. But execution doesn’t happen there. OneBox is the layer that connects what you say with what gets done.",
+      "item1Title": "Inboxes show messages",
+      "item1Desc": "They organize, they display. That’s it.",
+      "item2Title": "Automation tools run rules",
+      "item2Desc": "If X then Y. Rigid, brittle, limited.",
+      "item3Title": "OneBox executes decisions",
+      "item3Desc": "We understand context, detect intent and act inside your projects.",
+      "previewTitle": "What OneBox does for you:",
+      "previewFooter": "\"See everything OneBox has already done for you\"",
+      "actions": {
+        "taskCreated": "Task created",
+        "taskCreatedDetail": "\"Review client proposal\"",
+        "teamNotified": "Team notified",
+        "teamNotifiedDetail": "Slack #project-alpha",
+        "blockerDetected": "Blocker detected",
+        "blockerDetectedDetail": "Waiting for design approval",
+        "followupScheduled": "Follow-up scheduled",
+        "followupScheduledDetail": "In 3 days with Santiago",
+        "done": "Done",
+        "pending": "Pending"
+      }
+    },
+    "cta": {
+      "headlinePart1": "From scattered conversations to",
+      "headlinePart2": "projects under control",
+      "description1": "Companies talk on WhatsApp. But they work in Asana, CRMs and ERPs.",
+      "description2": "OneBox bridges both worlds.",
+      "button": "Start for free"
+    },
+    "footer": {
+      "rights": "© 2026 OneBox. All rights reserved."
+    }
+  }
+}

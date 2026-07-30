@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import {
   MessageCircle, Mail, ArrowLeft, ArrowRight, Check, Sparkles,
   FileText, Edit3, ClipboardPaste
 } from 'lucide-react'
 import DocumentUploader from './DocumentUploader'
+import LocaleSwitcher from './LocaleSwitcher'
 
 export interface PendingProject {
   channels: string[]
@@ -29,14 +31,16 @@ interface OnboardingFormProps {
   onLoginInstead?: () => void
 }
 
+// WhatsApp escondido hasta que se active el canal (hoy solo trabajamos con
+// correo). Para volver a mostrarlo, agregar la entrada de nuevo acá.
 const CHANNELS = [
   { id: 'Gmail', label: 'Gmail', icon: Mail, color: 'text-rose-500', bg: 'bg-rose-50', bgActive: 'bg-rose-100 border-rose-300' },
-  { id: 'WhatsApp', label: 'WhatsApp', icon: MessageCircle, color: 'text-emerald-500', bg: 'bg-emerald-50', bgActive: 'bg-emerald-100 border-emerald-300' },
 ]
 
 const PROJECT_TYPES = ['Desarrollo Web', 'Infraestructura', 'Diseño', 'Marketing', 'Ecommerce', 'Consultoría', 'Soporte', 'RRHH', 'Otro']
 
 export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: OnboardingFormProps) {
+  const { t } = useTranslation()
   const [mode, setMode] = useState<'choose' | 'document' | 'paste' | 'manual'>('choose')
   const [channels, setChannels] = useState<string[]>(['Gmail'])
   const [name, setName] = useState('')
@@ -77,7 +81,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
     // Limitar a 4 MB para que quepa en localStorage tras base64 (~5.3 MB string)
     const MAX_BYTES_FOR_LOCALSTORAGE = 4 * 1024 * 1024
     if (file.size > MAX_BYTES_FOR_LOCALSTORAGE) {
-      setDocumentError(`El archivo supera 4 MB. Sube uno más pequeño o usa el formulario manual y adjúntalo después.`)
+      setDocumentError(t('onboarding.errors.fileTooBig'))
       return
     }
     setDocumentFile(file)
@@ -101,7 +105,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
       })
     } catch (err) {
       console.error('[Onboarding] Error preparando documento:', err)
-      setDocumentError('No se pudo leer el documento. Intenta de nuevo o usa el formulario manual.')
+      setDocumentError(t('onboarding.errors.docReadFailed'))
       setDocumentSubmitting(false)
     }
   }
@@ -110,12 +114,12 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
     setPasteError('')
     const text = pastedText.trim()
     if (text.length < 50) {
-      setPasteError('Pega al menos una conversación o párrafo (mínimo 50 caracteres).')
+      setPasteError(t('onboarding.errors.pasteTooShort'))
       return
     }
     // Limitar a 100k caracteres para no saturar localStorage
     if (text.length > 100000) {
-      setPasteError('El texto es demasiado largo. Recorta a menos de 100.000 caracteres.')
+      setPasteError(t('onboarding.errors.pasteTooLong'))
       return
     }
     setPasteSubmitting(true)
@@ -155,11 +159,11 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
     // Validación básica de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(value)) {
-      setEmailError('Correo no válido')
+      setEmailError(t('onboarding.errors.emailInvalid'))
       return
     }
     if (emails.includes(value)) {
-      setEmailError('Ese correo ya está agregado')
+      setEmailError(t('onboarding.errors.emailDuplicate'))
       return
     }
     setEmails([...emails, value])
@@ -187,6 +191,10 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex items-center justify-center px-6 py-12">
+      {/* Selector de idioma fijo arriba a la derecha, antes de login. */}
+      <div className="absolute top-4 right-4 z-10">
+        <LocaleSwitcher variant="light" />
+      </div>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -199,32 +207,32 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
             className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Volver
+            {t('common.back')}
           </button>
           {onLoginInstead && (
             <button
               onClick={onLoginInstead}
               className="text-sm text-violet-600 hover:text-violet-700 font-medium transition-colors"
             >
-              ¿Ya tienes cuenta? Inicia sesión
+              {t('onboarding.haveAccountCta')}
             </button>
           )}
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 text-violet-700 rounded-full text-xs font-medium w-fit mb-4">
           <Sparkles className="w-3.5 h-3.5" />
-          Antes de empezar
+          {t('onboarding.badge')}
         </div>
 
         <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight">
-          Configura tu primer proyecto
+          {t('onboarding.title')}
         </h1>
         <p className="mt-3 text-slate-600">
           {mode === 'document'
-            ? 'Sube un documento (brief, acta, propuesta) y la IA generará el proyecto automáticamente con su nombre, descripción e insights.'
+            ? t('onboarding.subtitle.document')
             : mode === 'manual'
-              ? 'Cuéntanos qué canales vas a usar y los detalles del proyecto. Después iniciaremos sesión y lo dejaremos listo en tu panel.'
-              : '¿Cómo quieres crear tu primer proyecto?'}
+              ? t('onboarding.subtitle.manual')
+              : t('onboarding.subtitle.choose')}
         </p>
 
         {/* Selector de modo: 3 opciones (pegar conversación, subir doc, formulario manual) */}
@@ -239,16 +247,16 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
                 <div className="w-10 h-10 bg-violet-500 rounded-xl flex items-center justify-center">
                   <ClipboardPaste className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-[10px] font-bold text-violet-700 bg-violet-200 px-2 py-0.5 rounded-full uppercase tracking-wider">Más rápido</span>
+                <span className="text-[10px] font-bold text-violet-700 bg-violet-200 px-2 py-0.5 rounded-full uppercase tracking-wider">{t('onboarding.chooser.paste.badge')}</span>
               </div>
               <h3 className="text-base font-bold text-slate-900 mb-1">
-                Pegar conversación
+                {t('onboarding.chooser.paste.title')}
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Copia un chat de WhatsApp o un hilo de correo y pégalo aquí. La IA detectará tareas, riesgos y decisiones.
+                {t('onboarding.chooser.paste.description')}
               </p>
               <p className="text-xs text-violet-700 mt-3 font-medium">
-                Texto pegado → continuar
+                {t('onboarding.chooser.paste.footer')}
               </p>
             </button>
 
@@ -263,13 +271,13 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
                 </div>
               </div>
               <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-1.5">
-                Subir un documento
+                {t('onboarding.chooser.document.title')}
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Brief, acta, propuesta o PDF. La IA leerá su contenido y creará el proyecto con todo.
+                {t('onboarding.chooser.document.description')}
               </p>
               <p className="text-xs text-slate-500 mt-3 font-medium">
-                PDF, Word, TXT, imagen → continuar
+                {t('onboarding.chooser.document.footer')}
               </p>
             </button>
 
@@ -284,13 +292,13 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
                 </div>
               </div>
               <h3 className="text-base font-bold text-slate-900 mb-1">
-                Llenar formulario
+                {t('onboarding.chooser.manual.title')}
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Completa los campos manualmente: nombre, equipo, canales, fechas.
+                {t('onboarding.chooser.manual.description')}
               </p>
               <p className="text-xs text-slate-500 mt-3 font-medium">
-                3 pasos guiados → continuar
+                {t('onboarding.chooser.manual.footer')}
               </p>
             </button>
           </div>
@@ -304,22 +312,22 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
               onClick={() => { setMode('choose'); setDocumentFile(null); setDocumentError('') }}
               className="text-xs text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-1"
             >
-              <ArrowLeft className="w-3 h-3" /> Cambiar de opción
+              <ArrowLeft className="w-3 h-3" /> {t('onboarding.changeMode')}
             </button>
 
             <DocumentUploader
               variant="light"
               onFileSelected={handleDocumentSelected}
               loading={documentSubmitting}
-              loadingText="Preparando documento e iniciando sesión..."
+              loadingText={t('onboarding.document.loadingText')}
               errorMessage={documentError}
-              label="Sube tu documento"
-              hint="La IA leerá su contenido y creará el proyecto automáticamente. Después de iniciar sesión verás todo en tu panel."
+              label={t('onboarding.document.label')}
+              hint={t('onboarding.document.hint')}
             />
 
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-start gap-2">
-              <span className="font-bold">📌 Nota:</span>
-              <span>Limitado a 4 MB para esta carga inicial. Si tu archivo es más grande, usa el formulario manual y adjunta el documento después desde el dashboard del proyecto.</span>
+              <span className="font-bold">{t('onboarding.document.noteLabel')}</span>
+              <span>{t('onboarding.document.noteText')}</span>
             </div>
 
             <button
@@ -328,11 +336,11 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
               disabled={!documentFile || documentSubmitting}
               className="w-full px-6 py-4 bg-violet-600 text-white font-medium rounded-xl hover:bg-violet-500 transition-all shadow-lg shadow-violet-600/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
             >
-              {documentSubmitting ? 'Preparando...' : 'Continuar e iniciar sesión'}
+              {documentSubmitting ? t('onboarding.preparing') : t('onboarding.continueCta')}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
             <p className="text-center text-xs text-slate-500">
-              Al continuar, te pediremos iniciar sesión. La IA procesará el documento después.
+              {t('onboarding.document.footerHint')}
             </p>
           </div>
         )}
@@ -345,17 +353,17 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
               onClick={() => { setMode('choose'); setPastedText(''); setPasteError('') }}
               className="text-xs text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-1"
             >
-              <ArrowLeft className="w-3 h-3" /> Cambiar de opción
+              <ArrowLeft className="w-3 h-3" /> {t('onboarding.changeMode')}
             </button>
 
             {/* Selector de fuente */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">¿De dónde es el texto?</label>
+              <label className="block text-sm font-medium text-slate-700 mb-2">{t('onboarding.paste.sourceLabel')}</label>
               <div className="grid grid-cols-3 gap-2">
                 {([
-                  { id: 'whatsapp' as const, label: 'WhatsApp', icon: MessageCircle, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-300' },
-                  { id: 'gmail' as const, label: 'Gmail / Email', icon: Mail, color: 'text-rose-600', bg: 'bg-rose-50 border-rose-300' },
-                  { id: 'paste' as const, label: 'Otro texto', icon: ClipboardPaste, color: 'text-violet-600', bg: 'bg-violet-50 border-violet-300' },
+                  { id: 'whatsapp' as const, label: t('onboarding.paste.sourceWhatsapp'), icon: MessageCircle, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-300' },
+                  { id: 'gmail' as const,    label: t('onboarding.paste.sourceGmail'),    icon: Mail,           color: 'text-rose-600',    bg: 'bg-rose-50 border-rose-300' },
+                  { id: 'paste' as const,    label: t('onboarding.paste.sourceOther'),    icon: ClipboardPaste, color: 'text-violet-600',  bg: 'bg-violet-50 border-violet-300' },
                 ]).map(opt => {
                   const Icon = opt.icon
                   const active = pastedSource === opt.id
@@ -379,7 +387,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
             {/* Textarea */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Pega aquí tu conversación o texto
+                {t('onboarding.paste.textareaLabel')}
               </label>
               <textarea
                 value={pastedText}
@@ -388,18 +396,20 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
                 rows={10}
                 placeholder={
                   pastedSource === 'whatsapp'
-                    ? 'Ejemplo:\n12/11/25, 13:14 - Santi: Nuevo proyecto...\n12/11/25, 13:17 - Belen: Funciona el acceso...'
+                    ? t('onboarding.paste.placeholderWhatsapp')
                     : pastedSource === 'gmail'
-                      ? 'Pega el hilo de correo completo aquí...'
-                      : 'Pega aquí cualquier texto que describa el proyecto...'
+                      ? t('onboarding.paste.placeholderGmail')
+                      : t('onboarding.paste.placeholderOther')
                 }
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition resize-none font-mono text-xs leading-relaxed"
               />
               <div className="flex items-center justify-between mt-1.5">
                 <p className="text-[11px] text-slate-500">
-                  {pastedText.length === 0 ? 'Sin contenido' :
-                   pastedText.length < 50 ? `${pastedText.length} caracteres — mínimo 50` :
-                   `${pastedText.length.toLocaleString()} caracteres`}
+                  {pastedText.length === 0
+                    ? t('onboarding.paste.empty')
+                    : pastedText.length < 50
+                      ? t('onboarding.paste.underMin', { count: pastedText.length })
+                      : t('onboarding.paste.count', { count: pastedText.length.toLocaleString() })}
                 </p>
                 {pastedText.length > 0 && (
                   <button
@@ -407,7 +417,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
                     onClick={() => setPastedText('')}
                     className="text-[11px] text-slate-400 hover:text-slate-700 transition-colors"
                   >
-                    Limpiar
+                    {t('onboarding.paste.clear')}
                   </button>
                 )}
               </div>
@@ -421,7 +431,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
 
             <div className="bg-violet-50 border border-violet-200 rounded-xl p-3 text-xs text-violet-800 flex items-start gap-2">
               <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span>Después de iniciar sesión, la IA analizará el texto y verás una pantalla de revisión donde podrás editar nombre, tipo, canales y participantes antes de crear el proyecto.</span>
+              <span>{t('onboarding.paste.info')}</span>
             </div>
 
             <button
@@ -430,11 +440,11 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
               disabled={pastedText.trim().length < 50 || pasteSubmitting}
               className="w-full px-6 py-4 bg-violet-600 text-white font-medium rounded-xl hover:bg-violet-500 transition-all shadow-lg shadow-violet-600/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
             >
-              {pasteSubmitting ? 'Preparando...' : 'Continuar e iniciar sesión'}
+              {pasteSubmitting ? t('onboarding.preparing') : t('onboarding.continueCta')}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
             <p className="text-center text-xs text-slate-500">
-              Al continuar, te pediremos iniciar sesión. La IA analizará el texto después.
+              {t('onboarding.paste.footerHint')}
             </p>
           </div>
         )}
@@ -455,7 +465,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
           {/* Channels */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              ¿Qué canales vas a usar? <span className="text-slate-400 font-normal">(selecciona al menos uno)</span>
+              {t('onboarding.manual.channelsLabel')} <span className="text-slate-400 font-normal">{t('onboarding.manual.channelsHint')}</span>
             </label>
             <div className="grid grid-cols-2 gap-3">
               {CHANNELS.map(c => {
@@ -487,10 +497,10 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
             {channels.includes('Gmail') && (
               <div className="mt-4 p-4 bg-rose-50 border border-rose-200 rounded-xl">
                 <label className="block text-sm font-medium text-rose-900 mb-1">
-                  Agrega correos del equipo
+                  {t('onboarding.manual.emailsLabel')}
                 </label>
                 <p className="text-xs text-rose-700/70 mb-3">
-                  Estos correos recibirán notificaciones del proyecto. Tu correo de inicio de sesión se incluye automáticamente.
+                  {t('onboarding.manual.emailsHint')}
                 </p>
                 <div className="flex gap-2 mb-2">
                   <input
@@ -508,7 +518,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
                     onClick={addEmail}
                     className="px-4 py-2 bg-rose-600 text-white text-sm font-medium rounded-lg hover:bg-rose-700 transition-colors"
                   >
-                    Agregar
+                    {t('onboarding.manual.add')}
                   </button>
                 </div>
                 {emailError && (
@@ -525,7 +535,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
                           onClick={() => removeEmail(email)}
                           className="text-xs text-red-600 hover:text-red-700 font-medium flex-shrink-0"
                         >
-                          Quitar
+                          {t('onboarding.manual.remove')}
                         </button>
                       </div>
                     ))}
@@ -537,10 +547,10 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
             {channels.includes('WhatsApp') && (
               <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
                 <label className="block text-sm font-medium text-emerald-900 mb-1">
-                  Agrega números de WhatsApp
+                  {t('onboarding.manual.whatsappLabel')}
                 </label>
                 <p className="text-xs text-emerald-700/70 mb-3">
-                  Formato internacional: prefijo del país + número (sin espacios).
+                  {t('onboarding.manual.whatsappHint')}
                 </p>
                 <div className="flex gap-2 mb-3">
                   <input
@@ -556,7 +566,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
                     onClick={addWhatsappNumber}
                     className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
                   >
-                    Agregar
+                    {t('onboarding.manual.add')}
                   </button>
                 </div>
 
@@ -570,7 +580,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
                           onClick={() => removeWhatsappNumber(number)}
                           className="text-xs text-red-600 hover:text-red-700 font-medium"
                         >
-                          Quitar
+                          {t('onboarding.manual.remove')}
                         </button>
                       </div>
                     ))}
@@ -583,44 +593,44 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
 
           {/* Project name */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Nombre del proyecto</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">{t('onboarding.manual.nameLabel')}</label>
             <input
               type="text"
               required
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="Lanzamiento Q2"
+              placeholder={t('onboarding.manual.namePlaceholder')}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
             />
           </div>
 
           {/* Project type (input libre con sugerencias) */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de proyecto</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">{t('onboarding.manual.typeLabel')}</label>
             <input
               type="text"
               list="onboarding-project-types"
               value={type}
               onChange={e => setType(e.target.value)}
-              placeholder="Ej: Desarrollo Web, Marketing... o el que necesites"
+              placeholder={t('onboarding.manual.typePlaceholder')}
               maxLength={60}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
             />
             <datalist id="onboarding-project-types">
-              {PROJECT_TYPES.map(t => <option key={t} value={t} />)}
+              {PROJECT_TYPES.map(pt => <option key={pt} value={pt} />)}
             </datalist>
-            <p className="text-xs text-slate-500 mt-1">Selecciona una sugerencia o escribe el tipo personalizado.</p>
+            <p className="text-xs text-slate-500 mt-1">{t('onboarding.manual.typeHint')}</p>
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Descripción del proyecto</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">{t('onboarding.manual.descriptionLabel')}</label>
             <textarea
               required
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={3}
-              placeholder="Describe brevemente qué es este proyecto y sus objetivos..."
+              placeholder={t('onboarding.manual.descriptionPlaceholder')}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition resize-none"
             />
           </div>
@@ -631,12 +641,12 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
             disabled={!canSubmit}
             className="w-full px-6 py-4 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
           >
-            Continuar e iniciar sesión
+            {t('onboarding.continueCta')}
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
 
           <p className="text-center text-xs text-slate-500">
-            Al continuar, te pediremos iniciar sesión para guardar tu proyecto.
+            {t('onboarding.manual.footerHint')}
           </p>
         </form>
         )}

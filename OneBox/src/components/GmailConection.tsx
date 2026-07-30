@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { 
   Mail, 
   CheckCircle, 
@@ -20,6 +21,7 @@ interface ConectarGmailProps {
 }
 
 export default function ConectarGmail({ onNavigate, onConectado, gmailConectado }: ConectarGmailProps) {
+  const { t } = useTranslation()
   const [conectando, setConectando] = useState(false)
   const [paso, setPaso] = useState<'inicio' | 'permisos' | 'conectado'>('inicio')
 
@@ -49,9 +51,9 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
   }
 
   const permisos = [
-    { icon: Eye, texto: 'Ver tus correos electrónicos', descripcion: 'Para analizar el contenido y detectar proyectos' },
-    { icon: Inbox, texto: 'Acceder a tu bandeja de entrada', descripcion: 'Para leer y organizar los mensajes' },
-    { icon: Shield, texto: 'Solo lectura', descripcion: 'No modificaremos ni enviaremos correos' },
+    { icon: Eye,    texto: t('gmail.connect.permissions.readTitle'),     descripcion: t('gmail.connect.permissions.readDesc') },
+    { icon: Inbox,  texto: t('gmail.connect.permissions.inboxTitle'),    descripcion: t('gmail.connect.permissions.inboxDesc') },
+    { icon: Shield, texto: t('gmail.connect.permissions.readonlyTitle'), descripcion: t('gmail.connect.permissions.readonlyDesc') },
   ]
 
   if (gmailConectado) {
@@ -66,8 +68,8 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
             <div className="w-20 h-20 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="w-10 h-10 text-emerald-600" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Gmail Conectado</h2>
-            <p className="text-slate-600 mb-6">Tu cuenta de Gmail está vinculada correctamente</p>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('gmail.connected.title')}</h2>
+            <p className="text-slate-600 mb-6">{t('gmail.connected.subtitle')}</p>
             
             <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-200">
               <div className="flex items-center justify-between">
@@ -77,7 +79,7 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
                   </div>
                   <div className="text-left">
                     <p className="text-slate-900 font-medium">usuario@gmail.com</p>
-                    <p className="text-sm text-slate-500">Última sincronización: Hace 5 min</p>
+                    <p className="text-sm text-slate-500">{t('gmail.connected.lastSync')}</p>
                   </div>
                 </div>
                 <button className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all">
@@ -91,7 +93,7 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
                 onClick={() => onNavigate('proyectos')}
                 className="flex-1 py-3 bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 text-white font-medium rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-200"
               >
-                Ver Bandeja
+                {t('gmail.connected.viewInbox')}
                 <ArrowRight className="w-5 h-5" />
               </button>
               <button className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all border border-slate-200">
@@ -108,8 +110,8 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-2xl mx-auto px-4 md:px-8 py-6">
         <div className="text-center mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Conectar Gmail</h1>
-          <p className="text-slate-600 mt-2">Vincula tu cuenta de Gmail para comenzar el análisis inteligente</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{t('gmail.connect.title')}</h1>
+          <p className="text-slate-600 mt-2">{t('gmail.connect.subtitle')}</p>
         </div>
 
         <motion.div
@@ -127,11 +129,10 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
               </div>
 
               <h2 className="text-xl font-bold text-slate-900 text-center mb-4">
-                Conecta tu cuenta de Gmail
+                {t('gmail.connect.cardTitle')}
               </h2>
               <p className="text-slate-600 text-center mb-8">
-                OneBox analizará tus correos de forma segura para identificar proyectos, 
-                personas y relaciones automáticamente.
+                {t('gmail.connect.cardText')}
               </p>
 
               <div className="space-y-3 mb-8">
@@ -158,10 +159,9 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
                 <div className="flex items-start gap-3">
                   <Shield className="w-5 h-5 text-emerald-600 mt-0.5" />
                   <div>
-                    <p className="text-emerald-700 font-medium">Conexión 100% segura</p>
+                    <p className="text-emerald-700 font-medium">{t('gmail.connect.securityTitle')}</p>
                     <p className="text-sm text-emerald-600 mt-1">
-                      Usamos OAuth 2.0 de Google. Nunca almacenamos tu contraseña y puedes 
-                      revocar el acceso en cualquier momento.
+                      {t('gmail.connect.securityDesc')}
                     </p>
                   </div>
                 </div>
@@ -177,7 +177,7 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
-                Conectar con Google
+                {t('gmail.connect.connectBtn')}
               </button>
             </div>
           )}
@@ -187,11 +187,11 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
               <div className="w-20 h-20 bg-violet-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <Loader2 className="w-10 h-10 text-violet-600 animate-spin" />
               </div>
-              <h2 className="text-xl font-bold text-slate-900 mb-2">Conectando con Gmail...</h2>
-              <p className="text-slate-600">Autorizando permisos de solo lectura</p>
-              
+              <h2 className="text-xl font-bold text-slate-900 mb-2">{t('gmail.connecting.title')}</h2>
+              <p className="text-slate-600">{t('gmail.connecting.subtitle')}</p>
+
               <div className="mt-8 space-y-3">
-                {['Verificando credenciales', 'Solicitando permisos', 'Estableciendo conexión'].map((paso, i) => (
+                {[t('gmail.connecting.step1'), t('gmail.connecting.step2'), t('gmail.connecting.step3')].map((paso, i) => (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, x: -20 }}
@@ -216,14 +216,14 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
               >
                 <CheckCircle className="w-10 h-10 text-emerald-600" />
               </motion.div>
-              <h2 className="text-xl font-bold text-slate-900 mb-2">¡Conectado exitosamente!</h2>
-              <p className="text-slate-600 mb-8">Tu cuenta de Gmail está lista para ser analizada</p>
+              <h2 className="text-xl font-bold text-slate-900 mb-2">{t('gmail.success.title')}</h2>
+              <p className="text-slate-600 mb-8">{t('gmail.success.subtitle')}</p>
               
               <button
                 onClick={() => onNavigate('proyectos')}
                 className="w-full py-4 bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-200"
               >
-                Ir a Proyectos
+                {t('gmail.success.goToProjects')}
                 <ArrowRight className="w-5 h-5" />
               </button>
             </div>
@@ -232,11 +232,11 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
 
         {paso === 'inicio' && (
           <div className="mt-8 space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900">Preguntas frecuentes</h3>
+            <h3 className="text-lg font-semibold text-slate-900">{t('gmail.faq.title')}</h3>
             {[
-              { pregunta: '¿Mis correos están seguros?', respuesta: 'Sí, usamos encriptación de extremo a extremo y nunca compartimos tus datos.' },
-              { pregunta: '¿Puedo desconectar Gmail?', respuesta: 'Sí, puedes revocar el acceso en cualquier momento desde la configuración.' },
-              { pregunta: '¿Qué datos se analizan?', respuesta: 'Solo analizamos remitente, asunto y contenido para detectar proyectos y relaciones.' },
+              { pregunta: t('gmail.faq.q1'), respuesta: t('gmail.faq.a1') },
+              { pregunta: t('gmail.faq.q2'), respuesta: t('gmail.faq.a2') },
+              { pregunta: t('gmail.faq.q3'), respuesta: t('gmail.faq.a3') },
             ].map((faq, i) => (
               <div key={i} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
                 <p className="text-slate-900 font-medium">{faq.pregunta}</p>

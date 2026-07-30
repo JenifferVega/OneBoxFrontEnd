@@ -10,11 +10,12 @@ import OnboardingForm, { PendingProject } from './components/OnboardingForm'
 import LoginPage from './components/LoginPage'
 import FloatChat from './components/FloatChat'
 import NotificationsPage from './components/NotificationsPage'
-import { setUserId, setUserEmail, getUserId, clearUserSession, api } from './services/api'
+import PlatformAdmin from './components/PlatformAdmin'
+import { setUserId, setUserEmail, getUserId, getUserEmail, clearUserSession, api } from './services/api'
 
 const PENDING_PROJECT_KEY = 'onebox_pending_project'
 
-export type PageType = 'proyectos' | 'inteligencia' | 'centro-ordenes' | 'wizard' | 'conectar-gmail' | 'notificaciones'
+export type PageType = 'proyectos' | 'inteligencia' | 'plataforma' | 'centro-ordenes' | 'wizard' | 'conectar-gmail' | 'notificaciones'
 
 export default function App() {
   const auth = useAuth()
@@ -27,6 +28,10 @@ export default function App() {
   const [pendingDraft, setPendingDraft] = useState<InitialDocumentDraft | null>(null)
   
   const [projectsResetSignal, setProjectsResetSignal] = useState(0)
+  // Flag para renderizar la pestaña "Plataforma". Se llena con /api/me al
+  // autenticar. Default false → no se muestra la tab. Si el fetch falla,
+  // sigue en false; el backend igualmente blinda /api/platform/* con 403.
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
 
   const handleNavigate = (page: PageType) => {
     if (page === currentPage && page === 'proyectos') {
@@ -42,18 +47,27 @@ export default function App() {
   if (auth.isAuthenticated && auth.user?.profile?.sub) {
     const newUserId = auth.user.profile.sub
     const storedUserId = getUserId()
+    const newUserEmail = ((auth.user.profile.email as string) || '').toLowerCase()
+    const storedUserEmail = getUserEmail().toLowerCase()
     if (storedUserId !== newUserId) {
       if (storedUserId) {
         console.warn('[App] Cambio de usuario detectado, limpiando sesión anterior')
         clearUserSession()
       }
       setUserId(newUserId)
-      const newUserEmail = (auth.user.profile.email as string) || ''
       if (newUserEmail) setUserEmail(newUserEmail)
       const newUserName = (auth.user.profile.name as string) || ''
       if (newUserName) {
         try { localStorage.setItem('onebox_user_name', newUserName) } catch { /* private mode */ }
       }
+    } else if (newUserEmail && newUserEmail !== storedUserEmail) {
+      // Mismo user id, pero el email en localStorage no coincide con el del profile.
+      // Puede pasar cuando: sesiones viejas donde el email no llegó a guardarse, o el
+      // user actualizó su email en Cognito. Sin este resync, `x-user-email` va vacío al
+      // backend y el auto-accept de invitaciones nunca dispara → el invitado no ve sus
+      // proyectos vinculados. Actualizamos SIN limpiar sesión (mismo user).
+      console.info('[App] Re-sincronizando email del profile al localStorage')
+      setUserEmail(newUserEmail)
     }
   }
 
@@ -211,6 +225,21 @@ export default function App() {
     }
   }, [auth.isAuthenticated, isPreview])
 
+  // Cargar contexto del user (/api/me) para decidir si mostrar la pestaña
+  // Plataforma. NO bloqueamos el render si falla — simplemente la tab no
+  // aparece. El backend igual blinda cada endpoint /api/platform/* con 403.
+  useEffect(() => {
+    if (!auth.isAuthenticated || !auth.user?.access_token) return
+    let cancelled = false
+    api.getMe(auth.user.access_token)
+      .then(me => {
+        if (cancelled) return
+        setIsPlatformAdmin(!!me.isPlatformAdmin)
+      })
+      .catch(() => { /* silencioso: tab no aparece */ })
+    return () => { cancelled = true }
+  }, [auth.isAuthenticated, auth.user?.access_token])
+
   if (!isPreview) {
     if (auth.isLoading) {
       return (
@@ -267,6 +296,10 @@ export default function App() {
         return <Proyectos onNavigate={setCurrentPage} gmailConectado={gmailConectado} resetSignal={projectsResetSignal} />
       case 'inteligencia':
         return <Inteligencia />
+      case 'plataforma':
+        // Doble guard: solo renderiza si el flag está activo. Si alguien
+        // navega manualmente sin ser super admin, cae al proyecto default.
+        return isPlatformAdmin ? <PlatformAdmin /> : <Proyectos onNavigate={setCurrentPage} gmailConectado={gmailConectado} resetSignal={projectsResetSignal} />
       case 'wizard':
         return (
           <ProjectWizard
@@ -296,7 +329,7 @@ export default function App() {
 
   return (
     <>
-      <Layout currentPage={currentPage} onNavigate={handleNavigate} onNewProject={() => setCurrentPage('wizard')}>
+      <Layout currentPage={currentPage} onNavigate={handleNavigate} onNewProject={() => setCurrentPage('wizard')} isPlatformAdmin={isPlatformAdmin}>
         {renderPage()}
       </Layout>
       <FloatChat />

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, Fragment } from 'react'
 import { useAuth } from 'react-oidc-context'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MessageSquare,
@@ -118,6 +119,7 @@ export default function ChatFloat() {
   // crítico — antes el agente usaba un USER_ID global y filtraba datos de
   // otros usuarios).
   const auth = useAuth()
+  const { t } = useTranslation()
   // uid actual del usuario logueado — sirve para keyear el localStorage por
   // persona, así dos cuentas que usen el mismo navegador no se pisan el chat.
   // Mientras Cognito carga es undefined: en ese tiempo no leemos ni escribimos
@@ -129,7 +131,7 @@ export default function ChatFloat() {
   const MENSAJE_BIENVENIDA: Mensaje = {
     id: '1',
     tipo: 'asistente',
-    contenido: '¡Hola! Soy el asistente inteligente de OneBox. Puedo buscar tus correos, analizar contenido y sugerirte acciones.\n\nPrueba preguntándome:\n• "Muéstrame mis correos recientes"\n• "¿Tengo correos con adjuntos?"\n• "Busca correos de Santiago"',
+    contenido: t('chat.welcome'),
     timestamp: new Date()
   }
 
@@ -141,7 +143,7 @@ export default function ChatFloat() {
   const [mensajes, setMensajes] = useState<Mensaje[]>([MENSAJE_BIENVENIDA])
   const [input, setInput] = useState('')
   const [procesando, setProcesando] = useState(false)
-  const [estadoAgente, setEstadoAgente] = useState<string>('Conectado')
+  const [estadoAgente, setEstadoAgente] = useState<string>(t('chat.statusConnected'))
   const [history, setHistory] = useState<HistoryMessage[]>([])
   // session_id: identificador de esta conversación. Se mantiene hasta que el
   // usuario apriete "Reset" (limpiarChat), donde se rota. Se manda al backend
@@ -236,7 +238,7 @@ export default function ChatFloat() {
     }])
 
     setProcesando(true)
-    setEstadoAgente('Pensando...')
+    setEstadoAgente(t('chat.statusThinking'))
 
     try {
       // SEGURIDAD: mandar identidad del usuario para que el agente filtre
@@ -246,7 +248,7 @@ export default function ChatFloat() {
       const userId = getUserId()
       const userEmail = getUserEmail()
       if (!userId || !token) {
-        throw new Error('Sesión no iniciada — inicia sesión para usar el chatbot.')
+        throw new Error(t('chat.errors.notAuthed'))
       }
       const response = await fetch(AGENT_API, {
         method: 'POST',
@@ -290,14 +292,14 @@ export default function ChatFloat() {
           : m
       ))
 
-      setEstadoAgente('Conectado')
+      setEstadoAgente(t('chat.statusConnected'))
 
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+      const errorMsg = error instanceof Error ? error.message : t('chat.errors.unknown')
 
-      let userErrorMsg = 'Hubo un error al procesar tu consulta.'
+      let userErrorMsg = t('chat.errors.generic')
       if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
-        userErrorMsg = '⚠️ No se pudo conectar con el agente. Verifica que la URL del backend sea correcta en VITE_AGENT_API.'
+        userErrorMsg = t('chat.errors.network')
       }
 
       setMensajes(prev => prev.map(m =>
@@ -311,7 +313,7 @@ export default function ChatFloat() {
           : m
       ))
 
-      setEstadoAgente('Error de conexión')
+      setEstadoAgente(t('chat.statusError'))
     } finally {
       setProcesando(false)
     }
@@ -328,11 +330,11 @@ export default function ChatFloat() {
     setMensajes([{
       id: crypto.randomUUID(),
       tipo: 'asistente',
-      contenido: 'Chat reiniciado. ¿En qué puedo ayudarte?',
+      contenido: t('chat.reset'),
       timestamp: new Date()
     }])
     setHistory([])
-    setEstadoAgente('Conectado')
+    setEstadoAgente(t('chat.statusConnected'))
     // Generar nuevo session_id — esto es una conversación distinta.
     // El useEffect de session_id se dispara y lo persiste solo.
     const fresh = crypto.randomUUID()
@@ -382,7 +384,7 @@ export default function ChatFloat() {
                     <Sparkles className="w-4 h-4 text-white" />
                   </div>
                   <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-800 ${
-                    estadoAgente === 'Error de conexión' ? 'bg-red-400' :
+                    estadoAgente === t('chat.statusError') ? 'bg-red-400' :
                     procesando ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
                   }`} />
                 </div>
@@ -395,7 +397,7 @@ export default function ChatFloat() {
                 <button
                   onClick={limpiarChat}
                   className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
-                  title="Reiniciar chat"
+                  title={t('chat.resetTooltip')}
                 >
                   <RotateCcw className="w-4 h-4" />
                 </button>
@@ -461,7 +463,7 @@ export default function ChatFloat() {
                       {mensaje.isLoading ? (
                         <div className="flex items-center gap-2 py-1">
                           <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-                          <span className="text-sm text-slate-400">Analizando tu consulta...</span>
+                          <span className="text-sm text-slate-400">{t('chat.loading')}</span>
                         </div>
                       ) : (
                         <div className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -519,9 +521,9 @@ export default function ChatFloat() {
               <div className="px-4 pb-2">
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    'Mis correos recientes',
-                    'Correos con adjuntos',
-                    'Correos de OneBox'
+                    t('chat.suggestions.recent'),
+                    t('chat.suggestions.attachments'),
+                    t('chat.suggestions.onebox'),
                   ].map((sug) => (
                     <button
                       key={sug}
@@ -542,7 +544,7 @@ export default function ChatFloat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyPress}
-                  placeholder={procesando ? 'Esperando respuesta...' : 'Pregúntame sobre tus correos...'}
+                  placeholder={procesando ? t('chat.inputWaiting') : t('chat.inputPlaceholder')}
                   disabled={procesando}
                   rows={1}
                   className="flex-1 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all resize-none disabled:opacity-50 max-h-24"

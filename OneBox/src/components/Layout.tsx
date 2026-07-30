@@ -1,9 +1,12 @@
 import { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { useAuth } from 'react-oidc-context'
-import { MessageSquare, Plus, LogOut } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Plus, LogOut } from 'lucide-react'
 import { PageType } from '../App'
 import NotificationsPanel from './NotificationsPanel'
+import Logo from './Logo'
+import LocaleSwitcher from './LocaleSwitcher'
 import { clearUserSession } from '../services/api'
 
 interface LayoutProps {
@@ -11,10 +14,12 @@ interface LayoutProps {
   currentPage: PageType
   onNavigate: (page: PageType) => void
   onNewProject?: () => void
+  isPlatformAdmin?: boolean
 }
 
-export default function Layout({ children, currentPage, onNavigate, onNewProject }: LayoutProps) {
+export default function Layout({ children, currentPage, onNavigate, onNewProject, isPlatformAdmin }: LayoutProps) {
   const auth = useAuth()
+  const { t } = useTranslation()
 
   const userEmail = auth.user?.profile?.email || ''
   const userName = auth.user?.profile?.name ||
@@ -35,20 +40,20 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
   }
 
   const navItems: { id: PageType; label: string }[] = [
-    { id: 'proyectos', label: 'Proyectos' },
-    { id: 'inteligencia', label: 'Inteligencia' },
+    { id: 'proyectos', label: t('nav.projects', 'Proyectos') },
+    { id: 'inteligencia', label: t('nav.intelligence', 'Inteligencia') },
+    // La pestaña "Organizaciones" solo se agrega si el user es super admin.
+    // El backend igualmente blinda cada /api/platform/* con 403.
+    ...(isPlatformAdmin ? [{ id: 'plataforma' as PageType, label: t('nav.organizations', 'Organizaciones') }] : []),
   ]
 
   return (
     <div className="min-h-screen bg-[#0B0B14]">
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#12121E]/90 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-full mx-auto px-6">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => onNavigate('proyectos')}>
-              <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-lg flex items-center justify-center">
-                <MessageSquare className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-lg font-bold text-white tracking-tight">OneBox</span>
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center cursor-pointer" onClick={() => onNavigate('proyectos')}>
+              <Logo variant="dark" size="sm" />
             </div>
 
             <nav className="hidden md:flex items-center gap-1">
@@ -77,10 +82,14 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
                   className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-all"
                 >
                   <Plus className="w-4 h-4" />
-                  Nuevo proyecto
+                  {t('common.newProject', 'Nuevo proyecto')}
                 </button>
               )}
               <NotificationsPanel onOpen={() => onNavigate('notificaciones')} />
+
+              {/* Selector de idioma — persiste en localStorage. */}
+              <LocaleSwitcher />
+
               <div className="flex items-center gap-2.5 pl-3 border-l border-white/10">
                 <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
                   {userInitials}
@@ -91,7 +100,7 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
                 <button
                   onClick={handleLogout}
                   className="ml-1 p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-white/5 transition-all"
-                  title="Cerrar sesion"
+                  title={t('common.logout', 'Cerrar sesión')}
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -120,7 +129,7 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
         </div>
       </nav>
 
-      <main className="pt-14">
+      <main className="pt-20">
         <motion.div
           key={currentPage}
           initial={{ opacity: 0, y: 8 }}
@@ -133,3 +142,4 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
     </div>
   )
 }
+

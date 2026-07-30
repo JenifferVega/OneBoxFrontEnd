@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from 'react-oidc-context'
+import { useTranslation } from 'react-i18next'
 import {
   Paperclip, Upload, Download, Trash2, FileText, Image as ImageIcon,
   FileType, File, Loader2, Sparkles, X, AlertCircle, CheckCircle2,
@@ -64,6 +65,7 @@ function formatDate(iso: string): string {
 
 export default function ProjectAttachments({ projectId, projectName, isOwner = true, onInsightsGenerated }: ProjectAttachmentsProps) {
   const auth = useAuth()
+  const { t } = useTranslation()
   const token = auth.user?.access_token || ''
   const userId = auth.user?.profile?.sub || ''
 
@@ -177,14 +179,14 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
   }
 
   const handleDelete = async (attachmentId: string) => {
-    if (!confirm('¿Eliminar este adjunto? Esta acción no se puede deshacer.')) return
+    if (!confirm(t('attachments.confirmDelete'))) return
     setDeletingId(attachmentId)
     try {
       await api.deleteAttachment(projectId, attachmentId, token)
       setAttachments(prev => prev.filter(a => a.attachmentId !== attachmentId))
     } catch (err) {
       console.error('[Attachments] delete error:', err)
-      alert('No se pudo eliminar el adjunto.')
+      alert(t('attachments.deleteError'))
     } finally {
       setDeletingId(null)
     }
@@ -196,13 +198,13 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
             <Paperclip className="w-4 h-4 text-violet-400" />
-            Adjuntos del proyecto
+            {t('attachments.header')}
             {attachments.length > 0 && (
               <span className="text-xs text-white/40 font-normal">({attachments.length})</span>
             )}
           </h2>
           <p className="text-xs text-white/40 mt-0.5">
-            Sube documentos relacionados con el proyecto. La IA los analizará y generará insights.
+            {t('attachments.subtitle')}
           </p>
         </div>
         {panelMode === 'closed' && (
@@ -212,14 +214,14 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
               className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 rounded-lg text-xs font-medium text-violet-300 transition-all"
             >
               <ClipboardPaste className="w-3.5 h-3.5" />
-              Pegar texto
+              {t('attachments.pasteBtn')}
             </button>
             <button
               onClick={() => { setPanelMode('document'); setUploadResult(null) }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-medium text-white/70 transition-all"
             >
               <Upload className="w-3.5 h-3.5" />
-              Subir documento
+              {t('attachments.uploadBtn')}
             </button>
           </div>
         )}
@@ -239,8 +241,8 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
                 <p className="text-xs text-white/50 flex items-center gap-1.5">
                   <Sparkles className="w-3 h-3 text-violet-400" />
                   {panelMode === 'paste'
-                    ? 'Pega una conversación o texto. La IA detectará tareas, riesgos y decisiones.'
-                    : 'La IA leerá el documento y generará nuevos insights para este proyecto.'}
+                    ? t('attachments.panelPasteHint')
+                    : t('attachments.panelDocHint')}
                 </p>
                 <button
                   onClick={() => { setPanelMode('closed'); setUploadResult(null) }}
@@ -254,7 +256,7 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
                 <TextPaster
                   variant="dark"
                   loading={uploading}
-                  loadingText="🤖 La IA está analizando el texto..."
+                  loadingText={t('attachments.loadingText')}
                   errorMessage={uploadResult && !uploadResult.ok ? uploadResult.msg : undefined}
                   successMessage={uploadResult && uploadResult.ok ? uploadResult.msg : undefined}
                   onAnalyze={handleAnalyzeText}
@@ -265,11 +267,11 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
                   variant="dark"
                   onFileSelected={handleUpload}
                   loading={uploading}
-                  loadingText="Procesando documento..."
+                  loadingText={t('attachments.processingDoc')}
                   errorMessage={uploadResult && !uploadResult.ok ? uploadResult.msg : undefined}
                   successMessage={uploadResult && uploadResult.ok ? uploadResult.msg : undefined}
-                  label="Adjunta un documento"
-                  hint="PDF, Word, TXT o imagen — máx. 10 MB"
+                  label={t('attachments.uploadLabel')}
+                  hint={t('attachments.uploadHint')}
                   compact
                 />
               )}
@@ -286,9 +288,9 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
       ) : attachments.length === 0 ? (
         <div className="text-center py-8 border-2 border-dashed border-white/5 rounded-lg">
           <Paperclip className="w-8 h-8 text-white/20 mx-auto mb-2" />
-          <p className="text-sm text-white/40">Sin adjuntos aún</p>
+          <p className="text-sm text-white/40">{t('attachments.emptyTitle')}</p>
           <p className="text-xs text-white/30 mt-1">
-            Sube actas, briefs, propuestas o cualquier doc relacionado.
+            {t('attachments.emptyHint')}
           </p>
         </div>
       ) : (
@@ -315,18 +317,13 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
                     <span>{formatSize(att.fileSize)}</span>
                     <span>·</span>
                     <span>{formatDate(att.createdAt)}</span>
-                    {att.source === 'whatsapp' && (
-                      <>
-                        <span>·</span>
-                        <span className="text-emerald-400">WhatsApp</span>
-                      </>
-                    )}
+                    {/* Badge WhatsApp escondido — hoy solo trabajamos con correo. */}
                     {att.extractedTextLength > 0 && (
                       <>
                         <span>·</span>
                         <span className="text-violet-400 flex items-center gap-1">
                           <Sparkles className="w-2.5 h-2.5" />
-                          IA leyó {att.extractedTextLength.toLocaleString()} caracteres
+                          {t('attachments.aiRead', { count: att.extractedTextLength.toLocaleString() })}
                         </span>
                       </>
                     )}
@@ -337,7 +334,7 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
                     onClick={() => handleDownload(att.attachmentId, att.fileName)}
                     disabled={isDownloading || isDeleting}
                     className="p-2 text-white/50 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50"
-                    title="Descargar"
+                    title={t('attachments.downloadTooltip')}
                   >
                     {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                   </button>
@@ -347,7 +344,7 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
                       onClick={() => handleDelete(att.attachmentId)}
                       disabled={isDeleting || isDownloading}
                       className="p-2 text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
-                      title="Eliminar"
+                      title={t('attachments.deleteTooltip')}
                     >
                       {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                     </button>

@@ -17,7 +17,8 @@
 //  - Click en una barra → callback al padre (abre modal de la tarea existente).
 // ============================================================================
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface GanttTask {
   id: string
@@ -33,13 +34,13 @@ interface Props {
   onTaskClick?: (taskId: string) => void
 }
 
-// Colores por estado — el mismo lenguaje visual que en el resto de la app
-// (cards de COMPLETADAS/PENDIENTES/BLOQUEADAS).
-const STATUS_COLORS: Record<string, { fill: string; stroke: string; label: string }> = {
-  pending:     { fill: 'rgb(245, 158, 11)',  stroke: 'rgb(217, 119, 6)',  label: 'Pendiente'  },  // amber
-  in_progress: { fill: 'rgb(56, 189, 248)',  stroke: 'rgb(14, 165, 233)', label: 'En curso'   },  // sky
-  done:        { fill: 'rgb(16, 185, 129)',  stroke: 'rgb(5, 150, 105)',  label: 'Completada' },  // emerald
-  blocked:     { fill: 'rgb(239, 68, 68)',   stroke: 'rgb(220, 38, 38)',  label: 'Bloqueada'  },  // red
+// Colores por estado — el mismo lenguaje visual que en el resto de la app.
+// El label se resuelve con i18n al render (labelKey → gantt.statusLabels.<key>).
+const STATUS_COLORS: Record<string, { fill: string; stroke: string; labelKey: string }> = {
+  pending:     { fill: 'rgb(245, 158, 11)',  stroke: 'rgb(217, 119, 6)',  labelKey: 'pending' },      // amber
+  in_progress: { fill: 'rgb(56, 189, 248)',  stroke: 'rgb(14, 165, 233)', labelKey: 'in_progress' },  // sky
+  done:        { fill: 'rgb(16, 185, 129)',  stroke: 'rgb(5, 150, 105)',  labelKey: 'done' },         // emerald
+  blocked:     { fill: 'rgb(239, 68, 68)',   stroke: 'rgb(220, 38, 38)',  labelKey: 'blocked' },      // red
 }
 
 function parseDate(s?: string): Date | null {
@@ -57,8 +58,31 @@ function formatDate(d: Date): string {
 }
 
 export default function ProjectGantt({ tasks, onTaskClick }: Props) {
-  // Filtrar solo tareas con AMBAS fechas válidas
-  const scheduled = useMemo(() => {
+  const { t } = useTranslation()
+  // Filtro por estado — click en la leyenda toggle ese estado.
+  // Arranca con todos activos (comportamiento previo, sin filtro visible).
+  const [activeStatuses, setActiveStatuses] = useState<Set<string>>(
+    () => new Set(Object.keys(STATUS_COLORS))
+  )
+  // Filtro por participante — click en una fila de la columna izquierda toggle
+  // ese participante como filtro único. null = sin filtro (muestra todas).
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null)
+  const toggleStatus = (key: string) => {
+    setActiveStatuses(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+  const resetFilter = () => {
+    setActiveStatuses(new Set(Object.keys(STATUS_COLORS)))
+    setAssigneeFilter(null)
+  }
+
+  // Filtrar solo tareas con AMBAS fechas válidas — antes del filtro por estado
+  // para saber si el proyecto tiene tareas planificadas (empty state distinto).
+  const scheduledAll = useMemo(() => {
     return tasks
       .map(t => ({
         ...t,
@@ -69,14 +93,32 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
         GanttTask & { start: Date; end: Date }
       >
   }, [tasks])
+  const scheduled = useMemo(
+    () => scheduledAll.filter(t =>
+      activeStatuses.has(t.status) &&
+      (!assigneeFilter || (t.assignedTo || '') === assigneeFilter)
+    ),
+    [scheduledAll, activeStatuses, assigneeFilter]
+  )
+  // Lista de participantes DERIVADA de las tareas planificadas (deduplicada,
+  // conservando orden de aparición). Cada uno con su count de tareas.
+  const participants = useMemo(() => {
+    const seen = new Map<string, number>()
+    for (const t of scheduledAll) {
+      const name = (t.assignedTo || '').trim()
+      if (!name) continue
+      seen.set(name, (seen.get(name) || 0) + 1)
+    }
+    return Array.from(seen.entries()).map(([name, count]) => ({ name, count }))
+  }, [scheduledAll])
 
-  if (scheduled.length === 0) {
+  if (scheduledAll.length === 0) {
     return (
       <div className="bg-[#0E0E18] border border-white/5 rounded-2xl p-8 text-center">
         <div className="text-4xl mb-3 opacity-30">📊</div>
-        <p className="text-sm text-white/50">No hay tareas con fechas asignadas todavía.</p>
+        <p className="text-sm text-white/50">{t('gantt.emptyTitle')}</p>
         <p className="text-xs text-white/30 mt-1">
-          Edita cualquier tarea y asígnale fecha de inicio y fin para verla aquí.
+          {t('gantt.emptyHint')}
         </p>
       </div>
     )
@@ -84,10 +126,12 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
 
   // Calcular rango de fechas: desde la más temprana hasta la más tardía, con
   // margen de 3 días a cada lado para que las barras no toquen el borde.
+  // Usamos scheduledAll (no scheduled) para que el eje temporal NO se reajuste
+  // cuando el usuario toggle un filtro. La ventana visible es estable.
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const minStart = scheduled.reduce((m, t) => (t.start < m ? t.start : m), scheduled[0].start)
-  const maxEnd = scheduled.reduce((m, t) => (t.end > m ? t.end : m), scheduled[0].end)
+  const minStart = scheduledAll.reduce((m, t) => (t.start < m ? t.start : m), scheduledAll[0].start)
+  const maxEnd = scheduledAll.reduce((m, t) => (t.end > m ? t.end : m), scheduledAll[0].end)
   const rangeStart = new Date(minStart)
   rangeStart.setDate(rangeStart.getDate() - 3)
   const rangeEnd = new Date(maxEnd)
@@ -117,24 +161,108 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
 
   return (
     <div className="bg-[#0E0E18] border border-white/5 rounded-2xl overflow-hidden">
-      {/* Leyenda de colores arriba */}
-      <div className="flex items-center gap-4 px-4 py-2.5 border-b border-white/5 text-[11px] text-white/60">
-        {Object.entries(STATUS_COLORS).map(([key, val]) => (
-          <div key={key} className="flex items-center gap-1.5">
-            <span
-              className="w-2.5 h-2.5 rounded-sm"
-              style={{ background: val.fill }}
-            />
-            {val.label}
-          </div>
-        ))}
+      {/* Leyenda de colores arriba — cada chip es un toggle de filtro por estado.
+          Click apaga/enciende ese estado. Chip apagado se ve atenuado y
+          desaturado; el contador y las barras respetan el filtro. */}
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5 text-[11px] text-white/60">
+        {Object.entries(STATUS_COLORS).map(([key, val]) => {
+          const isActive = activeStatuses.has(key)
+          const label = t(`gantt.statusLabels.${val.labelKey}`)
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => toggleStatus(key)}
+              title={isActive
+                ? t('gantt.hideLabel', { label: label.toLowerCase() })
+                : t('gantt.showLabel', { label: label.toLowerCase() })}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md border transition-all ${
+                isActive
+                  ? 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
+                  : 'border-white/5 bg-transparent opacity-40 hover:opacity-70'
+              }`}
+            >
+              <span
+                className="w-2.5 h-2.5 rounded-sm"
+                style={{ background: val.fill }}
+              />
+              <span className={isActive ? '' : 'line-through'}>{label}</span>
+            </button>
+          )
+        })}
         <span className="ml-auto text-white/30">
-          {scheduled.length} tarea{scheduled.length !== 1 ? 's' : ''} en timeline
+          {t('gantt.countSummary', { shown: scheduled.length, total: scheduledAll.length, count: scheduledAll.length })}
         </span>
       </div>
 
-      {/* Contenedor con scroll horizontal cuando el proyecto es largo */}
-      <div className="overflow-x-auto">
+      {scheduled.length === 0 ? (
+        <div className="px-4 py-10 text-center">
+          <p className="text-sm text-white/50">
+            {t('gantt.noneMatch')}
+          </p>
+          <button
+            type="button"
+            onClick={resetFilter}
+            className="mt-3 px-3 py-1.5 text-xs text-white/70 border border-white/10 rounded-lg hover:bg-white/5 transition-colors"
+          >
+            {t('gantt.showAll')}
+          </button>
+        </div>
+      ) : (
+      /* Layout de dos columnas:
+         - IZQUIERDA (sticky): lista de participantes, cada uno clickeable
+           para filtrar el Gantt a sus tareas. Solo aparece si hay al menos
+           un participante asignado.
+         - DERECHA: SVG con scroll horizontal cuando el proyecto es largo. */
+      <div className="flex">
+        {participants.length > 0 && (
+          <div className="w-44 flex-shrink-0 border-r border-white/5 bg-[#0B0B14]">
+            <div
+              className="text-[10px] font-bold text-white/40 uppercase tracking-wider px-3 flex items-center"
+              style={{ height: headerHeight }}
+            >
+              {t('gantt.participantsHeader')}
+            </div>
+            <div>
+              {participants.map(p => {
+                const isActive = assigneeFilter === p.name
+                return (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => setAssigneeFilter(prev => prev === p.name ? null : p.name)}
+                    title={isActive
+                      ? t('gantt.clearAssigneeFilter')
+                      : t('gantt.filterByAssignee', { name: p.name })}
+                    className={`w-full text-left px-3 flex items-center justify-between gap-2 transition-colors border-b border-white/[0.03] ${
+                      isActive
+                        ? 'bg-violet-500/15 text-violet-200'
+                        : 'text-white/70 hover:bg-white/[0.03]'
+                    }`}
+                    style={{ height: rowHeight }}
+                  >
+                    <span className="text-xs truncate">{p.name}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                      isActive ? 'bg-violet-500/30 text-violet-100' : 'bg-white/5 text-white/40'
+                    }`}>
+                      {p.count}
+                    </span>
+                  </button>
+                )
+              })}
+              {assigneeFilter && (
+                <button
+                  type="button"
+                  onClick={() => setAssigneeFilter(null)}
+                  className="w-full text-center text-[11px] text-violet-300/80 hover:text-violet-200 py-2 border-b border-white/[0.03]"
+                >
+                  {t('gantt.clearAssigneeFilter')}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      <div className="overflow-x-auto flex-1">
         <svg width={width} height={height} className="block min-w-full">
           {/* Fondo de grid: líneas verticales en cada tick */}
           {ticks.map((t, i) => (
@@ -201,13 +329,19 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
             const durationDays = Math.max(1, daysBetween(task.start, task.end) + 1)
             const x = startDays * dayWidth
             const y = headerHeight + i * rowHeight + 6
-            const w = durationDays * dayWidth - 4
+            // Ancho mínimo para que el label SIEMPRE quepa adentro (al menos
+            // una palabra + ellipsis). Preferimos leer "Confirmar…" dentro
+            // del bar antes que texto flotando por fuera, aunque la barra
+            // quede un pelín más ancha de lo que la duración real implicaría.
+            // El tooltip nativo sigue mostrando el texto completo.
+            const naturalW = durationDays * dayWidth - 4
+            const w = Math.max(70, naturalW)
             const h = rowHeight - 12
             const colors = STATUS_COLORS[task.status] || STATUS_COLORS.pending
-            // Texto: si la barra es muy estrecha, omitirlo (se ve en tooltip)
-            const labelMaxChars = Math.floor(w / 6)
+            // Cálculo grosero de chars visibles a 11px: ~6px por char.
+            const labelMaxChars = Math.max(4, Math.floor((w - 12) / 6))
             const label = task.text.length > labelMaxChars
-              ? task.text.slice(0, Math.max(0, labelMaxChars - 1)) + '…'
+              ? task.text.slice(0, Math.max(1, labelMaxChars - 1)) + '…'
               : task.text
 
             return (
@@ -227,27 +361,28 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
                   strokeWidth={1}
                   opacity={0.85}
                 />
-                {w > 30 && (
-                  <text
-                    x={x + 6}
-                    y={y + h / 2 + 4}
-                    fill="white"
-                    fontSize={11}
-                    fontWeight={500}
-                    fontFamily="system-ui, -apple-system, sans-serif"
-                  >
-                    {label}
-                  </text>
-                )}
+                <text
+                  x={x + 6}
+                  y={y + h / 2 + 4}
+                  fill="white"
+                  fontSize={11}
+                  fontWeight={500}
+                  fontFamily="system-ui, -apple-system, sans-serif"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {label}
+                </text>
                 {/* Tooltip nativo del navegador con info completa */}
                 <title>
-                  {`${task.text}\n${colors.label}\n${formatDate(task.start)} → ${formatDate(task.end)}${task.assignedTo ? `\nAsignada a: ${task.assignedTo}` : ''}`}
+                  {`${task.text}\n${t(`gantt.statusLabels.${colors.labelKey}`)}\n${formatDate(task.start)} → ${formatDate(task.end)}${task.assignedTo ? `\n${t('gantt.assignedTo', { name: task.assignedTo })}` : ''}`}
                 </title>
               </g>
             )
           })}
         </svg>
       </div>
+      </div>
+      )}
     </div>
   )
 }

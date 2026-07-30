@@ -11,6 +11,7 @@
  */
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from 'react-oidc-context'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   Bell, CheckCheck, FolderKanban, Sparkles, ListTodo,
@@ -38,45 +39,50 @@ interface Props {
   onNavigate: (page: PageType) => void
 }
 
-// Mapa tipo → estética. Las claves cubren los tipos que el backend emite
-// (project_created, insights_generated, task_created, risk, whatsapp, email,
-// document_analyzed, text_analyzed, system, etc.).
-const TYPE_CONFIG: Record<string, { icon: any; color: string; bg: string; label: string }> = {
-  project_created:     { icon: FolderKanban, color: 'text-violet-400',  bg: 'bg-violet-500/10',  label: 'Proyecto creado' },
-  insights_generated:  { icon: Sparkles,     color: 'text-amber-400',   bg: 'bg-amber-500/10',   label: 'Insights nuevos' },
-  task_created:        { icon: ListTodo,     color: 'text-emerald-400', bg: 'bg-emerald-500/10', label: 'Tarea nueva'      },
-  risk:                { icon: AlertTriangle,color: 'text-red-400',     bg: 'bg-red-500/10',     label: 'Riesgo'           },
-  whatsapp:            { icon: MessageSquare,color: 'text-green-400',   bg: 'bg-green-500/10',   label: 'WhatsApp'         },
-  email:               { icon: Mail,         color: 'text-blue-400',    bg: 'bg-blue-500/10',    label: 'Email'            },
-  document_analyzed:   { icon: Sparkles,     color: 'text-amber-400',   bg: 'bg-amber-500/10',   label: 'Documento analizado' },
-  text_analyzed:       { icon: Sparkles,     color: 'text-amber-400',   bg: 'bg-amber-500/10',   label: 'Texto analizado' },
-  system:              { icon: Bell,         color: 'text-white/60',    bg: 'bg-white/5',        label: 'Sistema'          },
+// Mapa tipo → estética. Las claves cubren los tipos que el backend emite.
+// El `labelKey` es una key i18n; se resuelve con t() en tiempo de render.
+const TYPE_CONFIG: Record<string, { icon: any; color: string; bg: string; labelKey: string }> = {
+  project_created:     { icon: FolderKanban, color: 'text-violet-400',  bg: 'bg-violet-500/10',  labelKey: 'project_created' },
+  insights_generated:  { icon: Sparkles,     color: 'text-amber-400',   bg: 'bg-amber-500/10',   labelKey: 'insights_generated' },
+  task_created:        { icon: ListTodo,     color: 'text-emerald-400', bg: 'bg-emerald-500/10', labelKey: 'task_created' },
+  risk:                { icon: AlertTriangle,color: 'text-red-400',     bg: 'bg-red-500/10',     labelKey: 'risk' },
+  whatsapp:            { icon: MessageSquare,color: 'text-green-400',   bg: 'bg-green-500/10',   labelKey: 'whatsapp' },
+  email:               { icon: Mail,         color: 'text-blue-400',    bg: 'bg-blue-500/10',    labelKey: 'email' },
+  document_analyzed:   { icon: Sparkles,     color: 'text-amber-400',   bg: 'bg-amber-500/10',   labelKey: 'document_analyzed' },
+  text_analyzed:       { icon: Sparkles,     color: 'text-amber-400',   bg: 'bg-amber-500/10',   labelKey: 'text_analyzed' },
+  system:              { icon: Bell,         color: 'text-white/60',    bg: 'bg-white/5',        labelKey: 'system' },
 }
 
 function getConfig(type: string) {
   return TYPE_CONFIG[type] || TYPE_CONFIG.system
 }
 
-function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso)
-    const now = new Date()
-    const diffMs = now.getTime() - d.getTime()
-    const diffMin = Math.floor(diffMs / 60000)
-    const diffHrs = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
-    if (diffMin < 1) return 'ahora mismo'
-    if (diffMin < 60) return `hace ${diffMin} min`
-    if (diffHrs < 24) return `hace ${diffHrs}h`
-    if (diffDays < 7) return `hace ${diffDays}d`
-    return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
-  } catch {
-    return iso
+function useFormatDate() {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.language === 'en' ? 'en-US' : 'es-CO'
+  return (iso: string): string => {
+    try {
+      const d = new Date(iso)
+      const now = new Date()
+      const diffMs = now.getTime() - d.getTime()
+      const diffMin = Math.floor(diffMs / 60000)
+      const diffHrs = Math.floor(diffMs / 3600000)
+      const diffDays = Math.floor(diffMs / 86400000)
+      if (diffMin < 1) return t('notifications.relative.now')
+      if (diffMin < 60) return t('notifications.relative.minutes', { count: diffMin })
+      if (diffHrs < 24) return t('notifications.relative.hours', { count: diffHrs })
+      if (diffDays < 7) return t('notifications.relative.days', { count: diffDays })
+      return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
+    } catch {
+      return iso
+    }
   }
 }
 
 export default function NotificationsPage({ onNavigate }: Props) {
   const auth = useAuth()
+  const { t } = useTranslation()
+  const formatDate = useFormatDate()
   const token = auth.user?.access_token || ''
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
@@ -159,9 +165,15 @@ export default function NotificationsPage({ onNavigate }: Props) {
   }, [filtered])
 
   const totalUnread = notifications.filter(n => n.status !== 'read').length
-  // Lista única de canales encontrados, para el dropdown de filtro
+  // Lista única de canales encontrados, para el dropdown de filtro.
+  // WhatsApp escondido — no lo listamos aunque haya notifs con canal 'whatsapp'.
   const channels = useMemo(() => {
-    const s = new Set(notifications.map(n => n.canal).filter(Boolean))
+    const s = new Set(
+      notifications
+        .map(n => n.canal)
+        .filter(Boolean)
+        .filter(c => (c || '').toLowerCase() !== 'whatsapp')
+    )
     return Array.from(s).sort()
   }, [notifications])
 
@@ -183,22 +195,22 @@ export default function NotificationsPage({ onNavigate }: Props) {
             <button
               onClick={() => onNavigate('proyectos')}
               className="p-2 rounded-lg hover:bg-white/5 text-white/60 hover:text-white transition-colors"
-              title="Volver a proyectos"
+              title={t('notifications.backToProjects')}
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-3">
                 <Bell className="w-6 h-6 text-violet-400" />
-                Notificaciones
+                {t('notifications.title')}
                 {totalUnread > 0 && (
                   <span className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
-                    {totalUnread} sin leer
+                    {t('notifications.unreadBadge', { count: totalUnread })}
                   </span>
                 )}
               </h1>
               <p className="text-sm text-white/40 mt-1">
-                Todo lo que se mandó por tus proyectos, agrupado para que encuentres rápido.
+                {t('notifications.subtitle')}
               </p>
             </div>
           </div>
@@ -209,7 +221,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Refrescar
+              {t('notifications.refresh')}
             </button>
             {totalUnread > 0 && (
               <button
@@ -217,7 +229,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-violet-300 hover:text-violet-200 border border-violet-500/30 bg-violet-500/10 rounded-lg hover:bg-violet-500/20 transition-colors"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
-                Marcar todas como leídas
+                {t('notifications.markAllRead')}
               </button>
             )}
           </div>
@@ -225,14 +237,14 @@ export default function NotificationsPage({ onNavigate }: Props) {
 
         {/* Filtros */}
         <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
-          <span className="text-white/40">Filtrar:</span>
+          <span className="text-white/40">{t('notifications.filterLabel')}</span>
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value as 'all' | 'unread')}
             className="bg-[#161625] border border-white/10 rounded-md px-2.5 py-1 text-white/70 focus:outline-none focus:border-violet-500/40"
           >
-            <option value="all">Todas</option>
-            <option value="unread">Solo no leídas</option>
+            <option value="all">{t('notifications.filterAll')}</option>
+            <option value="unread">{t('notifications.filterUnread')}</option>
           </select>
           {channels.length > 0 && (
             <select
@@ -240,26 +252,26 @@ export default function NotificationsPage({ onNavigate }: Props) {
               onChange={e => setFilterChannel(e.target.value)}
               className="bg-[#161625] border border-white/10 rounded-md px-2.5 py-1 text-white/70 focus:outline-none focus:border-violet-500/40"
             >
-              <option value="all">Todos los canales</option>
+              <option value="all">{t('notifications.filterAllChannels')}</option>
               {channels.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           )}
           <span className="ml-auto text-white/30">
-            {filtered.length} de {notifications.length} notificaciones
+            {t('notifications.filterCount', { shown: filtered.length, total: notifications.length })}
           </span>
         </div>
 
         {/* Contenido */}
         {loading && notifications.length === 0 ? (
           <div className="flex items-center justify-center py-16 text-white/40">
-            Cargando notificaciones...
+            {t('notifications.loading')}
           </div>
         ) : grouped.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-white/30">
             <Inbox className="w-12 h-12 mb-3 opacity-50" />
-            <p className="text-sm">No hay notificaciones que coincidan con los filtros.</p>
+            <p className="text-sm">{t('notifications.empty')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -286,12 +298,12 @@ export default function NotificationsPage({ onNavigate }: Props) {
                       <span className="text-sm font-semibold text-white">{group.name}</span>
                       {unreadInGroup > 0 && (
                         <span className="px-1.5 py-0.5 text-[10px] font-bold bg-red-500/20 text-red-300 rounded-full">
-                          {unreadInGroup} sin leer
+                          {t('notifications.groupUnread', { count: unreadInGroup })}
                         </span>
                       )}
                     </div>
                     <span className="text-[11px] text-white/30">
-                      {group.items.length} total
+                      {t('notifications.groupTotal', { count: group.items.length })}
                     </span>
                   </button>
 
@@ -314,7 +326,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
-                                <p className="text-sm text-white font-medium">{n.title || cfg.label}</p>
+                                <p className="text-sm text-white font-medium">{n.title || t(`notifications.types.${cfg.labelKey}`)}</p>
                                 {isUnread && (
                                   <span className="w-2 h-2 rounded-full bg-violet-400 flex-shrink-0 mt-1.5" />
                                 )}
@@ -349,7 +361,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
                                 onClick={() => handleMarkRead(n.notificationId)}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-white/40 hover:text-violet-300 px-2 py-1 rounded hover:bg-white/5 flex-shrink-0"
                               >
-                                Marcar leído
+                                {t('notifications.markRead')}
                               </button>
                             )}
                           </div>

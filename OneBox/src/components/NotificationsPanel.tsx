@@ -14,6 +14,7 @@
  */
 import { useState, useEffect } from 'react'
 import { useAuth } from 'react-oidc-context'
+import { useTranslation } from 'react-i18next'
 import { Bell } from 'lucide-react'
 import { api } from '../services/api'
 
@@ -29,6 +30,7 @@ interface Props {
 
 export default function NotificationsPanel({ onOpen }: Props) {
   const auth = useAuth()
+  const { t } = useTranslation()
   const token = auth.user?.access_token || ''
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -63,7 +65,7 @@ export default function NotificationsPanel({ onOpen }: Props) {
     <button
       onClick={onOpen}
       className="relative p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-all"
-      title="Notificaciones"
+      title={t('notifications.bellTitle')}
     >
       <Bell className="w-5 h-5" />
       {unreadCount > 0 && (

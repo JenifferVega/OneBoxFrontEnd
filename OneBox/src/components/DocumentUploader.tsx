@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, DragEvent, ChangeEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import {
   Upload, FileText, Image, FileType, X, Loader2, CheckCircle2,
   AlertCircle, Sparkles
@@ -43,14 +44,19 @@ export default function DocumentUploader({
   variant = 'dark',
   onFileSelected,
   loading = false,
-  loadingText = 'Procesando...',
+  loadingText,
   successMessage,
   errorMessage,
-  label = 'Sube un documento',
-  hint = 'PDF, Word, TXT o imagen — la IA leerá su contenido y creará el proyecto automáticamente',
+  label,
+  hint,
   enableDrop = true,
   compact = false,
 }: DocumentUploaderProps) {
+  const { t } = useTranslation()
+  // Defaults i18n — si el caller pasa un valor explícito, gana el suyo.
+  const effectiveLoadingText = loadingText ?? t('uploader.processing')
+  const effectiveLabel = label ?? t('uploader.defaultLabel')
+  const effectiveHint = hint ?? t('uploader.defaultHint')
   const [dragOver, setDragOver] = useState(false)
   const [localError, setLocalError] = useState<string>('')
   const [selected, setSelected] = useState<File | null>(null)
@@ -63,16 +69,16 @@ export default function DocumentUploader({
     const lower = file.name.toLowerCase()
     const okExt = ACCEPTED_EXTENSIONS.some(ext => lower.endsWith(ext))
     if (!okExt) {
-      setLocalError(`Formato no soportado. Permitidos: ${ACCEPTED_EXTENSIONS.join(', ')}`)
+      setLocalError(t('uploader.invalidFormat', { formats: ACCEPTED_EXTENSIONS.join(', ') }))
       return
     }
     if (file.size > MAX_SIZE_BYTES) {
-      setLocalError(`El archivo supera ${MAX_SIZE_BYTES / 1024 / 1024} MB.`)
+      setLocalError(t('uploader.tooLarge', { max: MAX_SIZE_BYTES / 1024 / 1024 }))
       return
     }
     setSelected(file)
     onFileSelected(file)
-  }, [onFileSelected])
+  }, [onFileSelected, t])
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -153,10 +159,10 @@ export default function DocumentUploader({
               <div className={`w-12 h-12 ${iconBg} rounded-full flex items-center justify-center mb-3`}>
                 <Sparkles className={`w-6 h-6 ${iconColor} animate-pulse`} />
               </div>
-              <p className={`text-sm font-semibold ${labelColor}`}>{loadingText}</p>
+              <p className={`text-sm font-semibold ${labelColor}`}>{effectiveLoadingText}</p>
               <p className={`text-xs ${hintColor} mt-1 flex items-center gap-1.5`}>
                 <Loader2 className="w-3 h-3 animate-spin" />
-                La IA está leyendo el documento, esto puede tardar 10-20 segundos
+                {t('uploader.aiReading')}
               </p>
             </motion.div>
           )}
@@ -185,7 +191,7 @@ export default function DocumentUploader({
                     ? 'text-slate-400 hover:text-red-600 hover:bg-red-50'
                     : 'text-white/40 hover:text-red-400 hover:bg-red-500/10'
                 }`}
-                title="Quitar"
+                title={t('uploader.removeTooltip')}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -202,10 +208,10 @@ export default function DocumentUploader({
               <div className={`w-12 h-12 ${iconBg} rounded-full flex items-center justify-center mb-3`}>
                 <Upload className={`w-6 h-6 ${iconColor}`} />
               </div>
-              <p className={`text-sm font-semibold ${labelColor}`}>{label}</p>
-              <p className={`text-xs ${hintColor} mt-1 max-w-md`}>{hint}</p>
+              <p className={`text-sm font-semibold ${labelColor}`}>{effectiveLabel}</p>
+              <p className={`text-xs ${hintColor} mt-1 max-w-md`}>{effectiveHint}</p>
               <p className={`text-[11px] ${hintColor} mt-2 italic`}>
-                Arrastra aquí o haz click · máx. 10 MB
+                {t('uploader.dropOrClick')}
               </p>
             </motion.div>
           )}

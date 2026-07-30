@@ -56,8 +56,155 @@ export const api = {
   createProject: (data: any, token: string) =>
     fetchAPI('/api/projects', token, { method: 'POST', body: JSON.stringify(data) }),
 
+  /** Edición parcial de proyecto existente. Solo se mandan los campos a cambiar.
+   *  Campos válidos: name, description, type, status, deliveryDate, timing.
+   *  Backend valida que el caller sea el owner y rechaza con 403 si no.
+   */
+  updateProject: (
+    projectId: string,
+    updates: Partial<{
+      name: string
+      description: string
+      type: string
+      status: 'active' | 'paused' | 'finished'
+      deliveryDate: string
+      timing: string
+    }>,
+    token: string,
+  ) =>
+    fetchAPI(`/api/projects/${projectId}`, token, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    }),
+
   deleteProject: (projectId: string, token: string) =>
     fetchAPI(`/api/projects/${projectId}`, token, { method: 'DELETE' }),
+
+  /** Miembros de la organización del user logueado.
+   *  Excluye al propio user. Usado por el ProjectWizard para poblar el
+   *  buscador de team (antes era una lista hardcoded).
+   */
+  getOrgMembers: (token: string) =>
+    fetchAPI('/api/org/members', token) as Promise<{
+      members: Array<{
+        userId: string
+        email: string
+        nombre: string
+        iniciales: string
+        rolGlobal: string
+      }>
+    }>,
+
+  // ────────────────────────────────────────────────────────────────────
+  // Contexto del user logueado (rol global, org, flags)
+  // ────────────────────────────────────────────────────────────────────
+  /** Devuelve el contexto multi-tenant del user actual:
+   *  rolGlobal, orgId, isPlatformAdmin, capabilities. El frontend lo llama
+   *  en el mount para decidir qué UI mostrar (ej: tab Plataforma).
+   */
+  getMe: (token: string) =>
+    fetchAPI('/api/me', token) as Promise<{
+      uid: string
+      email: string
+      orgId: string | null
+      rolGlobal: string | null
+      isPlatformAdmin: boolean
+      joinedAt?: string
+      org?: {
+        orgId: string
+        name: string
+        domain: string
+        plan: string
+        status: string
+      } | null
+      capabilities?: string[]
+      warning?: string
+    }>,
+
+  // ────────────────────────────────────────────────────────────────────
+  // Endpoints de plataforma — SOLO para users con isPlatformAdmin=true.
+  // El backend valida con require_capability(ADMINISTRAR_PLATAFORMA)
+  // así que aunque alguien pegue a estos endpoints sin permiso, responde
+  // 403. El frontend solo los llama desde el panel de super admin.
+  // ────────────────────────────────────────────────────────────────────
+  listPlatformOrgs: (token: string, statusFilter?: string) => {
+    const q = statusFilter ? `?status=${encodeURIComponent(statusFilter)}` : ''
+    return fetchAPI(`/api/platform/orgs${q}`, token) as Promise<{
+      count: number
+      orgs: Array<{
+        orgId: string
+        name: string
+        domain: string
+        plan: string
+        status: string
+        createdAt: string
+        propietarioEmail: string
+        memberCount: number
+      }>
+    }>
+  },
+
+  getPlatformOrgDetail: (orgId: string, token: string) =>
+    fetchAPI(`/api/platform/orgs/${encodeURIComponent(orgId)}`, token) as Promise<{
+      org: Record<string, any>
+      members: Array<Record<string, any>>
+      memberCount: number
+      pendingInvitations: Array<Record<string, any>>
+      pendingInvitationsCount: number
+    }>,
+
+  createPlatformOrg: (
+    data: { name: string; propietarioEmail: string; domain?: string; plan?: string },
+    token: string,
+  ) =>
+    fetchAPI('/api/platform/orgs', token, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<{
+      success: boolean
+      orgId: string
+      name: string
+      propietarioEmail: string
+      emailDelivery?: any
+      message: string
+    }>,
+
+  updatePlatformOrgStatus: (orgId: string, newStatus: string, token: string) =>
+    fetchAPI(`/api/platform/orgs/${encodeURIComponent(orgId)}/status`, token, {
+      method: 'PUT',
+      body: JSON.stringify({ status: newStatus }),
+    }) as Promise<{
+      success: boolean
+      orgId: string
+      previousStatus: string
+      newStatus: string
+      updatedAt: string
+    }>,
+
+  getPlatformMetrics: (token: string) =>
+    fetchAPI('/api/platform/metrics', token) as Promise<{
+      orgsTotal: number
+      orgsActive: number
+      membersTotal: number
+      pendingInvitationsTotal: number
+    }>,
+
+  /** Elimina un miembro de una org. Backend rechaza (400) si es el último
+   *  propietario, el último super admin, o el propio actor. */
+  removePlatformMember: (orgId: string, userId: string, token: string) =>
+    fetchAPI(
+      `/api/platform/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(userId)}`,
+      token,
+      { method: 'DELETE' }
+    ) as Promise<{ success: boolean; orgId: string; userId: string; removedAt: string }>,
+
+  /** Cancela / borra una invitación pendiente. */
+  cancelPlatformInvitation: (invitationId: string, token: string) =>
+    fetchAPI(
+      `/api/platform/invitations/${encodeURIComponent(invitationId)}`,
+      token,
+      { method: 'DELETE' }
+    ) as Promise<{ success: boolean; invitationId: string; email?: string; cancelledAt: string }>,
 
   getConversations: (projectId: string, token: string) =>
     fetchAPI(`/api/projects/${projectId}/conversations`, token),
@@ -191,7 +338,11 @@ export const api = {
     return res.json()
   },
 
-  /** Crea el proyecto definitivo a partir de un draft analizado. */
+  /** Crea el proyecto definitivo a partir de un draft analizado.
+   *  `tasks` son las tareas confirmadas por el usuario en el preview
+   *  (con `assigned_to` ya propuesto por la IA). Si vienen, el backend
+   *  las persiste tal cual y SALTA la regeneración automática que
+   *  perdería el `assigned_to`. */
   createProjectFromDraft: (data: {
     draftId: string;
     name: string;
@@ -207,6 +358,13 @@ export const api = {
       email: string;
       phone: string;
       role: string;
+    }>;
+    tasks?: Array<{
+      text: string;
+      assigned_to?: string;
+      start_date?: string;
+      due_date?: string;
+      status?: string;
     }>;
   }, token: string) =>
     fetchAPI('/api/projects/from-document-draft', token, { method: 'POST', body: JSON.stringify(data) }),
