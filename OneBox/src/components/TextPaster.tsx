@@ -23,8 +23,10 @@ interface TextPasterProps {
   hint?: string
 }
 
+// Fuente 'whatsapp' escondida en la UI (hoy solo trabajamos con correo).
+// El backend sigue aceptando 'whatsapp' como source si viene, pero acá el
+// user solo elige entre correo y "otro".
 const SOURCE_OPTIONS = [
-  { id: 'whatsapp' as const, label: 'WhatsApp', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
   { id: 'gmail' as const,    label: 'Correo Gmail', icon: Mail, color: 'text-rose-500', bg: 'bg-rose-500/10' },
   { id: 'paste' as const,    label: 'Otro / nota', icon: FileText, color: 'text-violet-500', bg: 'bg-violet-500/10' },
 ]

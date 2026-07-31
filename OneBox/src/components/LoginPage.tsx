@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Mail, Loader2, Inbox, Lock, User as UserIcon, ArrowLeft, KeyRound } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Mail, Loader2, Lock, User as UserIcon, ArrowLeft, KeyRound } from 'lucide-react'
 import { useAuth } from 'react-oidc-context'
+import Logo from './Logo'
+import LocaleSwitcher from './LocaleSwitcher'
 import {
   signUp, confirmSignUp, resendCode, signIn,
   forgotPassword, confirmForgotPassword, friendlyError,
@@ -12,6 +15,7 @@ type Mode = 'login' | 'register' | 'confirm' | 'forgot' | 'reset' | 'newPassword
 
 export default function LoginPage() {
   const auth = useAuth()
+  const { t } = useTranslation()
   const [mode, setMode] = useState<Mode>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -46,12 +50,12 @@ export default function LoginPage() {
       if (e instanceof NewPasswordRequiredError || e?.name === 'NewPasswordRequiredError') {
         reset('newPassword')
         setPassword('')
-        setInfo('Tu contraseña era temporal. Define una nueva para continuar.')
+        setInfo(t('login.info.tempPassword'))
         return
       }
       // Si no está confirmado, llevamos al paso de código.
       if ((e?.code || e?.name) === 'UserNotConfirmedException') {
-        setInfo('Tu correo no está verificado. Te enviamos un código.')
+        setInfo(t('login.info.notConfirmed'))
         try { await resendCode(email.trim()) } catch {}
         reset('confirm')
       } else {
@@ -78,9 +82,9 @@ export default function LoginPage() {
     setLoading(true); setError(''); setInfo('')
     try {
       await signUp(email.trim(), password, name.trim() || undefined)
-      setInfo('Te enviamos un código de verificación a tu correo.')
+      setInfo(t('login.info.codeSent'))
       reset('confirm')
-      setInfo('Te enviamos un código de verificación a tu correo.')
+      setInfo(t('login.info.codeSent'))
     } catch (e: any) {
       setError(friendlyError(e))
     } finally {
@@ -106,9 +110,9 @@ export default function LoginPage() {
     setLoading(true); setError(''); setInfo('')
     try {
       await forgotPassword(email.trim())
-      setInfo('Te enviamos un código para restablecer tu contraseña.')
+      setInfo(t('login.info.forgotSent'))
       reset('reset')
-      setInfo('Te enviamos un código para restablecer tu contraseña.')
+      setInfo(t('login.info.forgotSent'))
     } catch (e: any) {
       setError(friendlyError(e))
     } finally {
@@ -120,9 +124,9 @@ export default function LoginPage() {
     setLoading(true); setError(''); setInfo('')
     try {
       await confirmForgotPassword(email.trim(), code.trim(), password)
-      setInfo('Contraseña actualizada. Ya puedes iniciar sesión.')
+      setInfo(t('login.info.passwordReset'))
       reset('login')
-      setInfo('Contraseña actualizada. Ya puedes iniciar sesión.')
+      setInfo(t('login.info.passwordReset'))
     } catch (e: any) {
       setError(friendlyError(e))
     } finally {
@@ -131,12 +135,12 @@ export default function LoginPage() {
   }
 
   const titles: Record<Mode, { h: string; p: string }> = {
-    login: { h: 'Bienvenido a OneBox', p: 'Inicia sesión para continuar' },
-    register: { h: 'Crea tu cuenta', p: 'Regístrate con tu correo' },
-    confirm: { h: 'Verifica tu correo', p: `Ingresa el código que enviamos a ${email || 'tu correo'}` },
-    forgot: { h: 'Recuperar contraseña', p: 'Te enviaremos un código a tu correo' },
-    reset: { h: 'Nueva contraseña', p: 'Ingresa el código y tu nueva contraseña' },
-    newPassword: { h: 'Define tu contraseña', p: 'Es tu primer inicio de sesión. Elige una contraseña propia.' },
+    login:       { h: t('login.titles.loginH'),       p: t('login.titles.loginP') },
+    register:    { h: t('login.titles.registerH'),    p: t('login.titles.registerP') },
+    confirm:     { h: t('login.titles.confirmH'),     p: email ? t('login.titles.confirmP', { email }) : t('login.titles.confirmPFallback') },
+    forgot:      { h: t('login.titles.forgotH'),      p: t('login.titles.forgotP') },
+    reset:       { h: t('login.titles.resetH'),       p: t('login.titles.resetP') },
+    newPassword: { h: t('login.titles.newPasswordH'), p: t('login.titles.newPasswordP') },
   }
 
   const inputCls =
@@ -144,16 +148,17 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+      {/* Selector de idioma fijo arriba a la derecha del login. */}
+      <div className="absolute top-4 right-4 z-10">
+        <LocaleSwitcher />
+      </div>
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-md"
       >
-        <div className="flex items-center gap-3 mb-6 justify-center">
-          <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-xl flex items-center justify-center">
-            <Inbox className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-xl font-bold text-white">OneBox</span>
+        <div className="flex justify-center mb-6">
+          <Logo variant="dark" size="lg" />
         </div>
 
         <div className="bg-slate-900/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-800 p-8">
@@ -163,7 +168,7 @@ export default function LoginPage() {
                 onClick={() => reset(mode === 'confirm' ? 'register' : 'login')}
                 className="flex items-center gap-1 text-xs text-slate-400 hover:text-white mb-4"
               >
-                <ArrowLeft className="w-3.5 h-3.5" /> Volver
+                <ArrowLeft className="w-3.5 h-3.5" /> {t('common.back')}
               </button>
             )}
             <div className="w-14 h-14 bg-gradient-to-br from-cyan-400/20 to-violet-500/20 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-cyan-500/20">
@@ -200,33 +205,33 @@ export default function LoginPage() {
             {mode === 'register' && (
               <div className="relative">
                 <UserIcon className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input className={inputCls} placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
+                <input className={inputCls} placeholder={t('login.field.name')} value={name} onChange={(e) => setName(e.target.value)} />
               </div>
             )}
 
             {(mode === 'login' || mode === 'register' || mode === 'forgot') && (
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input className={inputCls} type="email" placeholder="Correo electrónico" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <input className={inputCls} type="email" placeholder={t('login.field.email')} value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
             )}
 
             {(mode === 'confirm' || mode === 'reset') && (
               <div className="relative">
                 <KeyRound className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input className={inputCls} placeholder="Código de verificación" value={code} onChange={(e) => setCode(e.target.value)} required />
+                <input className={inputCls} placeholder={t('login.field.code')} value={code} onChange={(e) => setCode(e.target.value)} required />
               </div>
             )}
 
             {(mode === 'login' || mode === 'register' || mode === 'reset' || mode === 'newPassword') && (
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input className={inputCls} type="password" placeholder={mode === 'reset' || mode === 'newPassword' ? 'Nueva contraseña' : 'Contraseña'} value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <input className={inputCls} type="password" placeholder={mode === 'reset' || mode === 'newPassword' ? t('login.field.newPassword') : t('login.field.password')} value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
             )}
 
             {(mode === 'register' || mode === 'reset' || mode === 'newPassword') && (
-              <p className="text-[11px] text-slate-500 px-1">Mínimo 8 caracteres, con una mayúscula y un número.</p>
+              <p className="text-[11px] text-slate-500 px-1">{t('login.passwordHint')}</p>
             )}
 
             <button
@@ -235,31 +240,31 @@ export default function LoginPage() {
               className="w-full py-3 bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-400 hover:to-violet-400 text-white font-semibold rounded-xl transition-all shadow-lg shadow-cyan-500/25 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {mode === 'login' && 'Iniciar sesión'}
-              {mode === 'register' && 'Crear cuenta'}
-              {mode === 'confirm' && 'Verificar'}
-              {mode === 'forgot' && 'Enviar código'}
-              {mode === 'reset' && 'Cambiar contraseña'}
-              {mode === 'newPassword' && 'Definir contraseña y entrar'}
+              {mode === 'login' && t('login.submit.login')}
+              {mode === 'register' && t('login.submit.register')}
+              {mode === 'confirm' && t('login.submit.confirm')}
+              {mode === 'forgot' && t('login.submit.forgot')}
+              {mode === 'reset' && t('login.submit.reset')}
+              {mode === 'newPassword' && t('login.submit.newPassword')}
             </button>
           </form>
 
           {mode === 'confirm' && (
-            <button onClick={() => resendCode(email.trim()).then(() => setInfo('Código reenviado.')).catch((e) => setError(friendlyError(e)))} className="w-full mt-3 text-xs text-cyan-400 hover:underline">
-              Reenviar código
+            <button onClick={() => resendCode(email.trim()).then(() => setInfo(t('login.info.codeResent'))).catch((e) => setError(friendlyError(e)))} className="w-full mt-3 text-xs text-cyan-400 hover:underline">
+              {t('login.resendCode')}
             </button>
           )}
 
           {mode === 'login' && (
             <div className="mt-3 flex items-center justify-between text-xs">
-              <button onClick={() => reset('forgot')} className="text-slate-400 hover:text-white">¿Olvidaste tu contraseña?</button>
-              <button onClick={() => reset('register')} className="text-cyan-400 hover:underline">Crear cuenta</button>
+              <button onClick={() => reset('forgot')} className="text-slate-400 hover:text-white">{t('login.forgotLink')}</button>
+              <button onClick={() => reset('register')} className="text-cyan-400 hover:underline">{t('login.registerLink')}</button>
             </div>
           )}
           {mode === 'register' && (
             <p className="mt-3 text-center text-xs text-slate-400">
-              ¿Ya tienes cuenta?{' '}
-              <button onClick={() => reset('login')} className="text-cyan-400 hover:underline">Inicia sesión</button>
+              {t('login.haveAccount')}{' '}
+              <button onClick={() => reset('login')} className="text-cyan-400 hover:underline">{t('login.loginLink')}</button>
             </p>
           )}
 
@@ -267,7 +272,7 @@ export default function LoginPage() {
             <>
               <div className="relative my-5">
                 <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700" /></div>
-                <div className="relative flex justify-center text-sm"><span className="px-4 bg-slate-900 text-slate-500">o</span></div>
+                <div className="relative flex justify-center text-sm"><span className="px-4 bg-slate-900 text-slate-500">{t('common.or')}</span></div>
               </div>
               <button
                 onClick={handleGoogleLogin}
@@ -279,7 +284,7 @@ export default function LoginPage() {
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
-                Continuar con Google
+                {t('login.continueGoogle')}
               </button>
               {/* SSO con Microsoft (Entra ID + cuentas personales).
                   El IdP 'Microsoft' está configurado en el User Pool como OIDC
@@ -296,12 +301,12 @@ export default function LoginPage() {
                   <path fill="#00A4EF" d="M1 12h10v10H1z" />
                   <path fill="#FFB900" d="M12 12h10v10H12z" />
                 </svg>
-                Continuar con Microsoft
+                {t('login.continueMicrosoft')}
               </button>
             </>
           )}
         </div>
-        <p className="text-center text-slate-600 text-xs mt-6">© 2026 OneBox</p>
+        <p className="text-center text-slate-600 text-xs mt-6">{t('login.footerCopyright')}</p>
       </motion.div>
     </div>
   )

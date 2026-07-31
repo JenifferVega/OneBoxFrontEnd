@@ -1,0 +1,925 @@
+{
+  "nav": {
+    "projects": "Proyectos",
+    "intelligence": "Inteligencia",
+    "organizations": "Organizaciones"
+  },
+  "common": {
+    "newProject": "Nuevo proyecto",
+    "logout": "Cerrar sesión",
+    "language": "Idioma / Language",
+    "back": "Volver",
+    "or": "o"
+  },
+  "login": {
+    "titles": {
+      "loginH": "Bienvenido a OneBox",
+      "loginP": "Inicia sesión para continuar",
+      "registerH": "Crea tu cuenta",
+      "registerP": "Regístrate con tu correo",
+      "confirmH": "Verifica tu correo",
+      "confirmP": "Ingresa el código que enviamos a {{email}}",
+      "confirmPFallback": "Ingresa el código que enviamos a tu correo",
+      "forgotH": "Recuperar contraseña",
+      "forgotP": "Te enviaremos un código a tu correo",
+      "resetH": "Nueva contraseña",
+      "resetP": "Ingresa el código y tu nueva contraseña",
+      "newPasswordH": "Define tu contraseña",
+      "newPasswordP": "Es tu primer inicio de sesión. Elige una contraseña propia."
+    },
+    "info": {
+      "tempPassword": "Tu contraseña era temporal. Define una nueva para continuar.",
+      "notConfirmed": "Tu correo no está verificado. Te enviamos un código.",
+      "codeSent": "Te enviamos un código de verificación a tu correo.",
+      "forgotSent": "Te enviamos un código para restablecer tu contraseña.",
+      "passwordReset": "Contraseña actualizada. Ya puedes iniciar sesión.",
+      "codeResent": "Código reenviado."
+    },
+    "field": {
+      "name": "Nombre",
+      "email": "Correo electrónico",
+      "code": "Código de verificación",
+      "password": "Contraseña",
+      "newPassword": "Nueva contraseña"
+    },
+    "passwordHint": "Mínimo 8 caracteres, con una mayúscula y un número.",
+    "submit": {
+      "login": "Iniciar sesión",
+      "register": "Crear cuenta",
+      "confirm": "Verificar",
+      "forgot": "Enviar código",
+      "reset": "Cambiar contraseña",
+      "newPassword": "Definir contraseña y entrar"
+    },
+    "resendCode": "Reenviar código",
+    "forgotLink": "¿Olvidaste tu contraseña?",
+    "registerLink": "Crear cuenta",
+    "haveAccount": "¿Ya tienes cuenta?",
+    "loginLink": "Inicia sesión",
+    "continueGoogle": "Continuar con Google",
+    "continueMicrosoft": "Continuar con Microsoft",
+    "footerCopyright": "© 2026 OneBox"
+  },
+  "platform": {
+    "title": "Administración de organizaciones",
+    "subtitle": "Gestión de cuentas, miembros e invitaciones — solo staff de OneBox.",
+    "metrics": {
+      "orgsTotal": "Orgs totales",
+      "orgsActive": "Orgs activas",
+      "membersTotal": "Miembros totales",
+      "pendingInvitations": "Invitaciones pendientes"
+    },
+    "filters": {
+      "all": "Todas",
+      "active": "Activas",
+      "suspended": "Suspendidas",
+      "archived": "Archivadas"
+    },
+    "searchPlaceholder": "Buscar por nombre, dominio, email del propietario…",
+    "newOrg": "Nueva organización",
+    "loading": "Cargando organizaciones…",
+    "noSearchMatch": "Ninguna organización coincide con la búsqueda.",
+    "noResults": "Aún no hay organizaciones con este filtro.",
+    "memberCount_one": "{{count}} miembro",
+    "memberCount_other": "{{count}} miembros",
+    "createdOn": "Creada {{date}}",
+    "planLabel": "plan",
+    "createOrg": {
+      "title": "Nueva organización",
+      "helper": "El propietario recibe un email con link de registro. Al firmar, queda vinculado como <strong>propietario</strong> de la nueva org.",
+      "fieldName": "Nombre de la org",
+      "fieldNamePlaceholder": "Ej: Acme Corp",
+      "fieldOwnerEmail": "Email del propietario",
+      "fieldOwnerEmailPlaceholder": "dueño@empresa.com",
+      "fieldDomain": "Dominio (opcional)",
+      "fieldDomainPlaceholder": "empresa.com",
+      "fieldPlan": "Plan",
+      "cancel": "Cancelar",
+      "submit": "Crear y notificar"
+    },
+    "status": {
+      "active": "Activa",
+      "suspended": "Suspendida",
+      "archived": "Archivada"
+    },
+    "detail": {
+      "title": "Detalle de organización",
+      "loading": "Cargando…",
+      "errorLoad": "Error cargando detalle",
+      "subtitle": "{{ref}} · plan {{plan}} · creada {{date}}",
+      "actions": {
+        "reactivate": "Reactivar",
+        "suspend": "Suspender",
+        "archive": "Archivar",
+        "removeMember": "Quitar miembro de la org",
+        "cancelInvitation": "Cancelar invitación"
+      },
+      "confirm": {
+        "suspend": "¿Suspender esta organización? Los usuarios perderán acceso pero los datos quedan intactos.",
+        "archive": "¿Archivar esta organización? Es un soft-delete: los datos permanecen pero deja de operar.",
+        "reactivate": "¿Reactivar esta organización?",
+        "removeMember": "¿Quitar a {{email}} de esta organización?\n\nSe elimina su membresía. Su cuenta Cognito NO se borra — puede seguir logueado, pero no verá esta org.",
+        "cancelInvitation": "¿Cancelar la invitación{{target}}?"
+      },
+      "msg": {
+        "statusChanged": "Estado cambiado a \"{{status}}\".",
+        "statusError": "Error: {{error}}",
+        "statusErrorFallback": "no se pudo cambiar el estado",
+        "memberRemoved": "Miembro {{email}} eliminado.",
+        "memberRemoveErrorFallback": "no se pudo eliminar",
+        "invitationCancelled": "Invitación cancelada.",
+        "invitationCancelErrorFallback": "no se pudo cancelar"
+      },
+      "membersHeader": "Miembros ({{count}})",
+      "membersEmpty": "Ningún miembro registrado todavía.",
+      "memberRoleLine": "{{role}} · desde {{date}}",
+      "superAdminBadge": "super admin",
+      "invitationsHeader": "Invitaciones pendientes ({{count}})",
+      "invitationsEmpty": "Sin invitaciones pendientes.",
+      "invitationLine": "{{context}} · rol: {{role}} · desde {{date}}",
+      "invitationCtxProject": "proyecto: {{name}}",
+      "invitationCtxType": "tipo: {{type}}"
+    },
+    "errors": {
+      "loadData": "Error cargando datos",
+      "createOrg": "Error creando organización"
+    }
+  },
+  "gantt": {
+    "emptyTitle": "No hay tareas con fechas asignadas todavía.",
+    "emptyHint": "Edita cualquier tarea y asígnale fecha de inicio y fin para verla aquí.",
+    "hideLabel": "Ocultar {{label}}",
+    "showLabel": "Mostrar {{label}}",
+    "statusLabels": {
+      "pending": "Pendiente",
+      "in_progress": "En curso",
+      "done": "Completada",
+      "blocked": "Bloqueada"
+    },
+    "countSummary_one": "{{shown}} de {{total}} tarea",
+    "countSummary_other": "{{shown}} de {{total}} tareas",
+    "noneMatch": "Ninguna tarea coincide con el filtro seleccionado.",
+    "showAll": "Mostrar todos los estados",
+    "assignedTo": "Asignada a: {{name}}",
+    "participantsHeader": "Participantes",
+    "filterByAssignee": "Ver solo tareas de {{name}}",
+    "clearAssigneeFilter": "Quitar filtro"
+  },
+  "uploader": {
+    "processing": "Procesando...",
+    "defaultLabel": "Sube un documento",
+    "defaultHint": "PDF, Word, TXT o imagen — la IA leerá su contenido y creará el proyecto automáticamente",
+    "aiReading": "La IA está leyendo el documento, esto puede tardar 10-20 segundos",
+    "dropOrClick": "Arrastra aquí o haz click · máx. 10 MB",
+    "removeTooltip": "Quitar",
+    "invalidFormat": "Formato no soportado. Permitidos: {{formats}}",
+    "tooLarge": "El archivo supera {{max}} MB."
+  },
+  "gmail": {
+    "connected": {
+      "title": "Gmail Conectado",
+      "subtitle": "Tu cuenta de Gmail está vinculada correctamente",
+      "lastSync": "Última sincronización: Hace 5 min",
+      "viewInbox": "Ver Bandeja"
+    },
+    "connect": {
+      "title": "Conectar Gmail",
+      "subtitle": "Vincula tu cuenta de Gmail para comenzar el análisis inteligente",
+      "cardTitle": "Conecta tu cuenta de Gmail",
+      "cardText": "OneBox analizará tus correos de forma segura para identificar proyectos, personas y relaciones automáticamente.",
+      "permissions": {
+        "readTitle": "Ver tus correos electrónicos",
+        "readDesc": "Para analizar el contenido y detectar proyectos",
+        "inboxTitle": "Acceder a tu bandeja de entrada",
+        "inboxDesc": "Para leer y organizar los mensajes",
+        "readonlyTitle": "Solo lectura",
+        "readonlyDesc": "No modificaremos ni enviaremos correos"
+      },
+      "securityTitle": "Conexión 100% segura",
+      "securityDesc": "Usamos OAuth 2.0 de Google. Nunca almacenamos tu contraseña y puedes revocar el acceso en cualquier momento.",
+      "connectBtn": "Conectar con Google"
+    },
+    "connecting": {
+      "title": "Conectando con Gmail...",
+      "subtitle": "Autorizando permisos de solo lectura",
+      "step1": "Verificando credenciales",
+      "step2": "Solicitando permisos",
+      "step3": "Estableciendo conexión"
+    },
+    "success": {
+      "title": "¡Conectado exitosamente!",
+      "subtitle": "Tu cuenta de Gmail está lista para ser analizada",
+      "goToProjects": "Ir a Proyectos"
+    },
+    "faq": {
+      "title": "Preguntas frecuentes",
+      "q1": "¿Mis correos están seguros?",
+      "a1": "Sí, usamos encriptación de extremo a extremo y nunca compartimos tus datos.",
+      "q2": "¿Puedo desconectar Gmail?",
+      "a2": "Sí, puedes revocar el acceso en cualquier momento desde la configuración.",
+      "q3": "¿Qué datos se analizan?",
+      "a3": "Solo analizamos remitente, asunto y contenido para detectar proyectos y relaciones."
+    }
+  },
+  "notifications": {
+    "bellTitle": "Notificaciones",
+    "backToProjects": "Volver a proyectos",
+    "title": "Notificaciones",
+    "unreadBadge_one": "{{count}} sin leer",
+    "unreadBadge_other": "{{count}} sin leer",
+    "subtitle": "Todo lo que se mandó por tus proyectos, agrupado para que encuentres rápido.",
+    "refresh": "Refrescar",
+    "markAllRead": "Marcar todas como leídas",
+    "filterLabel": "Filtrar:",
+    "filterAll": "Todas",
+    "filterUnread": "Solo no leídas",
+    "filterAllChannels": "Todos los canales",
+    "filterCount": "{{shown}} de {{total}} notificaciones",
+    "loading": "Cargando notificaciones...",
+    "empty": "No hay notificaciones que coincidan con los filtros.",
+    "groupUnread_one": "{{count}} sin leer",
+    "groupUnread_other": "{{count}} sin leer",
+    "groupTotal": "{{count}} total",
+    "markRead": "Marcar leído",
+    "relative": {
+      "now": "ahora mismo",
+      "minutes": "hace {{count}} min",
+      "hours": "hace {{count}}h",
+      "days": "hace {{count}}d"
+    },
+    "types": {
+      "project_created": "Proyecto creado",
+      "insights_generated": "Insights nuevos",
+      "task_created": "Tarea nueva",
+      "risk": "Riesgo",
+      "whatsapp": "WhatsApp",
+      "email": "Email",
+      "document_analyzed": "Documento analizado",
+      "text_analyzed": "Texto analizado",
+      "system": "Sistema"
+    }
+  },
+  "chat": {
+    "welcome": "¡Hola! Soy el asistente inteligente de OneBox. Puedo buscar tus correos, analizar contenido y sugerirte acciones.\n\nPrueba preguntándome:\n• \"Muéstrame mis correos recientes\"\n• \"¿Tengo correos con adjuntos?\"\n• \"Busca correos de Santiago\"",
+    "reset": "Chat reiniciado. ¿En qué puedo ayudarte?",
+    "statusConnected": "Conectado",
+    "statusThinking": "Pensando...",
+    "statusError": "Error de conexión",
+    "resetTooltip": "Reiniciar chat",
+    "loading": "Analizando tu consulta...",
+    "suggestions": {
+      "recent": "Mis correos recientes",
+      "attachments": "Correos con adjuntos",
+      "onebox": "Correos de OneBox"
+    },
+    "inputPlaceholder": "Pregúntame sobre tus correos...",
+    "inputWaiting": "Esperando respuesta...",
+    "errors": {
+      "notAuthed": "Sesión no iniciada — inicia sesión para usar el chatbot.",
+      "unknown": "Error desconocido",
+      "generic": "Hubo un error al procesar tu consulta.",
+      "network": "⚠️ No se pudo conectar con el agente. Verifica que la URL del backend sea correcta en VITE_AGENT_API."
+    }
+  },
+  "wizard": {
+    "chooseTitle": "Nuevo proyecto",
+    "chooseSubtitle": "¿Cómo quieres empezar?",
+    "cancel": "← Cancelar y volver",
+    "back": "← Volver",
+    "backToUpload": "← Subir otro documento",
+    "chooser": {
+      "pasteBadge": "Más rápido",
+      "pasteTitle": "Pegar conversación",
+      "pasteDesc": "Copia un chat de WhatsApp o un hilo de correo y pégalo aquí. La IA detectará tareas, riesgos y decisiones.",
+      "pasteFooter": "Texto pegado → continuar",
+      "documentTitle": "Subir un documento",
+      "documentDesc": "Brief, acta, propuesta o PDF. La IA leerá su contenido y creará el proyecto con todo.",
+      "documentFooter": "PDF, Word, TXT, imagen → continuar",
+      "manualTitle": "Llenar formulario",
+      "manualDesc": "Completa los campos del proyecto manualmente: nombre, equipo, canales, fechas.",
+      "manualFooter": "3 pasos guiados → continuar"
+    },
+    "paste": {
+      "title": "Crear proyecto desde una conversación",
+      "subtitle": "Pega un chat de WhatsApp, hilo de correo o cualquier texto. La IA detectará tareas, riesgos y decisiones, y creará el proyecto automáticamente.",
+      "loading": "🤖 La IA está analizando el texto...",
+      "attachmentNote": "El texto queda guardado como adjunto del proyecto."
+    },
+    "document": {
+      "title": "Crear proyecto desde documento",
+      "subtitle": "La IA leerá el contenido del documento y generará automáticamente el nombre, la descripción y los insights del proyecto.",
+      "loading": "🤖 La IA está leyendo el documento...",
+      "uploaderLabel": "Sube tu documento",
+      "uploaderHint": "Acta, brief, propuesta, requisitos... la IA inferirá todo",
+      "attachmentNote": "El documento queda anexado al proyecto y podrás descargarlo después."
+    },
+    "review": {
+      "title": "Revisa el proyecto antes de crear",
+      "subtitle": "La IA analizó <1>{{fileName}}</1> ({{chars}} caracteres). Revisa, edita lo que quieras y elige los canales antes de crear el proyecto.",
+      "nameLabel": "Nombre del proyecto",
+      "typeLabel": "Tipo de proyecto",
+      "typePlaceholder": "Ej: Desarrollo Web, Marketing, RRHH... o el que necesites",
+      "typeHint": "Puedes elegir una sugerencia o escribir el tipo personalizado.",
+      "descriptionLabel": "Descripción",
+      "descriptionHint": "Generada por la IA — puedes editarla.",
+      "timingLabel": "Timing del proyecto",
+      "timingOptional": "(opcional, recomendado)",
+      "timingPlaceholder": "Ej: 8 semanas, Q3 2026, entrega el 30/06/2026...",
+      "timingHint": "Plazo aproximado del proyecto. Puede ser una duración o una fecha.",
+      "channelsHint": "Selecciona al menos uno. Estos canales se usarán para notificaciones y comunicación."
+    },
+    "manual": {
+      "backCta": "Volver al inicio",
+      "sidebar": {
+        "title": "Nuevo Proyecto",
+        "previewLabel": "Vista Previa",
+        "teamLabel": "Equipo",
+        "channelsLabel": "Canales",
+        "deliveryLabel": "Entrega"
+      },
+      "step1": {
+        "title": "¿Cómo se llama tu proyecto?",
+        "subtitle": "Define el nombre, tipo y descripción del proyecto.",
+        "nameLabel": "Nombre del proyecto",
+        "namePlaceholder": "Ej: Rediseño Portal Web",
+        "typeLabel": "Tipo de proyecto",
+        "typeCustomPlaceholder": "O escribe un tipo personalizado...",
+        "descriptionLabel": "Descripción",
+        "descriptionHint": "Requerida — mínimo 15 caracteres. La IA la usa para sugerir tareas y participantes.",
+        "descriptionPlaceholder": "Describe brevemente el alcance del proyecto..."
+      },
+      "step2": {
+        "title": "¿Quién trabaja en este proyecto?",
+        "subtitle": "Busca por nombre. El sistema detecta si alguien ya está añadido.",
+        "searchPlaceholder": "Buscar por nombre...",
+        "selectedTeam": "Equipo Seleccionado",
+        "phonePlaceholder": "+34 600 000 000",
+        "externalPlaceholder": "Invitar externo por email..."
+      },
+      "step3": {
+        "title": "Canales y timing",
+        "subtitle": "Selecciona los canales de comunicación y la fecha estimada de entrega.",
+        "channelsLabel": "Canales de comunicación",
+        "deliveryLabel": "Fecha estimada de entrega",
+        "summaryTitle": "Resumen del proyecto",
+        "summaryName": "Nombre",
+        "summaryTeam": "Equipo",
+        "summaryChannels": "Canales",
+        "summaryDelivery": "Entrega",
+        "summaryDescription": "Descripción"
+      },
+      "detectedTasks": {
+        "emailPlaceholder": "📧 email@empresa.com",
+        "phonePlaceholder": "📱 +34 600 000 000",
+        "noChannelHint": "Se agregará como participante sin canal de notificación",
+        "noChannelBadge": "Sin canal de notificación",
+        "removeTooltip": "Quitar persona",
+        "addPersonTitle": "Agregar persona al equipo",
+        "namePlaceholder": "Nombre (ej: Ana López)",
+        "rolePlaceholder": "Rol (ej: Diseñadora, PM)",
+        "emailPlaceholderOptional": "📧 email@empresa.com (opcional)",
+        "phonePlaceholderOptional": "📱 +34 600 000 000 (opcional)",
+        "taskTextPlaceholder": "Texto de la tarea",
+        "assigneeTooltip": "Responsable",
+        "startDateTooltip": "Fecha de inicio",
+        "dueDateTooltip": "Fecha de entrega",
+        "ghostAssignee": "Esta persona ya no está en el equipo. Se asignará vacío al crear."
+      }
+    }
+  },
+  "insightsSidebar": {
+    "backToAll": "← Todos los proyectos",
+    "title": "Análisis con IA",
+    "loading": "Cargando insights...",
+    "emptyTitle": "Sin insights aún",
+    "emptyHint": "La IA analizará tu proyecto en segundos",
+    "sections": {
+      "key_insight": "Insight clave",
+      "project_characterization": "Tipo real",
+      "client_profile": "Perfil del cliente",
+      "work_done": "Trabajo realizado",
+      "task_created": "Tareas pendientes",
+      "blocker": "Bloqueos del cliente",
+      "risk": "Riesgos",
+      "tech_issue": "Problemas técnicos",
+      "decision": "Decisiones",
+      "metric": "Métricas"
+    },
+    "channelsSection": "Canales del proyecto",
+    "footerFiltered": "{{shown}} de {{total}} insight{{s}} coinciden con la búsqueda",
+    "footerGenerated": "{{count}} insight{{s}} generado{{s}} por IA",
+    "noMatch": "Ningún insight coincide con"
+  },
+  "attachments": {
+    "header": "Adjuntos del proyecto",
+    "subtitle": "Sube documentos relacionados con el proyecto. La IA los analizará y generará insights.",
+    "pasteBtn": "Pegar texto",
+    "uploadBtn": "Subir documento",
+    "panelPasteHint": "Pega una conversación o texto. La IA detectará tareas, riesgos y decisiones.",
+    "panelDocHint": "La IA leerá el documento y generará nuevos insights para este proyecto.",
+    "loadingText": "🤖 La IA está analizando el texto...",
+    "processingDoc": "Procesando documento...",
+    "uploadLabel": "Adjunta un documento",
+    "uploadHint": "PDF, Word, TXT o imagen — máx. 10 MB",
+    "emptyTitle": "Sin adjuntos aún",
+    "emptyHint": "Sube actas, briefs, propuestas o cualquier doc relacionado.",
+    "aiRead": "IA leyó {{count}} caracteres",
+    "downloadTooltip": "Descargar",
+    "deleteTooltip": "Eliminar",
+    "confirmDelete": "¿Eliminar este adjunto? Esta acción no se puede deshacer.",
+    "deleteError": "No se pudo eliminar el adjunto."
+  },
+  "intelligence": {
+    "title": "Centro de Inteligencia",
+    "subtitle": "{{count}} acciones registradas · Datos en tiempo real desde DynamoDB",
+    "period": {
+      "today": "Hoy",
+      "last48h": "Últimas 48h",
+      "thisWeek": "Esta semana",
+      "thisMonth": "Este mes"
+    },
+    "metrics": {
+      "processed": "Mensajes procesados",
+      "executed": "Acciones ejecutadas",
+      "needsReview": "Requieren revisión",
+      "unclassified": "No clasificados",
+      "accuracy": "Precisión clasificación"
+    },
+    "filters": {
+      "typeHeader": "Filtrar por tipo",
+      "projectHeader": "Filtrar por proyecto",
+      "channelHeader": "Filtrar por canal",
+      "typeAll": "Todas las acciones",
+      "typeExecuted": "Ejecutadas",
+      "typeNeedsReview": "Requieren revisión",
+      "typeErrors": "Errores"
+    },
+    "actionCard": {
+      "detected": "DETECTÓ",
+      "executed": "EJECUTÓ",
+      "executedBadge": "Ejecutado",
+      "needsReviewBadge": "Requiere revisión",
+      "errorBadge": "Error"
+    },
+    "rightPanel": {
+      "accuracyTitle": "Precisión de clasificación",
+      "accuracyCurrent": "Precisión actual",
+      "accuracyDetail": "{{done}} acciones ejecutadas de {{total}}",
+      "actionsByType": "Acciones por tipo",
+      "activity7days": "Actividad últimos 7 días",
+      "activeProjects": "Proyectos con actividad IA",
+      "registeredActions_one": "{{count}} acción registrada",
+      "registeredActions_other": "{{count}} acciones registradas"
+    },
+    "loading": "Cargando datos…",
+    "empty": "Sin acciones en este periodo.",
+    "reviewBtn": "Revisar",
+    "unclassified": "Sin clasificar",
+    "noAiActivity": "Sin actividad IA registrada",
+    "typeLabels": {
+      "task_created": "Tareas creadas",
+      "decision": "Decisiones",
+      "followup": "Follow-ups / Emails",
+      "blocker": "Bloqueadores",
+      "risk": "Riesgos",
+      "sla": "SLA / Escalaciones",
+      "notification": "Notificaciones",
+      "classification": "Auto-clasificación",
+      "summary": "Resúmenes"
+    }
+  },
+  "projects": {
+    "sla": {
+      "onTrack": "On track",
+      "atRisk": "En riesgo",
+      "overdue": "SLA vencido",
+      "paused": "Pausado",
+      "delivered": "Entregado"
+    },
+    "status": {
+      "active": "Activo",
+      "paused": "En pausa",
+      "finished": "Finalizado"
+    },
+    "list": {
+      "title": "Tus proyectos",
+      "subtitle": "{{total}} proyectos · {{blocked}} tareas bloqueadas · Datos en tiempo real",
+      "filters": {
+        "all": "Todos",
+        "active": "Activos",
+        "atRisk": "En riesgo",
+        "overdue": "Vencidos",
+        "paused": "En pausa"
+      },
+      "stats": {
+        "totalProjects": "Proyectos totales",
+        "tasksCompleted": "Tareas completadas",
+        "tasksPending": "Tareas pendientes",
+        "tasksBlocked": "Tareas bloqueadas",
+        "aiInsights": "Insights IA",
+        "hintDetail": "Click para ver detalle",
+        "hintClear": "Click para quitar filtro"
+      },
+      "filtered": "FILTRADO",
+      "globalFilterLabels": {
+        "completed": "completadas",
+        "pending": "pendientes",
+        "blocked": "bloqueadas"
+      },
+      "loading": "Cargando proyectos desde DynamoDB...",
+      "emptyNoProjects": "Aún no tienes proyectos",
+      "emptyHint": "Crea tu primer proyecto con el botón \"Nuevo proyecto\"",
+      "emptyNoMatch": "No hay proyectos que coincidan",
+      "emptyNoMatchHint": "Prueba con otro filtro o cambia la búsqueda"
+    },
+    "card": {
+      "deleteTooltip": "Eliminar proyecto",
+      "invitedTooltip": "Estás invitado",
+      "delivery": "Entrega: {{date}} · {{days}} días",
+      "pausedSince": "Pausado desde: {{date}}",
+      "closedOn": "Cerrado: {{date}}",
+      "progress": "Avance",
+      "statsDone": "Hechas",
+      "statsPending": "Pendientes",
+      "statsBlocked": "Bloqueadas",
+      "statsAiMessages": "Mensajes IA"
+    },
+    "detail": {
+      "editTooltip": "Editar proyecto",
+      "deleteTooltip": "Eliminar proyecto",
+      "invitedTooltip": "Estás invitado a este proyecto",
+      "invitedBadge": "Invitado",
+      "delete": "Eliminar",
+      "daysLeft": "{{count}} días restantes",
+      "searchPlaceholder": "Buscar en este proyecto: tareas, riesgos, decisiones, insights...",
+      "clearSearch": "Limpiar búsqueda",
+      "searching": "Buscando: \"{{query}}\"",
+      "searchCompletedSuffix": "completadas",
+      "searchPendingSuffix": "pendientes",
+      "searchBlockedSuffix": "bloqueadas",
+      "searchActionsSuffix": "acciones IA",
+      "ganttTitle": "Vista Gantt",
+      "ganttSubtitle": "por fechas de tareas",
+      "stats": {
+        "completed": "COMPLETADAS",
+        "pending": "PENDIENTES",
+        "blocked": "BLOQUEADAS",
+        "aiMessages": "MENSAJES PROCESADOS IA",
+        "subOfTotal": "de {{total}} tareas totales",
+        "subOfMatches": "de {{total}} coincidencias",
+        "subMatching": "que coinciden con la búsqueda",
+        "subAiActionsMatching": "acciones IA que coinciden",
+        "subDueToday": "{{count}} con fecha límite hoy",
+        "subRequireAction": "Requieren acción",
+        "subChannels": "100% clasificados · {{count}} canales",
+        "clickToFilter": "Click para filtrar",
+        "filtered": "FILTRADO"
+      },
+      "filterBarPrefix": "Filtrando tareas: ",
+      "filterStatuses": {
+        "completed": "Completadas",
+        "pending": "Pendientes",
+        "blocked": "Bloqueadas"
+      },
+      "removeFilter": "Quitar filtro",
+      "progressTitle": "Progreso global del proyecto",
+      "progressPct": "{{value}}% completado",
+      "progressBlocked": "Avance bloqueado:",
+      "progressStats": {
+        "done": "Completadas",
+        "inProgress": "En curso",
+        "pending": "Pendientes"
+      },
+      "tasks": {
+        "header": "Tareas",
+        "headerCompleted": "Tareas completadas",
+        "headerPending": "Tareas pendientes",
+        "headerBlocked": "Tareas bloqueadas",
+        "viewAll": "Ver todas ({{count}})",
+        "viewLess": "Ver menos",
+        "newTask": "Nueva tarea",
+        "subtask": "Subtarea",
+        "editTooltip": "Editar tarea",
+        "deleteTooltip": "Borrar tarea",
+        "unassigned": "Sin asignar",
+        "clickToComplete": "Click para marcar como completada",
+        "clickToUnmark": "Click para marcar como pendiente",
+        "blockedTooltip": "Tarea bloqueada",
+        "statusLabels": {
+          "done": "COMPLETADA:",
+          "blocked": "BLOQUEADA:",
+          "in_progress": "EN CURSO:",
+          "waiting": "EN ESPERA:",
+          "pending": "PENDIENTE:"
+        },
+        "statusTags": {
+          "done": "Completada",
+          "blocked": "Bloqueada",
+          "in_progress": "En curso",
+          "pending": "Pendiente"
+        },
+        "subtasksAbbrev": "subt.",
+        "subtasksTooltip": "{{done}} de {{total}} subtareas completadas",
+        "blockReasonPlaceholder": "Motivo del bloqueo...",
+        "block": "Bloquear",
+        "unblock": "Desbloquear",
+        "cancel": "Cancelar",
+        "blockedReasonPrefix": "Motivo:",
+        "emptyForFilter": "No hay tareas {{status}}",
+        "emptyForAssignee": "No hay tareas asignadas a {{name}}",
+        "emptyDefault": "No hay tareas definidas para este proyecto",
+        "filterByAssignee": "Mostrando solo tareas de {{name}}"
+      },
+      "aiActions": {
+        "header": "Acciones ejecutadas por la IA",
+        "detected": "DETECTÓ",
+        "executed": "EJECUTÓ"
+      },
+      "notifications": {
+        "header": "Notificaciones enviadas",
+        "subheader": "Email"
+      },
+      "team": {
+        "header": "Equipo del Proyecto",
+        "readOnlyHint": "Solo el dueño del proyecto puede modificar el equipo",
+        "addTooltip": "Añadir contacto y opcionalmente enviar invitación por email/WhatsApp",
+        "addLabel": "Añadir / Invitar",
+        "editTooltip": "Editar email y teléfono de todos los miembros",
+        "editLabel": "Editar contactos",
+        "taskCount_one": "{{count}} tarea",
+        "taskCount_other": "{{count}} tareas",
+        "noChannel": "sin canal",
+        "emailPlaceholder": "email@ejemplo.com",
+        "phonePlaceholder": "+34 600 000 000",
+        "empty": "Sin equipo asignado",
+        "filterByAssignee": "Ver solo tareas de {{name}}",
+        "clearAssigneeFilter": "Quitar filtro",
+        "filterSummaryHeader": "Tareas de {{name}}",
+        "filterSummaryCount_one": "{{count}} tarea encontrada",
+        "filterSummaryCount_other": "{{count}} tareas encontradas",
+        "filterSummaryMore": "Ver {{count}} más",
+        "filterSummaryLess": "Ver menos"
+      },
+      "channels": {
+        "header": "Canales Activos",
+        "empty": "Sin canales configurados"
+      },
+      "tags": {
+        "header": "Etiquetas Activas (IA)"
+      },
+      "slaPanel": {
+        "header": "SLA del Proyecto",
+        "responseAvg": "Respuesta media al cliente",
+        "unassignedTasks": "Tareas sin responsable",
+        "partnerResponse": "Respuesta pendiente partner",
+        "blockedOver24h": "Tareas bloqueadas +24h"
+      }
+    },
+    "modals": {
+      "cancel": "Cancelar",
+      "close": "Cerrar",
+      "delete": {
+        "title": "Eliminar proyecto",
+        "prompt": "¿Seguro que quieres eliminar <1>{{name}}</1>? Esta acción borrará también sus insights, tareas y notificaciones. <2>No se puede deshacer.</2>",
+        "deleting": "Eliminando...",
+        "confirm": "Sí, eliminar"
+      },
+      "edit": {
+        "title": "Editar proyecto",
+        "subtitle": "Cambia los datos básicos del proyecto. Solo el dueño puede editar.",
+        "name": "Nombre *",
+        "description": "Descripción",
+        "type": "Tipo",
+        "typePlaceholder": "Marketing, Backend, Diseño...",
+        "status": "Estado",
+        "statusActive": "Activo",
+        "statusPaused": "En pausa",
+        "statusFinished": "Finalizado",
+        "deliveryDate": "Fecha entrega",
+        "timing": "Plazo (texto libre)",
+        "timingPlaceholder": "8 semanas, Q3 2026...",
+        "saving": "Guardando...",
+        "save": "Guardar cambios",
+        "error": "Error guardando cambios"
+      },
+      "task": {
+        "titleEdit": "Editar tarea",
+        "titleNew": "Nueva tarea",
+        "text": "Título *",
+        "textPlaceholder": "¿Qué hay que hacer?",
+        "description": "Descripción",
+        "descriptionPlaceholder": "Detalles, contexto...",
+        "status": "Estado",
+        "statusPending": "Pendiente",
+        "statusInProgress": "En curso",
+        "statusBlocked": "Bloqueada",
+        "statusDone": "Completada",
+        "assignTo": "Asignar a",
+        "unassigned": "Sin asignar",
+        "startDate": "Fecha inicio",
+        "endDate": "Fecha fin",
+        "parentTask": "Subtarea de",
+        "noParent": "(ninguna — tarea raíz)",
+        "create": "Crear tarea",
+        "save": "Guardar cambios"
+      },
+      "deleteTask": {
+        "title": "Borrar tarea",
+        "prompt": "¿Seguro que quieres borrar <1>\"{{text}}\"</1>? <2>No se puede deshacer.</2>",
+        "subtasksWarning_one": "⚠️ Esta tarea tiene <1>{{count}} subtarea</1>. Elige qué hacer con ellas:",
+        "subtasksWarning_other": "⚠️ Esta tarea tiene <1>{{count}} subtareas</1>. Elige qué hacer con ellas:",
+        "keepSubtasks": "Borrar solo esta (mantener subtareas)",
+        "deleting": "Borrando...",
+        "confirmAll": "Borrar todo (incluyendo subtareas)",
+        "confirmSingle": "Sí, borrar"
+      },
+      "removeMember": {
+        "title": "Eliminar a {{name}}",
+        "subtitle": "Se quitará del equipo de <1>{{project}}</1>.",
+        "bullet1": "Sus tareas asignadas quedarán como <1>\"Sin asignar\"</1> (no se borran).",
+        "bullet2": "Si tenía invitación aceptada, <1>perderá el acceso</1> al proyecto.",
+        "bullet3": "No se enviará ninguna notificación.",
+        "removing": "Eliminando...",
+        "confirm": "Eliminar"
+      },
+      "invite": {
+        "title": "Añadir persona al proyecto",
+        "subtitle": "Rellena email y/o WhatsApp. Si marcas \"enviar invitación\", recibirá un aviso por cada canal que pongas.",
+        "name": "Nombre *",
+        "namePlaceholder": "María Pérez",
+        "role": "Rol",
+        "rolePlaceholder": "Diseñadora",
+        "emailHint": "Le llegará correo con cuenta de acceso a la app.",
+        "emailPlaceholder": "alguien@ejemplo.com",
+        "phoneHint": "Recibirá WhatsApp avisando que fue añadido y notificaciones del proyecto.",
+        "phonePlaceholder": "+34 600 000 000",
+        "sendNow": "Enviar invitación ahora",
+        "sendNowHint": "(si lo desmarcas, solo guarda el contacto sin notificar)",
+        "sharePrompt": "📎 Comparte este link con el invitado (cópialo y mándalo por WhatsApp o Slack):",
+        "copy": "Copiar",
+        "copied": "✓ Copiado",
+        "saving": "Guardando...",
+        "addAndInvite": "Añadir e invitar",
+        "onlyAdd": "Solo añadir",
+        "resultEmailFailed": "⚠️ Email falló: {{error}}",
+        "resultEmailUndelivered": "⚠️ No pudimos entregar el email. Comparte el link de abajo.",
+        "resultEmailSent": "✉️ Email enviado",
+        "resultWhatsappSent": "📱 WhatsApp enviado",
+        "resultWhatsappFailed": "⚠️ WhatsApp falló: {{error}}",
+        "resultNoNotify": "Contacto guardado sin notificación",
+        "resultDone": "Listo",
+        "errorSaving": "Error guardando",
+        "defaultRole": "Invitado"
+      }
+    }
+  },
+  "onboarding": {
+    "haveAccountCta": "¿Ya tienes cuenta? Inicia sesión",
+    "badge": "Antes de empezar",
+    "title": "Configura tu primer proyecto",
+    "subtitle": {
+      "choose": "¿Cómo quieres crear tu primer proyecto?",
+      "document": "Sube un documento (brief, acta, propuesta) y la IA generará el proyecto automáticamente con su nombre, descripción e insights.",
+      "manual": "Cuéntanos qué canales vas a usar y los detalles del proyecto. Después iniciaremos sesión y lo dejaremos listo en tu panel."
+    },
+    "chooser": {
+      "paste": {
+        "badge": "Más rápido",
+        "title": "Pegar conversación",
+        "description": "Copia un chat de WhatsApp o un hilo de correo y pégalo aquí. La IA detectará tareas, riesgos y decisiones.",
+        "footer": "Texto pegado → continuar"
+      },
+      "document": {
+        "title": "Subir un documento",
+        "description": "Brief, acta, propuesta o PDF. La IA leerá su contenido y creará el proyecto con todo.",
+        "footer": "PDF, Word, TXT, imagen → continuar"
+      },
+      "manual": {
+        "title": "Llenar formulario",
+        "description": "Completa los campos manualmente: nombre, equipo, canales, fechas.",
+        "footer": "3 pasos guiados → continuar"
+      }
+    },
+    "changeMode": "Cambiar de opción",
+    "document": {
+      "label": "Sube tu documento",
+      "hint": "La IA leerá su contenido y creará el proyecto automáticamente. Después de iniciar sesión verás todo en tu panel.",
+      "loadingText": "Preparando documento e iniciando sesión...",
+      "noteLabel": "📌 Nota:",
+      "noteText": "Limitado a 4 MB para esta carga inicial. Si tu archivo es más grande, usa el formulario manual y adjunta el documento después desde el dashboard del proyecto.",
+      "footerHint": "Al continuar, te pediremos iniciar sesión. La IA procesará el documento después."
+    },
+    "paste": {
+      "sourceLabel": "¿De dónde es el texto?",
+      "sourceWhatsapp": "WhatsApp",
+      "sourceGmail": "Gmail / Email",
+      "sourceOther": "Otro texto",
+      "textareaLabel": "Pega aquí tu conversación o texto",
+      "placeholderWhatsapp": "Ejemplo:\n12/11/25, 13:14 - Santi: Nuevo proyecto...\n12/11/25, 13:17 - Belen: Funciona el acceso...",
+      "placeholderGmail": "Pega el hilo de correo completo aquí...",
+      "placeholderOther": "Pega aquí cualquier texto que describa el proyecto...",
+      "empty": "Sin contenido",
+      "underMin": "{{count}} caracteres — mínimo 50",
+      "count": "{{count}} caracteres",
+      "clear": "Limpiar",
+      "info": "Después de iniciar sesión, la IA analizará el texto y verás una pantalla de revisión donde podrás editar nombre, tipo, canales y participantes antes de crear el proyecto.",
+      "footerHint": "Al continuar, te pediremos iniciar sesión. La IA analizará el texto después."
+    },
+    "manual": {
+      "channelsLabel": "¿Qué canales vas a usar?",
+      "channelsHint": "(selecciona al menos uno)",
+      "emailsLabel": "Agrega correos del equipo",
+      "emailsHint": "Estos correos recibirán notificaciones del proyecto. Tu correo de inicio de sesión se incluye automáticamente.",
+      "whatsappLabel": "Agrega números de WhatsApp",
+      "whatsappHint": "Formato internacional: prefijo del país + número (sin espacios).",
+      "add": "Agregar",
+      "remove": "Quitar",
+      "nameLabel": "Nombre del proyecto",
+      "namePlaceholder": "Lanzamiento Q2",
+      "typeLabel": "Tipo de proyecto",
+      "typePlaceholder": "Ej: Desarrollo Web, Marketing... o el que necesites",
+      "typeHint": "Selecciona una sugerencia o escribe el tipo personalizado.",
+      "descriptionLabel": "Descripción del proyecto",
+      "descriptionPlaceholder": "Describe brevemente qué es este proyecto y sus objetivos...",
+      "footerHint": "Al continuar, te pediremos iniciar sesión para guardar tu proyecto."
+    },
+    "continueCta": "Continuar e iniciar sesión",
+    "preparing": "Preparando...",
+    "errors": {
+      "fileTooBig": "El archivo supera 4 MB. Sube uno más pequeño o usa el formulario manual y adjúntalo después.",
+      "docReadFailed": "No se pudo leer el documento. Intenta de nuevo o usa el formulario manual.",
+      "pasteTooShort": "Pega al menos una conversación o párrafo (mínimo 50 caracteres).",
+      "pasteTooLong": "El texto es demasiado largo. Recorta a menos de 100.000 caracteres.",
+      "emailInvalid": "Correo no válido",
+      "emailDuplicate": "Ese correo ya está agregado"
+    }
+  },
+  "landing": {
+    "nav": {
+      "features": "Características",
+      "howItWorks": "Cómo funciona",
+      "pricing": "Precios",
+      "login": "Iniciar sesión",
+      "getStarted": "Comenzar"
+    },
+    "hero": {
+      "betaBadge": "Ahora en beta pública",
+      "headlinePart1": "Todas tus conversaciones",
+      "headlinePart2": "en un solo lugar",
+      "description": "OneBox elimina la fricción entre canales. Unifica WhatsApp, Slack, Email y más en un inbox inteligente que todo tu equipo puede usar.",
+      "descriptionStrong": "Y ejecuta acciones reales en tus proyectos.",
+      "ctaPrimary": "Comenzar gratis",
+      "ctaSecondary": "Ver demo",
+      "trust1": "14 días de prueba gratis",
+      "trust2": "Sin tarjeta de crédito",
+      "trust3": "Configura en minutos",
+      "scrollHint": "Descubre más"
+    },
+    "how": {
+      "title": "Cómo funciona",
+      "subtitle": "De canales fragmentados a claridad unificada en tres simples pasos",
+      "step1Title": "Crea un proyecto",
+      "step1Desc": "Define tu proyecto, agrega participantes y conecta los canales que usas.",
+      "step2Title": "La IA detecta acciones",
+      "step2Desc": "Nuestra IA entiende órdenes, bloqueos y decisiones de tus conversaciones.",
+      "step3Title": "Ejecución real",
+      "step3Desc": "Se crean tareas, se notifica al equipo, se marcan bloqueos — automáticamente."
+    },
+    "diff": {
+      "eyebrow": "Por qué OneBox",
+      "headlinePart1": "No somos otro inbox.",
+      "headlinePart2": "Somos ejecución.",
+      "description": "Las decisiones viven en conversaciones. Pero la ejecución no sucede ahí. OneBox es la capa que conecta lo que dices con lo que se hace.",
+      "item1Title": "Los inboxes muestran mensajes",
+      "item1Desc": "Organizan, muestran. Eso es todo.",
+      "item2Title": "Las herramientas de automatización ejecutan reglas",
+      "item2Desc": "Si X entonces Y. Rígidas, frágiles, limitadas.",
+      "item3Title": "OneBox ejecuta decisiones",
+      "item3Desc": "Entendemos contexto, detectamos intención, y actuamos en tus proyectos.",
+      "previewTitle": "Lo que OneBox hace por ti:",
+      "previewFooter": "\"Mira todo lo que OneBox ya hizo por ti\"",
+      "actions": {
+        "taskCreated": "Tarea creada",
+        "taskCreatedDetail": "\"Revisar propuesta de cliente\"",
+        "teamNotified": "Equipo notificado",
+        "teamNotifiedDetail": "Slack #proyecto-alpha",
+        "blockerDetected": "Bloqueo detectado",
+        "blockerDetectedDetail": "Esperando aprobación de diseño",
+        "followupScheduled": "Seguimiento programado",
+        "followupScheduledDetail": "En 3 días con Santiago",
+        "done": "Hecho",
+        "pending": "Pendiente"
+      }
+    },
+    "cta": {
+      "headlinePart1": "De conversaciones dispersas a",
+      "headlinePart2": "proyectos bajo control",
+      "description1": "Las empresas hablan en WhatsApp. Pero trabajan en Asana, CRMs y ERPs.",
+      "description2": "OneBox conecta ambos mundos.",
+      "button": "Empezar gratis"
+    },
+    "footer": {
+      "rights": "© 2026 OneBox. Todos los derechos reservados."
+    }
+  }
+}

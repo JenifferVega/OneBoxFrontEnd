@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from 'react-oidc-context'
+import { useTranslation } from 'react-i18next'
 import {
   Sparkles, ListTodo, AlertTriangle, Lightbulb,
   Mail, MessageCircle, ChevronDown, Loader2, Inbox,
@@ -34,22 +35,24 @@ interface ProjectInsightsSidebarProps {
 // Orden de aparición en el sidebar — los más importantes primero.
 // Nota: NO incluye 'summary' porque ya está visible como descripción del proyecto
 // (evitamos redundancia entre la descripción central y el sidebar).
+// El `label` es una key i18n; se resuelve con t() en tiempo de render.
 const SECTIONS = [
-  { key: 'key_insight',              label: 'Insight clave',      icon: Lightbulb,     color: 'text-amber-300',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20' },
-  { key: 'project_characterization', label: 'Tipo real',          icon: Target,        color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', border: 'border-fuchsia-500/20' },
-  { key: 'client_profile',           label: 'Perfil del cliente', icon: User,          color: 'text-cyan-300',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/20' },
-  { key: 'work_done',                label: 'Trabajo realizado',  icon: CheckCircle2,  color: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-  { key: 'task_created',             label: 'Tareas pendientes',  icon: ListTodo,      color: 'text-violet-300',  bg: 'bg-violet-500/10',  border: 'border-violet-500/20' },
-  { key: 'blocker',                  label: 'Bloqueos del cliente', icon: Construction, color: 'text-red-300',     bg: 'bg-red-500/10',     border: 'border-red-500/20' },
-  { key: 'risk',                     label: 'Riesgos',            icon: AlertTriangle, color: 'text-orange-300',  bg: 'bg-orange-500/10',  border: 'border-orange-500/20' },
-  { key: 'tech_issue',               label: 'Problemas técnicos', icon: Wrench,        color: 'text-rose-300',    bg: 'bg-rose-500/10',    border: 'border-rose-500/20' },
-  { key: 'decision',                 label: 'Decisiones',         icon: Lightbulb,     color: 'text-blue-300',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20' },
-  { key: 'metric',                   label: 'Métricas',           icon: TrendingUp,    color: 'text-lime-300',    bg: 'bg-lime-500/10',    border: 'border-lime-500/20' },
+  { key: 'key_insight',              icon: Lightbulb,     color: 'text-amber-300',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20' },
+  { key: 'project_characterization', icon: Target,        color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', border: 'border-fuchsia-500/20' },
+  { key: 'client_profile',           icon: User,          color: 'text-cyan-300',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/20' },
+  { key: 'work_done',                icon: CheckCircle2,  color: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+  { key: 'task_created',             icon: ListTodo,      color: 'text-violet-300',  bg: 'bg-violet-500/10',  border: 'border-violet-500/20' },
+  { key: 'blocker',                  icon: Construction,  color: 'text-red-300',     bg: 'bg-red-500/10',     border: 'border-red-500/20' },
+  { key: 'risk',                     icon: AlertTriangle, color: 'text-orange-300',  bg: 'bg-orange-500/10',  border: 'border-orange-500/20' },
+  { key: 'tech_issue',               icon: Wrench,        color: 'text-rose-300',    bg: 'bg-rose-500/10',    border: 'border-rose-500/20' },
+  { key: 'decision',                 icon: Lightbulb,     color: 'text-blue-300',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20' },
+  { key: 'metric',                   icon: TrendingUp,    color: 'text-lime-300',    bg: 'bg-lime-500/10',    border: 'border-lime-500/20' },
 ] as const
 
 const CHANNEL_CONFIG: Record<string, { icon: any; label: string; color: string; bg: string }> = {
   Gmail: { icon: Mail, label: 'Gmail', color: 'text-rose-400', bg: 'bg-rose-500/10' },
-  WhatsApp: { icon: MessageCircle, label: 'WhatsApp', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  // WhatsApp escondido del UI. Si viene en `channels` desde la DB, cae al
+  // fallback genérico (icon Inbox) sin mostrarse como canal explícito.
 }
 
 export default function ProjectInsightsSidebar({
@@ -60,6 +63,7 @@ export default function ProjectInsightsSidebar({
   searchQuery,
 }: ProjectInsightsSidebarProps) {
   const auth = useAuth()
+  const { t } = useTranslation()
   const token = auth.user?.access_token || ''
 
   const [insights, setInsights] = useState<Insight[]>([])
@@ -137,11 +141,11 @@ export default function ProjectInsightsSidebar({
             onClick={onBack}
             className="text-xs text-white/40 hover:text-white/70 transition-colors mb-2"
           >
-            ← Todos los proyectos
+            {t('insightsSidebar.backToAll')}
           </button>
           <div className="flex items-center gap-2 mb-1">
             <Sparkles className="w-4 h-4 text-violet-400" />
-            <h2 className="text-sm font-bold text-white">Análisis con IA</h2>
+            <h2 className="text-sm font-bold text-white">{t('insightsSidebar.title')}</h2>
           </div>
           <p className="text-xs text-white/40 truncate" title={projectName}>
             {projectName}
@@ -152,7 +156,7 @@ export default function ProjectInsightsSidebar({
         {loading && (
           <div className="flex flex-col items-center py-6">
             <Loader2 className="w-5 h-5 text-violet-400 animate-spin mb-2" />
-            <p className="text-xs text-white/40">Cargando insights...</p>
+            <p className="text-xs text-white/40">{t('insightsSidebar.loading')}</p>
           </div>
         )}
 
@@ -160,9 +164,9 @@ export default function ProjectInsightsSidebar({
         {!loading && totalInsights === 0 && (
           <div className="flex flex-col items-center py-6 text-center">
             <Inbox className="w-8 h-8 text-white/20 mb-2" />
-            <p className="text-xs text-white/40 mb-1">Sin insights aún</p>
+            <p className="text-xs text-white/40 mb-1">{t('insightsSidebar.emptyTitle')}</p>
             <p className="text-[10px] text-white/30 leading-relaxed">
-              La IA analizará tu proyecto en segundos
+              {t('insightsSidebar.emptyHint')}
             </p>
           </div>
         )}
@@ -183,7 +187,7 @@ export default function ProjectInsightsSidebar({
                 <div className="flex items-center gap-2">
                   <Icon className={`w-3.5 h-3.5 ${section.color}`} />
                   <span className="text-[11px] font-bold text-white/80 uppercase tracking-wider">
-                    {section.label}
+                    {t(`insightsSidebar.sections.${section.key}`)}
                   </span>
                   <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${section.bg} ${section.color}`}>
                     {items.length}
@@ -243,7 +247,7 @@ export default function ProjectInsightsSidebar({
             >
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-bold text-white/80 uppercase tracking-wider">
-                  Canales del proyecto
+                  {t('insightsSidebar.channelsSection')}
                 </span>
                 <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-white/10 text-white/60">
                   {channels.length}
@@ -264,7 +268,7 @@ export default function ProjectInsightsSidebar({
                   className="overflow-hidden"
                 >
                   <div className="px-3 pb-3 space-y-1.5">
-                    {channels.map(channel => {
+                    {channels.filter(c => c.toLowerCase() !== 'whatsapp').map(channel => {
                       const cfg = CHANNEL_CONFIG[channel] || {
                         icon: Inbox,
                         label: channel,
@@ -296,15 +300,9 @@ export default function ProjectInsightsSidebar({
         {!loading && totalAll > 0 && (
           <div className="pt-2 border-t border-white/5">
             <p className="text-[10px] text-white/30 text-center">
-              {isFiltered ? (
-                <>
-                  {totalInsights} de {totalAll} insight{totalAll !== 1 ? 's' : ''} coinciden con la búsqueda
-                </>
-              ) : (
-                <>
-                  {totalAll} insight{totalAll !== 1 ? 's' : ''} generado{totalAll !== 1 ? 's' : ''} por IA
-                </>
-              )}
+              {isFiltered
+                ? t('insightsSidebar.footerFiltered', { shown: totalInsights, total: totalAll, s: totalAll !== 1 ? 's' : '' })
+                : t('insightsSidebar.footerGenerated', { count: totalAll, s: totalAll !== 1 ? 's' : '' })}
             </p>
           </div>
         )}
@@ -313,7 +311,7 @@ export default function ProjectInsightsSidebar({
         {!loading && isFiltered && totalInsights === 0 && totalAll > 0 && (
           <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3 text-center">
             <p className="text-xs text-white/40">
-              Ningún insight coincide con <strong className="text-violet-300">"{searchQuery}"</strong>
+              {t('insightsSidebar.noMatch')} <strong className="text-violet-300">"{searchQuery}"</strong>
             </p>
           </div>
         )}

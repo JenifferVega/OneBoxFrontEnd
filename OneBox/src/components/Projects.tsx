@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from 'react-oidc-context'
+import { useTranslation } from 'react-i18next'
 import { api } from '../services/api'
 import {
   Search, ArrowLeft, CheckCircle2, AlertTriangle, Clock, Settings,
@@ -69,34 +70,40 @@ const ChannelIcon = ({ type, className = 'w-3.5 h-3.5' }: { type: string; classN
   }
 }
 
+// Badges: solo las clases visuales viven en el config estático. El label lo
+// resuelve `t()` para respetar el idioma vigente sin duplicar el mapa.
+const SLA_STYLES: Record<string, { color: string; dot: string; key: string }> = {
+  on_track:    { color: 'text-emerald-400', dot: 'bg-emerald-400', key: 'onTrack' },
+  en_riesgo:   { color: 'text-orange-400',  dot: 'bg-orange-400',  key: 'atRisk' },
+  sla_vencido: { color: 'text-red-400',     dot: 'bg-red-400',     key: 'overdue' },
+  paused:      { color: 'text-white/40',    dot: 'bg-white/40',    key: 'paused' },
+  delivered:   { color: 'text-emerald-400', dot: 'bg-emerald-400', key: 'delivered' },
+}
+
 const SLABadge = ({ sla }: { sla: string }) => {
-  const config: Record<string, { label: string; color: string; dot: string }> = {
-    on_track: { label: 'On track', color: 'text-emerald-400', dot: 'bg-emerald-400' },
-    en_riesgo: { label: 'En riesgo', color: 'text-orange-400', dot: 'bg-orange-400' },
-    sla_vencido: { label: 'SLA vencido', color: 'text-red-400', dot: 'bg-red-400' },
-    paused: { label: 'Pausado', color: 'text-white/40', dot: 'bg-white/40' },
-    delivered: { label: 'Entregado', color: 'text-emerald-400', dot: 'bg-emerald-400' },
-  }
-  const c = config[sla] || config.on_track
+  const { t } = useTranslation()
+  const c = SLA_STYLES[sla] || SLA_STYLES.on_track
   return (
     <span className={`flex items-center gap-1.5 text-xs font-semibold ${c.color}`}>
       <span className={`w-2 h-2 rounded-full ${c.dot}`} />
-      {c.label}
+      {t(`projects.sla.${c.key}`)}
     </span>
   )
 }
 
+const STATUS_STYLES: Record<string, { color: string; bg: string; border: string; key: string }> = {
+  active:   { color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', key: 'active' },
+  paused:   { color: 'text-white/50',    bg: 'bg-white/5',        border: 'border-white/10',       key: 'paused' },
+  finished: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', key: 'finished' },
+}
+
 const StatusBadge = ({ status }: { status: string }) => {
-  const config: Record<string, { label: string; color: string; bg: string; border: string }> = {
-    active: { label: 'Activo', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-    paused: { label: 'En pausa', color: 'text-white/50', bg: 'bg-white/5', border: 'border-white/10' },
-    finished: { label: 'Finalizado', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-  }
-  const c = config[status] || config.active
+  const { t } = useTranslation()
+  const c = STATUS_STYLES[status] || STATUS_STYLES.active
   return (
     <span className={`flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full border ${c.color} ${c.bg} ${c.border}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${status === 'active' ? 'bg-emerald-400' : status === 'finished' ? 'bg-emerald-400' : 'bg-white/40'}`} />
-      {c.label}
+      {t(`projects.status.${c.key}`)}
     </span>
   )
 }
@@ -110,6 +117,7 @@ interface ProjectsProps {
 
 export default function Projects({ onNavigate, gmailConectado, resetSignal }: ProjectsProps) {
   const auth = useAuth()
+  const { t } = useTranslation()
   const token = auth.user?.access_token || ''
 
   const [proyectos, setProyectos] = useState<Project[]>([])
@@ -126,11 +134,28 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
   const [emailEdits, setEmailEdits] = useState<Record<string, string>>({})
   const [savingPhones, setSavingPhones] = useState(false)
   const [taskFilter, setTaskFilter] = useState<'all' | 'completed' | 'pending' | 'blocked'>('all')
+  // Filtro por participante: cuando está seteado, la lista de tareas del proyecto
+  // se filtra por assignedTo.nombre === assigneeFilter. Se activa clickeando una
+  // fila del panel del equipo (derecha). Se apaga clickeando la misma fila o el
+  // botón "Quitar filtro" que aparece encima del listado.
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null)
+  // Expand del mini-panel resumen del sidebar cuando la persona tiene >8 tareas.
+  // Colapsado (por defecto) muestra 8; expandido las muestra todas.
+  const [assigneeSummaryExpanded, setAssigneeSummaryExpanded] = useState(false)
   const [showAllTasks, setShowAllTasks] = useState(false)
   const [projectSearch, setProjectSearch] = useState('')
   const [showAllActions, setShowAllActions] = useState(false)
   const [deletingProject, setDeletingProject] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null)
+  // Modal "Editar proyecto" — UPDATE de campos básicos (nombre, descripción,
+  // tipo, status, deliveryDate, timing). Solo accesible para el owner.
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [projectEditForm, setProjectEditForm] = useState({
+    name: '', description: '', type: '', status: 'active' as 'active' | 'paused' | 'finished',
+    deliveryDate: '', timing: '',
+  })
+  const [savingProjectEdit, setSavingProjectEdit] = useState(false)
+  const [projectEditError, setProjectEditError] = useState('')
   // Alta de participante (fix #11)
   // (state addingMember/newMember/savingMember eliminado — el flujo de añadir
   // participante ahora vive en el modal unificado inviteModalOpen)
@@ -297,9 +322,22 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   <Trash2 className="w-5 h-5 text-red-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Eliminar proyecto</h3>
+                  <h3 className="text-lg font-bold text-white">{t('projects.modals.delete.title')}</h3>
                   <p className="text-sm text-white/60 mt-1">
-                    ¿Seguro que quieres eliminar <strong className="text-white">{confirmDelete.name}</strong>? Esta acción borrará también sus insights, tareas y notificaciones. <strong className="text-red-400">No se puede deshacer.</strong>
+                    {(() => {
+                      const raw = t('projects.modals.delete.prompt', { name: confirmDelete.name })
+                      const parts = raw.split(/<1>|<\/1>|<2>|<\/2>/)
+                      // parts: [before, name, middle, warning, after]
+                      return (
+                        <>
+                          {parts[0]}
+                          <strong className="text-white">{parts[1]}</strong>
+                          {parts[2]}
+                          <strong className="text-red-400">{parts[3]}</strong>
+                          {parts[4]}
+                        </>
+                      )
+                    })()}
                   </p>
                 </div>
               </div>
@@ -309,7 +347,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   disabled={!!deletingProject}
                   className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 transition-all disabled:opacity-50"
                 >
-                  Cancelar
+                  {t('projects.modals.cancel')}
                 </button>
                 <button
                   onClick={() => handleDeleteProject(confirmDelete.projectId)}
@@ -319,14 +357,175 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   {deletingProject ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Eliminando...
+                      {t('projects.modals.delete.deleting')}
                     </>
                   ) : (
                     <>
                       <Trash2 className="w-4 h-4" />
-                      Sí, eliminar
+                      {t('projects.modals.delete.confirm')}
                     </>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: editar proyecto (owner-only).
+            Permite cambiar: name, description, type, status, deliveryDate, timing.
+            Llama PUT /api/projects/{id} con SOLO los campos modificados. */}
+        {editingProject && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => !savingProjectEdit && setEditingProject(null)}>
+            <div className="bg-[#12121E] border border-white/10 rounded-2xl p-6 max-w-lg w-full" onClick={e => e.stopPropagation()}>
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center flex-shrink-0">
+                  <Pencil className="w-5 h-5 text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">{t('projects.modals.edit.title')}</h3>
+                  <p className="text-sm text-white/60 mt-1">
+                    {t('projects.modals.edit.subtitle')}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-white/60">{t('projects.modals.edit.name')}</label>
+                  <input
+                    type="text"
+                    value={projectEditForm.name}
+                    onChange={e => setProjectEditForm({ ...projectEditForm, name: e.target.value })}
+                    disabled={savingProjectEdit}
+                    autoFocus
+                    className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500 disabled:opacity-50"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-white/60">{t('projects.modals.edit.description')}</label>
+                  <textarea
+                    value={projectEditForm.description}
+                    onChange={e => setProjectEditForm({ ...projectEditForm, description: e.target.value })}
+                    rows={3}
+                    disabled={savingProjectEdit}
+                    className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500 disabled:opacity-50"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-white/60">{t('projects.modals.edit.type')}</label>
+                    <input
+                      type="text"
+                      value={projectEditForm.type}
+                      onChange={e => setProjectEditForm({ ...projectEditForm, type: e.target.value })}
+                      disabled={savingProjectEdit}
+                      placeholder={t('projects.modals.edit.typePlaceholder')}
+                      className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-white/60">{t('projects.modals.edit.status')}</label>
+                    <select
+                      value={projectEditForm.status}
+                      onChange={e => setProjectEditForm({ ...projectEditForm, status: e.target.value as any })}
+                      disabled={savingProjectEdit}
+                      className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-violet-500 disabled:opacity-50"
+                    >
+                      <option value="active">{t('projects.modals.edit.statusActive')}</option>
+                      <option value="paused">{t('projects.modals.edit.statusPaused')}</option>
+                      <option value="finished">{t('projects.modals.edit.statusFinished')}</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-white/60 flex items-center gap-1"><Calendar className="w-3 h-3" /> {t('projects.modals.edit.deliveryDate')}</label>
+                    <input
+                      type="date"
+                      value={projectEditForm.deliveryDate}
+                      onChange={e => setProjectEditForm({ ...projectEditForm, deliveryDate: e.target.value })}
+                      disabled={savingProjectEdit}
+                      className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-violet-500 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-white/60">{t('projects.modals.edit.timing')}</label>
+                    <input
+                      type="text"
+                      value={projectEditForm.timing}
+                      onChange={e => setProjectEditForm({ ...projectEditForm, timing: e.target.value })}
+                      disabled={savingProjectEdit}
+                      placeholder={t('projects.modals.edit.timingPlaceholder')}
+                      className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500 disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {projectEditError && (
+                <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <p className="text-sm text-red-400">{projectEditError}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  onClick={() => setEditingProject(null)}
+                  disabled={savingProjectEdit}
+                  className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 disabled:opacity-50"
+                >
+                  {t('projects.modals.cancel')}
+                </button>
+                <button
+                  disabled={savingProjectEdit || !projectEditForm.name.trim()}
+                  onClick={async () => {
+                    if (!editingProject) return
+                    setSavingProjectEdit(true)
+                    setProjectEditError('')
+                    try {
+                      // Solo enviar los campos que CAMBIARON respecto al proyecto
+                      // original. Esto evita escrituras innecesarias en DDB y
+                      // permite que el endpoint sea un PATCH de facto.
+                      const orig = editingProject
+                      const updates: any = {}
+                      if (projectEditForm.name.trim() !== (orig.name || '').trim())
+                        updates.name = projectEditForm.name.trim()
+                      if (projectEditForm.description.trim() !== (orig.description || '').trim())
+                        updates.description = projectEditForm.description.trim()
+                      if (projectEditForm.type.trim() !== (orig.type || '').trim())
+                        updates.type = projectEditForm.type.trim()
+                      if (projectEditForm.status !== orig.status)
+                        updates.status = projectEditForm.status
+                      if (projectEditForm.deliveryDate !== (orig.deliveryDate || ''))
+                        updates.deliveryDate = projectEditForm.deliveryDate
+                      if (projectEditForm.timing.trim() !== (orig.timing || '').trim())
+                        updates.timing = projectEditForm.timing.trim()
+
+                      if (Object.keys(updates).length === 0) {
+                        setEditingProject(null)
+                        return
+                      }
+
+                      await api.updateProject(editingProject.projectId, updates, token)
+                      // Refrescar lista para reflejar el cambio en la UI.
+                      const data = await api.getProjects(token)
+                      if (Array.isArray(data)) {
+                        setProyectos(data)
+                        const updated = data.find((proj: Project) => proj.projectId === editingProject.projectId)
+                        if (updated) setSelectedProject(updated)
+                      }
+                      setEditingProject(null)
+                    } catch (err: any) {
+                      setProjectEditError(err?.message?.substring(0, 200) || t('projects.modals.edit.error'))
+                    } finally {
+                      setSavingProjectEdit(false)
+                    }
+                  }}
+                  className="px-4 py-2 text-sm font-medium bg-violet-600 hover:bg-violet-500 text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
+                >
+                  {savingProjectEdit && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {savingProjectEdit ? t('projects.modals.edit.saving') : t('projects.modals.edit.save')}
                 </button>
               </div>
             </div>
@@ -340,36 +539,36 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
             onClick={() => !savingTask && setTaskModalOpen(false)}
           >
             <div className="bg-[#12121E] border border-white/10 rounded-2xl p-6 max-w-lg w-full" onClick={e => e.stopPropagation()}>
-              <h3 className="text-lg font-bold text-white mb-4">{editingTaskId ? 'Editar tarea' : 'Nueva tarea'}</h3>
+              <h3 className="text-lg font-bold text-white mb-4">{editingTaskId ? t('projects.modals.task.titleEdit') : t('projects.modals.task.titleNew')}</h3>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-white/60">Título *</label>
+                  <label className="text-xs text-white/60">{t('projects.modals.task.text')}</label>
                   <input type="text" value={taskForm.text} onChange={e => setTaskForm({ ...taskForm, text: e.target.value })}
-                    placeholder="¿Qué hay que hacer?" autoFocus
+                    placeholder={t('projects.modals.task.textPlaceholder')} autoFocus
                     className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500" />
                 </div>
                 <div>
-                  <label className="text-xs text-white/60">Descripción</label>
+                  <label className="text-xs text-white/60">{t('projects.modals.task.description')}</label>
                   <textarea value={taskForm.description} onChange={e => setTaskForm({ ...taskForm, description: e.target.value })}
-                    rows={2} placeholder="Detalles, contexto..."
+                    rows={2} placeholder={t('projects.modals.task.descriptionPlaceholder')}
                     className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-white/60">Estado</label>
+                    <label className="text-xs text-white/60">{t('projects.modals.task.status')}</label>
                     <select value={taskForm.status} onChange={e => setTaskForm({ ...taskForm, status: e.target.value })}
                       className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-violet-500">
-                      <option value="pending">Pendiente</option>
-                      <option value="in_progress">En curso</option>
-                      <option value="blocked">Bloqueada</option>
-                      <option value="done">Completada</option>
+                      <option value="pending">{t('projects.modals.task.statusPending')}</option>
+                      <option value="in_progress">{t('projects.modals.task.statusInProgress')}</option>
+                      <option value="blocked">{t('projects.modals.task.statusBlocked')}</option>
+                      <option value="done">{t('projects.modals.task.statusDone')}</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-white/60">Asignar a</label>
+                    <label className="text-xs text-white/60">{t('projects.modals.task.assignTo')}</label>
                     <select value={taskForm.assignedTo} onChange={e => setTaskForm({ ...taskForm, assignedTo: e.target.value })}
                       className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-violet-500">
-                      <option value="">Sin asignar</option>
+                      <option value="">{t('projects.modals.task.unassigned')}</option>
                       {(selectedProject?.team || []).map((m, i) => (
                         <option key={i} value={m.nombre}>{m.nombre}{m.rol ? ` (${m.rol})` : ''}</option>
                       ))}
@@ -378,25 +577,25 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-white/60 flex items-center gap-1"><Calendar className="w-3 h-3" /> Fecha inicio</label>
+                    <label className="text-xs text-white/60 flex items-center gap-1"><Calendar className="w-3 h-3" /> {t('projects.modals.task.startDate')}</label>
                     <input type="date" value={taskForm.startDate} onChange={e => setTaskForm({ ...taskForm, startDate: e.target.value })}
                       className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-violet-500" />
                   </div>
                   <div>
-                    <label className="text-xs text-white/60 flex items-center gap-1"><Calendar className="w-3 h-3" /> Fecha fin</label>
+                    <label className="text-xs text-white/60 flex items-center gap-1"><Calendar className="w-3 h-3" /> {t('projects.modals.task.endDate')}</label>
                     <input type="date" value={taskForm.dueDate} onChange={e => setTaskForm({ ...taskForm, dueDate: e.target.value })}
                       className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-violet-500" />
                   </div>
                 </div>
                 {/* Subtarea de: dropdown con tareas raíz del proyecto (1 nivel). */}
                 <div>
-                  <label className="text-xs text-white/60">Subtarea de</label>
+                  <label className="text-xs text-white/60">{t('projects.modals.task.parentTask')}</label>
                   <select
                     value={taskForm.parentTaskId}
                     onChange={e => setTaskForm({ ...taskForm, parentTaskId: e.target.value })}
                     className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-violet-500"
                   >
-                    <option value="">(ninguna — tarea raíz)</option>
+                    <option value="">{t('projects.modals.task.noParent')}</option>
                     {(selectedProject?.tasks || [])
                       .filter(t => !t.parentTaskId && t.id !== editingTaskId)
                       .map(t => (
@@ -407,7 +606,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
               </div>
               <div className="flex justify-end gap-2 mt-6">
                 <button onClick={() => setTaskModalOpen(false)} disabled={savingTask}
-                  className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 disabled:opacity-50">Cancelar</button>
+                  className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 disabled:opacity-50">{t('projects.modals.cancel')}</button>
                 <button
                   disabled={savingTask || !taskForm.text.trim()}
                   onClick={async () => {
@@ -440,7 +639,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   className="px-4 py-2 text-sm font-medium bg-violet-600 hover:bg-violet-500 text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
                 >
                   {savingTask && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {editingTaskId ? 'Guardar cambios' : 'Crear tarea'}
+                  {editingTaskId ? t('projects.modals.task.save') : t('projects.modals.task.create')}
                 </button>
               </div>
             </div>
@@ -457,20 +656,42 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   <Trash2 className="w-5 h-5 text-red-400" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-white">Borrar tarea</h3>
+                  <h3 className="text-lg font-bold text-white">{t('projects.modals.deleteTask.title')}</h3>
                   <p className="text-sm text-white/60 mt-1">
-                    ¿Seguro que quieres borrar <strong className="text-white">"{confirmDeleteTask.text}"</strong>? <strong className="text-red-400">No se puede deshacer.</strong>
+                    {(() => {
+                      const raw = t('projects.modals.deleteTask.prompt', { text: confirmDeleteTask.text })
+                      const parts = raw.split(/<1>|<\/1>|<2>|<\/2>/)
+                      return (
+                        <>
+                          {parts[0]}
+                          <strong className="text-white">{parts[1]}</strong>
+                          {parts[2]}
+                          <strong className="text-red-400">{parts[3]}</strong>
+                          {parts[4]}
+                        </>
+                      )
+                    })()}
                   </p>
                   {(confirmDeleteTask.subtasksCount || 0) > 0 && (
                     <p className="text-xs text-amber-300/80 mt-3 bg-amber-500/10 border border-amber-500/20 rounded-md p-2">
-                      ⚠️ Esta tarea tiene <strong>{confirmDeleteTask.subtasksCount} subtarea{(confirmDeleteTask.subtasksCount || 0) > 1 ? 's' : ''}</strong>. Elige qué hacer con ellas:
+                      {(() => {
+                        const raw = t('projects.modals.deleteTask.subtasksWarning', { count: confirmDeleteTask.subtasksCount })
+                        const parts = raw.split(/<1>|<\/1>/)
+                        return (
+                          <>
+                            {parts[0]}
+                            <strong>{parts[1]}</strong>
+                            {parts[2]}
+                          </>
+                        )
+                      })()}
                     </p>
                   )}
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-6 flex-wrap">
                 <button onClick={() => setConfirmDeleteTask(null)} disabled={deletingTask}
-                  className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 disabled:opacity-50">Cancelar</button>
+                  className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 disabled:opacity-50">{t('projects.modals.cancel')}</button>
                 {(confirmDeleteTask.subtasksCount || 0) > 0 && (
                   <button
                     disabled={deletingTask}
@@ -491,7 +712,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                     }}
                     className="px-3 py-2 text-sm font-medium bg-amber-600/80 hover:bg-amber-600 text-white rounded-lg disabled:opacity-50"
                   >
-                    Borrar solo esta (mantener subtareas)
+                    {t('projects.modals.deleteTask.keepSubtasks')}
                   </button>
                 )}
                 <button
@@ -515,8 +736,8 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   }}
                   className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
                 >
-                  {deletingTask ? (<><Loader2 className="w-4 h-4 animate-spin" /> Borrando...</>) : (
-                    <><Trash2 className="w-4 h-4" /> {(confirmDeleteTask.subtasksCount || 0) > 0 ? 'Borrar todo (incluyendo subtareas)' : 'Sí, borrar'}</>
+                  {deletingTask ? (<><Loader2 className="w-4 h-4 animate-spin" /> {t('projects.modals.deleteTask.deleting')}</>) : (
+                    <><Trash2 className="w-4 h-4" /> {(confirmDeleteTask.subtasksCount || 0) > 0 ? t('projects.modals.deleteTask.confirmAll') : t('projects.modals.deleteTask.confirmSingle')}</>
                   )}
                 </button>
               </div>
@@ -534,32 +755,44 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   <X className="w-5 h-5 text-red-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Eliminar a {removeMemberTarget.nombre}</h3>
+                  <h3 className="text-lg font-bold text-white">{t('projects.modals.removeMember.title', { name: removeMemberTarget.nombre })}</h3>
                   <p className="text-sm text-white/60 mt-1">
-                    Se quitará del equipo de <strong className="text-white">{p.name}</strong>.
+                    {(() => {
+                      const raw = t('projects.modals.removeMember.subtitle', { project: p.name })
+                      const parts = raw.split(/<1>|<\/1>/)
+                      return (<>{parts[0]}<strong className="text-white">{parts[1]}</strong>{parts[2]}</>)
+                    })()}
                   </p>
                 </div>
               </div>
               <div className="space-y-2 text-sm text-white/70 mb-6 pl-2">
                 <div className="flex items-start gap-2">
                   <span className="text-amber-400 mt-0.5">·</span>
-                  <span>Sus tareas asignadas quedarán como <strong>"Sin asignar"</strong> (no se borran).</span>
+                  <span>{(() => {
+                    const raw = t('projects.modals.removeMember.bullet1')
+                    const parts = raw.split(/<1>|<\/1>/)
+                    return (<>{parts[0]}<strong>{parts[1]}</strong>{parts[2]}</>)
+                  })()}</span>
                 </div>
                 {removeMemberTarget.email && (
                   <div className="flex items-start gap-2">
                     <span className="text-amber-400 mt-0.5">·</span>
-                    <span>Si tenía invitación aceptada, <strong>perderá el acceso</strong> al proyecto.</span>
+                    <span>{(() => {
+                      const raw = t('projects.modals.removeMember.bullet2')
+                      const parts = raw.split(/<1>|<\/1>/)
+                      return (<>{parts[0]}<strong>{parts[1]}</strong>{parts[2]}</>)
+                    })()}</span>
                   </div>
                 )}
                 <div className="flex items-start gap-2">
                   <span className="text-white/40 mt-0.5">·</span>
-                  <span className="text-white/40">No se enviará ninguna notificación.</span>
+                  <span className="text-white/40">{t('projects.modals.removeMember.bullet3')}</span>
                 </div>
               </div>
               <div className="flex justify-end gap-2">
                 <button onClick={() => setRemoveMemberTarget(null)} disabled={removingMember}
                   className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 disabled:opacity-50">
-                  Cancelar
+                  {t('projects.modals.cancel')}
                 </button>
                 <button
                   disabled={removingMember}
@@ -588,7 +821,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   }}
                   className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
                 >
-                  {removingMember ? (<><Loader2 className="w-4 h-4 animate-spin" /> Eliminando...</>) : (<><Trash2 className="w-4 h-4" /> Eliminar</>)}
+                  {removingMember ? (<><Loader2 className="w-4 h-4 animate-spin" /> {t('projects.modals.removeMember.removing')}</>) : (<><Trash2 className="w-4 h-4" /> {t('projects.modals.removeMember.confirm')}</>)}
                 </button>
               </div>
             </div>
@@ -609,9 +842,9 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   <UserPlus className="w-5 h-5 text-violet-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Añadir persona al proyecto</h3>
+                  <h3 className="text-lg font-bold text-white">{t('projects.modals.invite.title')}</h3>
                   <p className="text-sm text-white/60 mt-1">
-                    Rellena email y/o WhatsApp. Si marcas "enviar invitación", recibirá un aviso por cada canal que pongas.
+                    {t('projects.modals.invite.subtitle')}
                   </p>
                 </div>
               </div>
@@ -619,39 +852,33 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-white/60">Nombre *</label>
+                    <label className="text-xs text-white/60">{t('projects.modals.invite.name')}</label>
                     <input type="text" value={inviteForm.name} onChange={e => setInviteForm({ ...inviteForm, name: e.target.value })}
-                      placeholder="María Pérez" autoFocus disabled={sendingInvite}
+                      placeholder={t('projects.modals.invite.namePlaceholder')} autoFocus disabled={sendingInvite}
                       className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500 disabled:opacity-50" />
                   </div>
                   <div>
-                    <label className="text-xs text-white/60">Rol</label>
+                    <label className="text-xs text-white/60">{t('projects.modals.invite.role')}</label>
                     <input type="text" value={inviteForm.role} onChange={e => setInviteForm({ ...inviteForm, role: e.target.value })}
-                      placeholder="Diseñadora" disabled={sendingInvite}
+                      placeholder={t('projects.modals.invite.rolePlaceholder')} disabled={sendingInvite}
                       className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500 disabled:opacity-50" />
                   </div>
                 </div>
                 <div>
                   <label className="text-xs text-white/60 flex items-center gap-1.5"><Mail className="w-3 h-3 text-sky-400" /> Email</label>
                   <input type="email" value={inviteForm.email} onChange={e => setInviteForm({ ...inviteForm, email: e.target.value })}
-                    placeholder="alguien@ejemplo.com" disabled={sendingInvite}
+                    placeholder={t('projects.modals.invite.emailPlaceholder')} disabled={sendingInvite}
                     className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-sky-500 disabled:opacity-50" />
-                  <p className="text-[10px] text-white/30 mt-0.5">Le llegará correo con cuenta de acceso a la app.</p>
+                  <p className="text-[10px] text-white/30 mt-0.5">{t('projects.modals.invite.emailHint')}</p>
                 </div>
-                <div>
-                  <label className="text-xs text-white/60 flex items-center gap-1.5"><MessageCircle className="w-3 h-3 text-green-400" /> WhatsApp</label>
-                  <input type="tel" value={inviteForm.phone} onChange={e => setInviteForm({ ...inviteForm, phone: e.target.value })}
-                    placeholder="+34 600 000 000" disabled={sendingInvite}
-                    className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-green-500 disabled:opacity-50" />
-                  <p className="text-[10px] text-white/30 mt-0.5">Recibirá WhatsApp avisando que fue añadido y notificaciones del proyecto.</p>
-                </div>
+                {/* WhatsApp escondido — solo trabajamos con correo por ahora. */}
                 <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer select-none pt-1">
                   <input type="checkbox" checked={inviteForm.sendNotification}
                     onChange={e => setInviteForm({ ...inviteForm, sendNotification: e.target.checked })}
                     disabled={sendingInvite}
                     className="w-4 h-4 rounded border-white/20 bg-[#0E0E18] text-violet-500 focus:ring-violet-500 focus:ring-offset-0" />
-                  Enviar invitación ahora
-                  <span className="text-[10px] text-white/40">(si lo desmarcas, solo guarda el contacto sin notificar)</span>
+                  {t('projects.modals.invite.sendNow')}
+                  <span className="text-[10px] text-white/40">{t('projects.modals.invite.sendNowHint')}</span>
                 </label>
               </div>
 
@@ -673,7 +900,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
               {inviteShareUrl && (
                 <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2">
                   <p className="text-xs text-amber-200/90 font-medium">
-                    📎 Comparte este link con el invitado (cópialo y mándalo por WhatsApp o Slack):
+                    {t('projects.modals.invite.sharePrompt')}
                   </p>
                   <div className="flex items-stretch gap-2">
                     <input
@@ -698,7 +925,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                           : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
                       }`}
                     >
-                      {shareUrlCopied ? '✓ Copiado' : 'Copiar'}
+                      {shareUrlCopied ? t('projects.modals.invite.copied') : t('projects.modals.invite.copy')}
                     </button>
                   </div>
                 </div>
@@ -706,7 +933,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
               <div className="flex justify-end gap-2 mt-6">
                 <button onClick={() => setInviteModalOpen(false)} disabled={sendingInvite}
                   className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 disabled:opacity-50">
-                  {inviteResultMsg ? 'Cerrar' : 'Cancelar'}
+                  {inviteResultMsg ? t('projects.modals.close') : t('projects.modals.cancel')}
                 </button>
                 {!inviteResultMsg && (
                   <button
@@ -722,29 +949,28 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                           email: inviteForm.email.trim().toLowerCase(),
                           phone: inviteForm.phone.trim(),
                           name: inviteForm.name.trim(),
-                          role: inviteForm.role.trim() || 'Invitado',
+                          role: inviteForm.role.trim() || t('projects.modals.invite.defaultRole'),
                           sendNotification: inviteForm.sendNotification,
                         }, token)
                         // Componer mensaje según qué se hizo
                         const parts: string[] = []
                         if (res?.notified) {
-                          if (res?.email?.success === false) parts.push(`⚠️ Email falló: ${res.email.error}`)
+                          if (res?.email?.success === false) parts.push(t('projects.modals.invite.resultEmailFailed', { error: res.email.error }))
                           else if (inviteForm.email) {
-                            // El backend pone needs_manual_share=true cuando el invitado
-                            // ya existe como EXTERNAL_PROVIDER o CONFIRMED y Cognito
-                            // NO envía email — hay que avisar manualmente.
+                            // El backend pone needs_manual_share=true cuando SES no
+                            // pudo entregar (bounce, dominio inválido, error temporal).
                             if (res?.email?.needs_manual_share) {
-                              parts.push('⚠️ Cognito no manda email (cuenta existente). Usa el link de abajo.')
+                              parts.push(t('projects.modals.invite.resultEmailUndelivered'))
                             } else {
-                              parts.push('✉️ Email enviado')
+                              parts.push(t('projects.modals.invite.resultEmailSent'))
                             }
                           }
-                          if (res?.whatsapp?.status === 'sent' || res?.whatsapp?.status === 'queued' || res?.whatsapp?.status === 'test_simulated') parts.push('📱 WhatsApp enviado')
-                          else if (res?.whatsapp?.error) parts.push(`⚠️ WhatsApp falló: ${res.whatsapp.error}`)
+                          /* WhatsApp escondido — no mostramos mensajes de resultado
+                             aunque el backend eventualmente envíe algo. */
                         } else {
-                          parts.push('Contacto guardado sin notificación')
+                          parts.push(t('projects.modals.invite.resultNoNotify'))
                         }
-                        setInviteResultMsg(parts.join(' · ') || 'Listo')
+                        setInviteResultMsg(parts.join(' · ') || t('projects.modals.invite.resultDone'))
                         // Guardar share_url si el backend lo manda
                         if (res?.email?.share_url) {
                           setInviteShareUrl(res.email.share_url)
@@ -760,12 +986,12 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                           if (updated) setSelectedProject(updated)
                         }
                       } catch (err: any) {
-                        setInviteError(err?.message?.substring(0, 200) || 'Error guardando')
+                        setInviteError(err?.message?.substring(0, 200) || t('projects.modals.invite.errorSaving'))
                       } finally { setSendingInvite(false) }
                     }}
                     className="px-4 py-2 text-sm font-medium bg-violet-600 hover:bg-violet-500 text-white rounded-lg disabled:opacity-50 flex items-center gap-2"
                   >
-                    {sendingInvite ? (<><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>) : (<><UserPlus className="w-4 h-4" /> {inviteForm.sendNotification ? 'Añadir e invitar' : 'Solo añadir'}</>)}
+                    {sendingInvite ? (<><Loader2 className="w-4 h-4 animate-spin" /> {t('projects.modals.invite.saving')}</>) : (<><UserPlus className="w-4 h-4" /> {inviteForm.sendNotification ? t('projects.modals.invite.addAndInvite') : t('projects.modals.invite.onlyAdd')}</>)}
                   </button>
                 )}
               </div>
@@ -787,7 +1013,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
           {/* Breadcrumb + header */}
           <div className="mb-6">
             <div className="flex items-center gap-2 text-sm text-white/40 mb-2">
-              <button onClick={() => setSelectedProject(null)} className="hover:text-white/70 transition-colors">Proyectos</button>
+              <button onClick={() => setSelectedProject(null)} className="hover:text-white/70 transition-colors">{t('nav.projects')}</button>
               <span>/</span>
               <span className="text-white/60">{p.name}</span>
             </div>
@@ -801,8 +1027,32 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-white/5 border border-white/10 text-white/60">{p.type}</span>
                 {p.daysLeft > 0 && (
                   <span className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-white/5 border border-white/10 text-white/60">
-                    <Clock className="w-3.5 h-3.5" /> {p.daysLeft} días restantes
+                    <Clock className="w-3.5 h-3.5" /> {t('projects.detail.daysLeft', { count: p.daysLeft })}
                   </span>
+                )}
+                {/* Owner-only: editar proyecto (nombre, descripción, tipo,
+                    status, fechas). Aparece junto a delete y comparte el
+                    chequeo isOwner. */}
+                {p.isOwner !== false && (
+                  <button
+                    onClick={() => {
+                      setProjectEditForm({
+                        name: p.name || '',
+                        description: p.description || '',
+                        type: p.type || '',
+                        status: (p.status === 'paused' || p.status === 'finished'
+                          ? p.status : 'active') as 'active' | 'paused' | 'finished',
+                        deliveryDate: p.deliveryDate || '',
+                        timing: p.timing || '',
+                      })
+                      setProjectEditError('')
+                      setEditingProject(p)
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 hover:bg-violet-500/20 hover:border-violet-500/40 transition-all"
+                    title={t('projects.detail.editTooltip')}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
                 )}
                 {/* Owner-only: solo el dueño del proyecto puede eliminarlo. */}
                 {p.isOwner !== false && (
@@ -810,20 +1060,20 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                     onClick={() => setConfirmDelete(p)}
                     disabled={deletingProject === p.projectId}
                     className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Eliminar proyecto"
+                    title={t('projects.detail.deleteTooltip')}
                   >
                     {deletingProject === p.projectId ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <Trash2 className="w-3.5 h-3.5" />
                     )}
-                    Eliminar
+                    {t('projects.detail.delete')}
                   </button>
                 )}
                 {/* Badge "Invitado" para que se sepa visualmente el rol. */}
                 {p.isOwner === false && (
-                  <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300" title="Estás invitado a este proyecto">
-                    👤 Invitado
+                  <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300" title={t('projects.detail.invitedTooltip')}>
+                    👤 {t('projects.detail.invitedBadge')}
                   </span>
                 )}
               </div>
@@ -838,14 +1088,14 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 type="text"
                 value={projectSearch}
                 onChange={e => setProjectSearch(e.target.value)}
-                placeholder="Buscar en este proyecto: tareas, riesgos, decisiones, insights..."
+                placeholder={t('projects.detail.searchPlaceholder')}
                 className="w-full pl-10 pr-10 py-2.5 bg-[#161625] border border-white/10 rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
               />
               {isSearching && (
                 <button
                   onClick={() => setProjectSearch('')}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white/80 transition-colors"
-                  title="Limpiar búsqueda"
+                  title={t('projects.detail.clearSearch')}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -853,25 +1103,15 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
             </div>
             {isSearching && (
               <div className="mt-2 flex items-center gap-3 text-xs text-white/50 flex-wrap">
-                <span>
-                  Buscando: <strong className="text-violet-300">"{projectSearch}"</strong>
-                </span>
+                <span>{t('projects.detail.searching', { query: projectSearch })}</span>
                 <span>·</span>
-                <span>
-                  <strong className="text-emerald-400">{matchingDone}</strong> completadas
-                </span>
+                <span><strong className="text-emerald-400">{matchingDone}</strong> {t('projects.detail.searchCompletedSuffix')}</span>
                 <span>·</span>
-                <span>
-                  <strong className="text-amber-400">{matchingPending}</strong> pendientes
-                </span>
+                <span><strong className="text-amber-400">{matchingPending}</strong> {t('projects.detail.searchPendingSuffix')}</span>
                 <span>·</span>
-                <span>
-                  <strong className="text-red-400">{matchingBlocked}</strong> bloqueadas
-                </span>
+                <span><strong className="text-red-400">{matchingBlocked}</strong> {t('projects.detail.searchBlockedSuffix')}</span>
                 <span>·</span>
-                <span>
-                  <strong className="text-violet-400">{matchingActions.length}</strong> acciones IA
-                </span>
+                <span><strong className="text-violet-400">{matchingActions.length}</strong> {t('projects.detail.searchActionsSuffix')}</span>
               </div>
             )}
           </div>
@@ -883,9 +1123,9 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                Vista Gantt
+                {t('projects.detail.ganttTitle')}
                 <span className="text-[10px] font-normal text-white/40 px-2 py-0.5 bg-white/5 rounded-full">
-                  por fechas de tareas
+                  {t('projects.detail.ganttSubtitle')}
                 </span>
               </h2>
             </div>
@@ -923,10 +1163,10 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
           {/* Stats row clickeables (filtro de tareas) */}
           <div className="grid grid-cols-4 gap-4 mb-6">
             {[
-              { id: 'all', label: 'COMPLETADAS', value: isSearching ? matchingDone : p.hechas, sub: isSearching ? `de ${matchingTasks.length} coincidencias` : `de ${totalTareas} tareas totales`, color: 'text-emerald-400', filterValue: 'completed' },
-              { id: 'pending', label: 'PENDIENTES', value: isSearching ? matchingPending : p.pendientes, sub: isSearching ? 'que coinciden con la búsqueda' : `${p.tasks.filter(t => t.tags?.includes('Alta prioridad')).length || 0} con fecha límite hoy`, color: 'text-amber-400', filterValue: 'pending' },
-              { id: 'blocked', label: 'BLOQUEADAS', value: isSearching ? matchingBlocked : p.bloqueadas, sub: isSearching ? 'que coinciden con la búsqueda' : 'Requieren acción', color: 'text-red-400', filterValue: 'blocked' },
-              { id: 'mensajes', label: 'MENSAJES PROCESADOS IA', value: isSearching ? matchingActions.length : p.mensajesIA, sub: isSearching ? 'acciones IA que coinciden' : '100% clasificados · ' + (p.channels.length || 4) + ' canales', color: 'text-violet-400', filterValue: null },
+              { id: 'all',      label: t('projects.detail.stats.completed'),  value: isSearching ? matchingDone : p.hechas,             sub: isSearching ? t('projects.detail.stats.subOfMatches', { total: matchingTasks.length }) : t('projects.detail.stats.subOfTotal', { total: totalTareas }), color: 'text-emerald-400', filterValue: 'completed' },
+              { id: 'pending',  label: t('projects.detail.stats.pending'),    value: isSearching ? matchingPending : p.pendientes,      sub: isSearching ? t('projects.detail.stats.subMatching') : t('projects.detail.stats.subDueToday', { count: p.tasks.filter(x => x.tags?.includes('Alta prioridad')).length || 0 }), color: 'text-amber-400', filterValue: 'pending' },
+              { id: 'blocked',  label: t('projects.detail.stats.blocked'),    value: isSearching ? matchingBlocked : p.bloqueadas,      sub: isSearching ? t('projects.detail.stats.subMatching') : t('projects.detail.stats.subRequireAction'), color: 'text-red-400', filterValue: 'blocked' },
+              { id: 'mensajes', label: t('projects.detail.stats.aiMessages'), value: isSearching ? matchingActions.length : p.mensajesIA, sub: isSearching ? t('projects.detail.stats.subAiActionsMatching') : t('projects.detail.stats.subChannels', { count: p.channels.length || 4 }), color: 'text-violet-400', filterValue: null },
             ].map((stat, i) => {
               const isClickable = stat.filterValue !== null
               const isActive = stat.filterValue && taskFilter === stat.filterValue
@@ -949,12 +1189,12 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 >
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] font-bold text-white/40 uppercase tracking-wider">{stat.label}</p>
-                    {isActive && <span className="text-[10px] font-bold text-white/60">FILTRADO</span>}
+                    {isActive && <span className="text-[10px] font-bold text-white/60">{t('projects.detail.stats.filtered')}</span>}
                   </div>
                   <p className={`text-3xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
                   <p className="text-xs text-white/30 mt-1">{stat.sub}</p>
                   {isClickable && !isActive && (
-                    <p className="text-[10px] text-white/30 mt-1.5 italic">Click para filtrar</p>
+                    <p className="text-[10px] text-white/30 mt-1.5 italic">{t('projects.detail.stats.clickToFilter')}</p>
                   )}
                 </button>
               )
@@ -964,13 +1204,30 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
           {taskFilter !== 'all' && (
             <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-violet-500/10 border border-violet-500/20 rounded-lg">
               <span className="text-xs text-violet-300">
-                Filtrando tareas: <strong className="font-semibold capitalize">{taskFilter === 'completed' ? 'Completadas' : taskFilter === 'pending' ? 'Pendientes' : 'Bloqueadas'}</strong>
+                {t('projects.detail.filterBarPrefix')}
+                <strong className="font-semibold capitalize">
+                  {t(`projects.detail.filterStatuses.${taskFilter}`)}
+                </strong>
               </span>
               <button
                 onClick={() => setTaskFilter('all')}
                 className="ml-auto text-xs text-violet-300 hover:text-white flex items-center gap-1"
               >
-                <X className="w-3 h-3" /> Quitar filtro
+                <X className="w-3 h-3" /> {t('projects.detail.removeFilter')}
+              </button>
+            </div>
+          )}
+
+          {assigneeFilter && (
+            <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-violet-500/10 border border-violet-500/20 rounded-lg">
+              <span className="text-xs text-violet-300">
+                {t('projects.detail.tasks.filterByAssignee', { name: assigneeFilter })}
+              </span>
+              <button
+                onClick={() => setAssigneeFilter(null)}
+                className="ml-auto text-xs text-violet-300 hover:text-white flex items-center gap-1"
+              >
+                <X className="w-3 h-3" /> {t('projects.detail.team.clearAssigneeFilter')}
               </button>
             </div>
           )}
@@ -979,7 +1236,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
           <div className="bg-[#161625] rounded-xl p-4 border border-white/5 mb-6">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold text-white flex items-center gap-2">
-                Progreso global del proyecto
+                {t('projects.detail.progressTitle')}
                 {p.timing && (
                   <span className="text-[10px] font-medium text-white/40 bg-white/5 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <Clock className="w-3 h-3" /> {p.timing}
@@ -991,7 +1248,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 p.progress >= 70 ? 'text-emerald-400' :
                 p.progress >= 40 ? 'text-blue-400' :
                 'text-amber-400'
-              }`}>{p.progress}% completado</span>
+              }`}>{t('projects.detail.progressPct', { value: p.progress })}</span>
             </div>
             <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden mb-3">
               <div className={`h-full rounded-full transition-all ${
@@ -1002,15 +1259,15 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
               <div className="mb-3 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2">
                 <AlertTriangle className="w-3.5 h-3.5 text-red-400 mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-red-300">
-                  <strong>Avance bloqueado:</strong> {p.progressBlockedReason}
+                  <strong>{t('projects.detail.progressBlocked')}</strong> {p.progressBlockedReason}
                 </p>
               </div>
             )}
             <div className="grid grid-cols-4 gap-4">
               {[
-                { label: 'Completadas', value: p.hechas },
-                { label: 'En curso', value: Math.max(1, Math.floor(p.pendientes / 2)) },
-                { label: 'Pendientes', value: p.pendientes },
+                { label: t('projects.detail.progressStats.done'),        value: p.hechas },
+                { label: t('projects.detail.progressStats.inProgress'),  value: Math.max(1, Math.floor(p.pendientes / 2)) },
+                { label: t('projects.detail.progressStats.pending'),     value: p.pendientes },
                 { label: 'Bloqueadas', value: p.bloqueadas },
               ].map((s, i) => (
                 <div key={i}>
@@ -1024,10 +1281,13 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
           {/* Two columns: Tasks + AI Actions */}
           <div className="grid grid-cols-2 gap-6">
             {/* Tasks */}
-            <div>
+            <div id="project-tasks-section" style={{ scrollMarginTop: 24 }}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-bold text-white">
-                  Tareas {taskFilter === 'completed' ? 'completadas' : taskFilter === 'blocked' ? 'bloqueadas' : taskFilter === 'pending' ? 'pendientes' : ''}
+                  {taskFilter === 'completed' ? t('projects.detail.tasks.headerCompleted') :
+                   taskFilter === 'blocked'   ? t('projects.detail.tasks.headerBlocked') :
+                   taskFilter === 'pending'   ? t('projects.detail.tasks.headerPending') :
+                   t('projects.detail.tasks.header')}
                 </h2>
                 <div className="flex items-center gap-3">
                   {p.tasks.length > 3 && (
@@ -1035,7 +1295,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                       onClick={() => setShowAllTasks(!showAllTasks)}
                       className="text-xs text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1"
                     >
-                      {showAllTasks ? 'Ver menos' : `Ver todas (${p.tasks.length})`} →
+                      {showAllTasks ? t('projects.detail.tasks.viewLess') : t('projects.detail.tasks.viewAll', { count: p.tasks.length })} →
                     </button>
                   )}
                   <button
@@ -1046,15 +1306,15 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                     }}
                     className="flex items-center gap-1 px-2.5 py-1 text-xs bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 border border-violet-500/30 rounded-md transition-colors"
                   >
-                    <Plus className="w-3 h-3" /> Nueva tarea
+                    <Plus className="w-3 h-3" /> {t('projects.detail.tasks.newTask')}
                   </button>
                 </div>
               </div>
               <div className="space-y-3">
                 {(() => {
-                  // Combinar filtro de estado + búsqueda de texto
+                  // Combinar filtro de estado + búsqueda de texto + filtro de participante
                   const baseTasks = isSearching ? matchingTasks : p.tasks
-                  const filteredTasks = taskFilter === 'all'
+                  const statusFiltered = taskFilter === 'all'
                     ? baseTasks
                     : baseTasks.filter(t => {
                         if (taskFilter === 'completed') return isDone(t.status)
@@ -1062,10 +1322,18 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                         if (taskFilter === 'pending') return !isDone(t.status) && t.status !== 'blocked'
                         return true
                       })
+                  // Filtro por participante: match por nombre de assignedTo
+                  const filteredTasks = assigneeFilter
+                    ? statusFiltered.filter(t => {
+                        const a: any = (t as any).assignedTo
+                        const name = typeof a === 'string' ? a : a?.nombre
+                        return name === assigneeFilter
+                      })
+                    : statusFiltered
                   // Si NO hay filtro ni búsqueda, agrupar jerárquicamente:
                   // [raíz1, hijo1.1, hijo1.2, raíz2, hijo2.1, ...].
                   // Con filtro/búsqueda, render plano para no esconder coincidencias.
-                  const isFilteringOrSearching = taskFilter !== 'all' || isSearching
+                  const isFilteringOrSearching = taskFilter !== 'all' || isSearching || !!assigneeFilter
                   const orderedTasks: ProjectTask[] = isFilteringOrSearching
                     ? filteredTasks
                     : (() => {
@@ -1119,10 +1387,9 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                             }
                           } catch (err) { console.error('Error actualizando tarea:', err) }
                         }}
-                        title={isDone(task.status) ? 'Click para marcar como pendiente' :
-                               task.status === 'blocked' ? 'Tarea bloqueada' :
-                               task.status === 'in_progress' ? 'Click para marcar como completada' :
-                               'Click para marcar como completada'}
+                        title={isDone(task.status) ? t('projects.detail.tasks.clickToUnmark') :
+                               task.status === 'blocked' ? t('projects.detail.tasks.blockedTooltip') :
+                               t('projects.detail.tasks.clickToComplete')}
                         className={`w-5 h-5 rounded border-2 mt-0.5 flex-shrink-0 transition-all cursor-pointer hover:scale-110 group/checkbox relative ${
                           isDone(task.status) ? 'border-emerald-400 bg-emerald-500/30' :
                           task.status === 'blocked' ? 'border-red-400 bg-red-500/10' :
@@ -1135,8 +1402,8 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                         )}
                       </button>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-semibold ${isDone(task.status) ? 'text-white/60 line-through' : 'text-white'}`}>{task.text}</p>
-                        <p className="text-xs text-white/40 mt-1">
+                        <p className={`text-sm font-semibold break-words ${isDone(task.status) ? 'text-white/60 line-through' : 'text-white'}`}>{task.text}</p>
+                        <p className="text-xs text-white/40 mt-1 break-words">
                           <span className={`font-bold ${
                             isDone(task.status) ? 'text-emerald-400' :
                             task.status === 'blocked' ? 'text-red-400' :
@@ -1144,10 +1411,11 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                             task.status === 'waiting' ? 'text-amber-400' :
                             'text-orange-400'
                           }`}>
-                            {isDone(task.status) ? 'COMPLETADA:' :
-                             task.status === 'blocked' ? 'BLOQUEADA:' :
-                             task.status === 'in_progress' ? 'EN CURSO:' :
-                             task.status === 'waiting' ? 'EN ESPERA:' : 'PENDIENTE:'}
+                            {isDone(task.status) ? t('projects.detail.tasks.statusLabels.done') :
+                             task.status === 'blocked' ? t('projects.detail.tasks.statusLabels.blocked') :
+                             task.status === 'in_progress' ? t('projects.detail.tasks.statusLabels.in_progress') :
+                             task.status === 'waiting' ? t('projects.detail.tasks.statusLabels.waiting') :
+                             t('projects.detail.tasks.statusLabels.pending')}
                           </span>{' '}
                           {task.description}
                         </p>
@@ -1155,10 +1423,10 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                           <div className="flex items-center gap-2">
                             {/* Tag dinámico según el estado real (no el tag estático del backend) */}
                             {(() => {
-                              const dynamicTag = isDone(task.status) ? { label: 'Completada', color: 'bg-emerald-500/20 text-emerald-400' } :
-                                                 task.status === 'blocked' ? { label: 'Bloqueada', color: 'bg-red-500/20 text-red-400' } :
-                                                 task.status === 'in_progress' ? { label: 'En curso', color: 'bg-blue-500/20 text-blue-400' } :
-                                                 { label: 'Pendiente', color: 'bg-orange-500/20 text-orange-400' }
+                              const dynamicTag = isDone(task.status)             ? { label: t('projects.detail.tasks.statusTags.done'),        color: 'bg-emerald-500/20 text-emerald-400' } :
+                                                 task.status === 'blocked'      ? { label: t('projects.detail.tasks.statusTags.blocked'),     color: 'bg-red-500/20 text-red-400' } :
+                                                 task.status === 'in_progress'  ? { label: t('projects.detail.tasks.statusTags.in_progress'), color: 'bg-blue-500/20 text-blue-400' } :
+                                                                                  { label: t('projects.detail.tasks.statusTags.pending'),     color: 'bg-orange-500/20 text-orange-400' }
                               return (
                                 <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${dynamicTag.color}`}>
                                   {dynamicTag.label}
@@ -1167,8 +1435,8 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                             })()}
                             {/* Indicador de subtareas: solo en padres (raíz con hijos). */}
                             {!isSubtask && (task.subtasksCount || 0) > 0 && (
-                              <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-violet-500/10 text-violet-300 border border-violet-500/20" title={`${task.subtasksDone || 0} de ${task.subtasksCount} subtareas completadas`}>
-                                {task.subtasksDone || 0}/{task.subtasksCount} subt.
+                              <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-violet-500/10 text-violet-300 border border-violet-500/20" title={t('projects.detail.tasks.subtasksTooltip', { done: task.subtasksDone || 0, total: task.subtasksCount })}>
+                                {task.subtasksDone || 0}/{task.subtasksCount} {t('projects.detail.tasks.subtasksAbbrev')}
                               </span>
                             )}
                             {/* Otros tags del backend que NO sean de estado */}
@@ -1199,20 +1467,30 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                                 })
                                 setTaskModalOpen(true)
                               }}
-                              title="Editar tarea"
+                              title={t('projects.detail.tasks.editTooltip')}
                               className="w-6 h-6 rounded-md bg-white/5 hover:bg-violet-500/20 hover:text-violet-300 text-white/40 flex items-center justify-center transition-colors"
                             >
                               <Pencil className="w-3 h-3" />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setConfirmDeleteTask(task) }}
-                              title="Borrar tarea"
+                              title={t('projects.detail.tasks.deleteTooltip')}
                               className="w-6 h-6 rounded-md bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-white/40 flex items-center justify-center transition-colors"
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
-                            <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${task.assignedTo.color} flex items-center justify-center text-[10px] text-white font-bold`}>
-                              {task.assignedTo.iniciales}
+                            <div className="relative group">
+                              <div
+                                className={`w-7 h-7 rounded-full bg-gradient-to-br ${task.assignedTo.color} flex items-center justify-center text-[10px] text-white font-bold cursor-default`}
+                              >
+                                {task.assignedTo.iniciales}
+                              </div>
+                              {/* Tooltip custom: aparece instantáneo al hover.
+                                  pointer-events-none evita que el tooltip
+                                  intercepte el hover y haga flicker. */}
+                              <div className="pointer-events-none absolute bottom-full right-0 mb-2 px-2 py-1 bg-black/90 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+                                {task.assignedTo.nombre || t('projects.detail.tasks.unassigned')}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1224,7 +1502,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                               type="text"
                               value={blockReason}
                               onChange={(e) => setBlockReason(e.target.value)}
-                              placeholder="Motivo del bloqueo..."
+                              placeholder={t('projects.detail.tasks.blockReasonPlaceholder')}
                               className="flex-1 px-3 py-1.5 bg-[#0E0E18] border border-red-500/40 rounded-md text-xs text-white placeholder-white/30 focus:outline-none focus:border-red-500"
                               autoFocus
                             />
@@ -1247,20 +1525,20 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                               }}
                               className="px-3 py-1.5 text-xs bg-red-500/80 hover:bg-red-500 text-white rounded-md disabled:opacity-50 flex items-center gap-1"
                             >
-                              {savingBlock && <Loader2 className="w-3 h-3 animate-spin" />} Bloquear
+                              {savingBlock && <Loader2 className="w-3 h-3 animate-spin" />} {t('projects.detail.tasks.block')}
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setBlockingTaskId(null); setBlockReason('') }}
                               className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 text-white/70 rounded-md"
                             >
-                              Cancelar
+                              {t('projects.detail.tasks.cancel')}
                             </button>
                           </div>
                         ) : task.status === 'blocked' ? (
                           <div className="mt-3 flex items-center gap-2">
                             {task.blockedReason && (
                               <span className="flex-1 text-[11px] text-red-300/70 italic truncate" title={task.blockedReason}>
-                                Motivo: {task.blockedReason}
+                                {t('projects.detail.tasks.blockedReasonPrefix')} {task.blockedReason}
                               </span>
                             )}
                             <button
@@ -1278,7 +1556,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                               }}
                               className="ml-auto px-2.5 py-1 text-[11px] bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 rounded-md flex items-center gap-1"
                             >
-                              <Unlock className="w-3 h-3" /> Desbloquear
+                              <Unlock className="w-3 h-3" /> {t('projects.detail.tasks.unblock')}
                             </button>
                           </div>
                         ) : (
@@ -1287,7 +1565,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                               onClick={(e) => { e.stopPropagation(); setBlockingTaskId(task.id); setBlockReason('') }}
                               className="flex items-center gap-1 px-2.5 py-1 text-[11px] bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-white/40 border border-white/10 hover:border-red-500/30 rounded-md transition-colors"
                             >
-                              <Ban className="w-3 h-3" /> Bloquear
+                              <Ban className="w-3 h-3" /> {t('projects.detail.tasks.block')}
                             </button>
                           </div>
                         )}
@@ -1306,7 +1584,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                         }}
                         className="flex items-center gap-1 px-2.5 py-1 text-[11px] bg-white/5 hover:bg-violet-500/15 hover:text-violet-300 text-white/40 border border-white/10 hover:border-violet-500/30 rounded-md transition-colors"
                       >
-                        <Plus className="w-3 h-3" /> Subtarea
+                        <Plus className="w-3 h-3" /> {t('projects.detail.tasks.subtask')}
                       </button>
                     </div>
                   )}
@@ -1314,9 +1592,11 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 )}) : (
                   <div className="bg-[#161625] rounded-xl p-8 border border-white/5 text-center">
                     <p className="text-white/30 text-sm">
-                      {taskFilter !== 'all'
-                        ? `No hay tareas ${taskFilter === 'completed' ? 'completadas' : taskFilter === 'blocked' ? 'bloqueadas' : 'pendientes'}`
-                        : 'No hay tareas definidas para este proyecto'}
+                      {assigneeFilter
+                        ? t('projects.detail.tasks.emptyForAssignee', { name: assigneeFilter })
+                        : taskFilter !== 'all'
+                          ? t('projects.detail.tasks.emptyForFilter', { status: t(`projects.list.globalFilterLabels.${taskFilter}`) })
+                          : t('projects.detail.tasks.emptyDefault')}
                     </p>
                   </div>
                 )
@@ -1327,7 +1607,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
             {/* AI Actions */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-bold text-white">Acciones ejecutadas por la IA</h2>
+                <h2 className="text-base font-bold text-white">{t('projects.detail.aiActions.header')}</h2>
                 {matchingActions.length > 3 && (
                   <button
                     onClick={() => setShowAllActions(!showAllActions)}
@@ -1342,12 +1622,12 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   <div key={action.id} className="bg-[#161625] rounded-xl p-4 border border-white/5">
                     <div className="space-y-2">
                       <div className="flex items-start gap-2">
-                        <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">DETECTÓ</span>
+                        <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">{t('projects.detail.aiActions.detected')}</span>
                         <p className="text-sm text-white/80">{action.detected}</p>
                       </div>
                       <div className="pl-4 border-l-2 border-white/10 ml-1">
                         <div className="flex items-start gap-2">
-                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">EJECUTÓ</span>
+                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">{t('projects.detail.aiActions.executed')}</span>
                           <p className="text-sm text-white/60">{action.executed}</p>
                         </div>
                       </div>
@@ -1380,13 +1660,15 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Bell className="w-4 h-4 text-violet-400" />
-                  <h2 className="text-base font-bold text-white">Notificaciones enviadas</h2>
-                  <span className="text-xs text-white/30 ml-1">WhatsApp · SMS</span>
+                  <h2 className="text-base font-bold text-white">{t('projects.detail.notifications.header')}</h2>
+                  <span className="text-xs text-white/30 ml-1">{t('projects.detail.notifications.subheader')}</span>
                 </div>
                 <span className="text-xs text-white/40">{(p as any).notifications.length} enviadas</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {(p as any).notifications.map((notif: any) => (
+                {(p as any).notifications
+                  .filter((n: any) => (n.canal || '').toLowerCase() !== 'whatsapp')
+                  .map((notif: any) => (
                   <div key={notif.id} className="bg-[#161625] rounded-xl p-4 border border-white/5">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -1440,10 +1722,10 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
           {/* Team */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider">Equipo del Proyecto</h3>
+              <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider">{t('projects.detail.team.header')}</h3>
               {/* Botones owner-only: añadir/invitar/editar teléfonos. Los invitados solo ven la lista. */}
               {!editingPhones && p.isOwner === false ? (
-                <span className="text-[10px] text-white/30 italic" title="Solo el dueño del proyecto puede modificar el equipo">
+                <span className="text-[10px] text-white/30 italic" title={t('projects.detail.team.readOnlyHint')}>
                   Solo lectura
                 </span>
               ) : !editingPhones ? (
@@ -1461,10 +1743,10 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                       setInviteModalOpen(true)
                     }}
                     className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-violet-300 bg-violet-500/15 hover:bg-violet-500/25 border border-violet-500/30 rounded-md transition-colors"
-                    title="Añadir contacto y opcionalmente enviar invitación por email/WhatsApp"
+                    title={t('projects.detail.team.addTooltip')}
                   >
                     <UserPlus className="w-3 h-3" />
-                    Añadir / Invitar
+                    {t('projects.detail.team.addLabel')}
                   </button>
                   {/* Edición masiva de contactos (email + teléfono) — botón discreto.
                       Útil cuando ya tienes el equipo y solo quieres actualizar canales. */}
@@ -1481,10 +1763,10 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                       setEditingPhones(true)
                     }}
                     className="flex items-center gap-1 text-[10px] text-white/40 hover:text-white/70 transition-colors"
-                    title="Editar email y teléfono de todos los miembros"
+                    title={t('projects.detail.team.editTooltip')}
                   >
                     <Pencil className="w-3 h-3" />
-                    Editar contactos
+                    {t('projects.detail.team.editLabel')}
                   </button>
                 </div>
               ) : (
@@ -1537,15 +1819,35 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 (registrar sin notificar / invitar con email/WhatsApp) usan
                 ese único flujo con el checkbox "Enviar invitación ahora". */}
             <div className="space-y-2">
-              {p.team.map((member, i) => (
-                <div key={i}>
+              {p.team.map((member, i) => {
+                const isAssigneeActive = assigneeFilter === member.nombre
+                return (
+                <div
+                  key={i}
+                  onClick={() => {
+                    // No filtrar cuando el user está en modo edición de contactos
+                    // (podría interferir con click en inputs).
+                    if (editingPhones) return
+                    setAssigneeSummaryExpanded(false)
+                    setAssigneeFilter(isAssigneeActive ? null : member.nombre)
+                  }}
+                  role={editingPhones ? undefined : 'button'}
+                  className={`transition-colors rounded-md ${
+                    editingPhones
+                      ? ''
+                      : isAssigneeActive
+                        ? 'bg-violet-500/15 border border-violet-500/30 cursor-pointer -mx-1 px-1'
+                        : 'hover:bg-white/[0.03] cursor-pointer -mx-1 px-1'
+                  }`}
+                  title={editingPhones ? undefined : (isAssigneeActive ? t('projects.detail.team.clearAssigneeFilter') : t('projects.detail.team.filterByAssignee', { name: member.nombre }))}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${member.color} flex items-center justify-center text-[10px] text-white font-bold`}>
                         {member.iniciales}
                       </div>
                       <div>
-                        <p className="text-sm text-white font-medium">{member.nombre}</p>
+                        <p className={`text-sm font-medium ${isAssigneeActive ? 'text-violet-200' : 'text-white'}`}>{member.nombre}</p>
                         <p className="text-[11px] text-white/40">{member.rol}</p>
                       </div>
                     </div>
@@ -1557,17 +1859,13 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                               <Mail className="w-3 h-3 text-sky-400" />
                             </span>
                           )}
-                          {member.telefono && (
-                            <span title={`WhatsApp: ${member.telefono}`}>
-                              <MessageCircle className="w-3 h-3 text-green-400" />
-                            </span>
-                          )}
-                          {!member.email && !member.telefono && (
-                            <span className="text-[9px] text-white/20">sin canal</span>
+                          {/* WhatsApp icon escondido — solo mostramos el email. */}
+                          {!member.email && (
+                            <span className="text-[9px] text-white/20">{t('projects.detail.team.noChannel')}</span>
                           )}
                         </div>
                       )}
-                      <span className="text-xs text-white/40">{member.tareas} tarea{member.tareas !== 1 ? 's' : ''}</span>
+                      <span className="text-xs text-white/40">{t('projects.detail.team.taskCount', { count: member.tareas })}</span>
                       {/* Botón eliminar participante — solo owner, aparece en hover.
                           Las tareas asignadas quedan como "Sin asignar", y si era
                           invitado pierde acceso al proyecto. */}
@@ -1591,30 +1889,110 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                           value={emailEdits[member.nombre] ?? ''}
                           onChange={e => setEmailEdits({ ...emailEdits, [member.nombre]: e.target.value })}
                           className="flex-1 px-2.5 py-1.5 bg-[#161625] border border-white/10 rounded-lg text-xs text-white/70 placeholder-white/20 focus:border-sky-500/40 outline-none transition-all"
-                          placeholder="email@ejemplo.com"
+                          placeholder={t('projects.detail.team.emailPlaceholder')}
                         />
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <MessageCircle className="w-3 h-3 text-green-400 flex-shrink-0" />
-                        <input
-                          type="tel"
-                          value={phoneEdits[member.nombre] ?? ''}
-                          onChange={e => setPhoneEdits({ ...phoneEdits, [member.nombre]: e.target.value })}
-                          className="flex-1 px-2.5 py-1.5 bg-[#161625] border border-white/10 rounded-lg text-xs text-white/70 placeholder-white/20 focus:border-green-500/40 outline-none transition-all"
-                          placeholder="+34 600 000 000"
-                        />
-                      </div>
+                      {/* Input de WhatsApp escondido — solo editamos email. */}
                     </div>
                   )}
                 </div>
-              ))}
-              {p.team.length === 0 && <p className="text-xs text-white/30">Sin equipo asignado</p>}
+                )
+              })}
+              {p.team.length === 0 && <p className="text-xs text-white/30">{t('projects.detail.team.empty')}</p>}
             </div>
           </div>
 
+          {/* Mini-panel resumen del filtro por participante.
+              Aparece solo cuando assigneeFilter está activo. Muestra la lista
+              compacta de tareas de esa persona (título + estado) para que el
+              usuario vea inmediatamente el resultado del filtro sin tener que
+              hacer scroll a la lista principal de tareas. */}
+          {assigneeFilter && (() => {
+            const rows = p.tasks.filter(tsk => {
+              const a: any = (tsk as any).assignedTo
+              const name = typeof a === 'string' ? a : a?.nombre
+              return name === assigneeFilter
+            })
+            const statusColor = (st: string) =>
+              st === 'blocked'   ? 'text-red-300 bg-red-500/10 border-red-500/20' :
+              st === 'done' || st === 'completed' ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' :
+              st === 'in_progress' ? 'text-sky-300 bg-sky-500/10 border-sky-500/20' :
+                                   'text-amber-300 bg-amber-500/10 border-amber-500/20'
+            const statusLabel = (st: string) =>
+              t(`projects.detail.tasks.statusTags.${st === 'completed' ? 'done' : st}`, st)
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[11px] font-bold text-violet-300 uppercase tracking-wider">
+                    {t('projects.detail.team.filterSummaryHeader', { name: assigneeFilter })}
+                  </h3>
+                  <button
+                    onClick={() => setAssigneeFilter(null)}
+                    className="text-[10px] text-white/40 hover:text-violet-300 transition-colors flex items-center gap-1"
+                    title={t('projects.detail.team.clearAssigneeFilter')}
+                  >
+                    <X className="w-3 h-3" /> {t('projects.detail.team.clearAssigneeFilter')}
+                  </button>
+                </div>
+                <div className="bg-violet-500/5 border border-violet-500/20 rounded-lg p-3 space-y-2">
+                  <p className="text-[11px] text-white/50">
+                    {t('projects.detail.team.filterSummaryCount', { count: rows.length })}
+                  </p>
+                  {rows.length === 0 ? (
+                    <p className="text-xs text-white/30 italic">
+                      {t('projects.detail.tasks.emptyForAssignee', { name: assigneeFilter })}
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      {(assigneeSummaryExpanded ? rows : rows.slice(0, 8)).map(tsk => (
+                        <button
+                          key={tsk.id}
+                          type="button"
+                          onClick={() => {
+                            setEditingTaskId(tsk.id)
+                            setTaskForm({
+                              text: tsk.text,
+                              description: tsk.description || '',
+                              status: tsk.status,
+                              assignedTo: (tsk.assignedTo as any)?.nombre === 'Sin asignar' ? '' : ((tsk.assignedTo as any)?.nombre || ''),
+                              startDate: tsk.startDate || '',
+                              dueDate: tsk.dueDate || '',
+                              parentTaskId: tsk.parentTaskId || '',
+                            })
+                            setTaskModalOpen(true)
+                          }}
+                          title={t('projects.detail.tasks.editTooltip')}
+                          className="w-full text-left flex items-center gap-2 text-xs rounded-md px-1.5 py-1 -mx-1.5 hover:bg-violet-500/10 transition-colors"
+                        >
+                          <span className={`px-1.5 py-0.5 rounded border text-[9px] uppercase font-semibold flex-shrink-0 ${statusColor(tsk.status)}`}>
+                            {statusLabel(tsk.status)}
+                          </span>
+                          <span className="text-white/70 truncate flex-1">
+                            {tsk.text}
+                          </span>
+                        </button>
+                      ))}
+                      {rows.length > 8 && (
+                        <button
+                          type="button"
+                          onClick={() => setAssigneeSummaryExpanded(prev => !prev)}
+                          className="text-[10px] text-violet-300/80 hover:text-violet-200 underline pt-1"
+                        >
+                          {assigneeSummaryExpanded
+                            ? t('projects.detail.team.filterSummaryLess')
+                            : t('projects.detail.team.filterSummaryMore', { count: rows.length - 8 })}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Channels */}
           <div>
-            <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">Canales Activos</h3>
+            <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('projects.detail.channels.header')}</h3>
             <div className="space-y-2">
               {p.channels.map((ch, i) => (
                 <div key={i} className="flex items-center justify-between">
@@ -1630,14 +2008,14 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                   )}
                 </div>
               ))}
-              {p.channels.length === 0 && <p className="text-xs text-white/30">Sin canales configurados</p>}
+              {p.channels.length === 0 && <p className="text-xs text-white/30">{t('projects.detail.channels.empty')}</p>}
             </div>
           </div>
 
           {/* Tags */}
           {p.etiquetas.length > 0 && (
             <div>
-              <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">Etiquetas Activas (IA)</h3>
+              <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('projects.detail.tags.header')}</h3>
               <div className="flex flex-wrap gap-2">
                 {p.etiquetas.map((tag, i) => (
                   <span key={i} className="flex items-center gap-1.5 text-xs text-white/60">
@@ -1651,13 +2029,13 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
 
           {/* SLA */}
           <div>
-            <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">SLA del Proyecto</h3>
+            <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('projects.detail.slaPanel.header')}</h3>
             <div className="space-y-2">
               {[
-                { label: 'Respuesta media al cliente', value: p.slaMetrics.respuestaCliente, alert: false },
-                { label: 'Tareas sin responsable', value: String(p.slaMetrics.tareasResponsable), alert: p.slaMetrics.tareasResponsable > 0 },
-                { label: 'Respuesta pendiente partner', value: p.slaMetrics.respuestaPartner, alert: p.slaMetrics.respuestaPartner === '72h' },
-                { label: 'Tareas bloqueadas +24h', value: String(p.slaMetrics.tareasBlockeadas24h), alert: p.slaMetrics.tareasBlockeadas24h > 0 },
+                { label: t('projects.detail.slaPanel.responseAvg'),     value: p.slaMetrics.respuestaCliente, alert: false },
+                { label: t('projects.detail.slaPanel.unassignedTasks'), value: String(p.slaMetrics.tareasResponsable), alert: p.slaMetrics.tareasResponsable > 0 },
+                { label: t('projects.detail.slaPanel.partnerResponse'), value: p.slaMetrics.respuestaPartner, alert: p.slaMetrics.respuestaPartner === '72h' },
+                { label: t('projects.detail.slaPanel.blockedOver24h'),  value: String(p.slaMetrics.tareasBlockeadas24h), alert: p.slaMetrics.tareasBlockeadas24h > 0 },
               ].map((metric, i) => (
                 <div key={i} className="flex items-center justify-between">
                   <span className="text-xs text-white/50">{metric.label}</span>
@@ -1689,33 +2067,32 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">Tus proyectos</h1>
+            <h1 className="text-2xl font-bold text-white">{t('projects.list.title')}</h1>
             <p className="text-sm text-white/40 mt-1">
-              {stats.total} proyectos · {stats.totalTareasBloqueadas} tareas bloqueadas · Datos en tiempo real
+              {t('projects.list.subtitle', { total: stats.total, blocked: stats.totalTareasBloqueadas })}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {['Todos', 'Activos', 'En riesgo', 'Vencidos', 'En pausa'].map(pill => {
-              const pillId = pill === 'Todos' ? 'todos' : pill === 'Activos' ? 'activos' : pill === 'En riesgo' ? 'en_riesgo' : pill === 'Vencidos' ? 'vencidos' : 'en_pausa'
-              const isActive = filtroEstado === pillId
+            {([
+              { id: 'todos',     labelKey: 'all',     dot: '' },
+              { id: 'activos',   labelKey: 'active',  dot: 'bg-emerald-400' },
+              { id: 'en_riesgo', labelKey: 'atRisk',  dot: 'bg-orange-400' },
+              { id: 'vencidos',  labelKey: 'overdue', dot: 'bg-red-400' },
+              { id: 'en_pausa',  labelKey: 'paused',  dot: 'bg-white/30' },
+            ] as const).map(pill => {
+              const isActive = filtroEstado === pill.id
               return (
                 <button
-                  key={pill}
-                  onClick={() => setFiltroEstado(pillId)}
+                  key={pill.id}
+                  onClick={() => setFiltroEstado(pill.id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
                     isActive
                       ? 'bg-white/10 text-white border-white/20'
                       : 'text-white/40 border-white/5 hover:border-white/10 hover:text-white/60'
                   }`}
                 >
-                  {pill !== 'Todos' && (
-                    <span className={`w-2 h-2 rounded-full ${
-                      pill === 'Activos' ? 'bg-emerald-400' :
-                      pill === 'En riesgo' ? 'bg-orange-400' :
-                      pill === 'Vencidos' ? 'bg-red-400' : 'bg-white/30'
-                    }`} />
-                  )}
-                  {pill}
+                  {pill.dot && <span className={`w-2 h-2 rounded-full ${pill.dot}`} />}
+                  {t(`projects.list.filters.${pill.labelKey}`)}
                 </button>
               )
             })}
@@ -1736,14 +2113,14 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
             por la IA en TODA la historia, no "mensajes enviados hoy"). */}
         <div className="grid grid-cols-5 gap-4 mb-6">
           {([
-            { icon: FolderKanban, value: stats.total, label: 'Proyectos totales', color: 'text-white/60', action: 'reset', filterValue: null, hint: globalTaskFilter ? 'Click para quitar filtro' : '' },
-            { icon: CheckCircle2, value: stats.totalTareasCompletadas, label: 'Tareas completadas', color: 'text-emerald-400', action: 'filter', filterValue: 'completed' as const, hint: 'Click para ver detalle' },
-            { icon: AlertCircle, value: stats.totalTareasPendientes, label: 'Tareas pendientes', color: 'text-amber-400', action: 'filter', filterValue: 'pending' as const, hint: 'Click para ver detalle' },
-            { icon: Shield, value: stats.totalTareasBloqueadas, label: 'Tareas bloqueadas', color: 'text-red-400', action: 'filter', filterValue: 'blocked' as const, hint: 'Click para ver detalle' },
+            { icon: FolderKanban, value: stats.total, label: t('projects.list.stats.totalProjects'), color: 'text-white/60', action: 'reset', filterValue: null, hint: globalTaskFilter ? t('projects.list.stats.hintClear') : '' },
+            { icon: CheckCircle2, value: stats.totalTareasCompletadas, label: t('projects.list.stats.tasksCompleted'), color: 'text-emerald-400', action: 'filter', filterValue: 'completed' as const, hint: t('projects.list.stats.hintDetail') },
+            { icon: AlertCircle, value: stats.totalTareasPendientes, label: t('projects.list.stats.tasksPending'), color: 'text-amber-400', action: 'filter', filterValue: 'pending' as const, hint: t('projects.list.stats.hintDetail') },
+            { icon: Shield, value: stats.totalTareasBloqueadas, label: t('projects.list.stats.tasksBlocked'), color: 'text-red-400', action: 'filter', filterValue: 'blocked' as const, hint: t('projects.list.stats.hintDetail') },
             // "Insights IA" = cuenta total de insights generados por la IA
             // al analizar los proyectos (NO son mensajes enviados Twilio —
             // esos viven en onebox-notifications). Decorativa por ahora.
-            { icon: Zap, value: stats.totalMensajes, label: 'Insights IA', color: 'text-violet-400', action: null, filterValue: null, hint: '' },
+            { icon: Zap, value: stats.totalMensajes, label: t('projects.list.stats.aiInsights'), color: 'text-violet-400', action: null, filterValue: null, hint: '' },
           ] as const).map((stat, i) => {
             const Icon = stat.icon
             const isClickable = stat.action !== null
@@ -1772,7 +2149,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                     <Icon className={`w-4 h-4 ${stat.color}`} />
                     <span className={`text-2xl font-bold ${stat.color}`}>{stat.value}</span>
                   </div>
-                  {isActive && <span className="text-[9px] font-bold text-white/60">FILTRADO</span>}
+                  {isActive && <span className="text-[9px] font-bold text-white/60">{t('projects.list.filtered')}</span>}
                 </div>
                 <p className="text-[11px] text-white/30">{stat.label}</p>
                 {isClickable && !isActive && stat.hint && (
@@ -1800,8 +2177,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
             }))
             .filter(g => g.tasks.length > 0)
           const totalMatchingTasks = groups.reduce((s, g) => s + g.tasks.length, 0)
-          const filterLabel = globalTaskFilter === 'completed' ? 'completadas' :
-                              globalTaskFilter === 'pending' ? 'pendientes' : 'bloqueadas'
+          const filterLabel = t(`projects.list.globalFilterLabels.${globalTaskFilter}`)
           const filterColor = globalTaskFilter === 'completed' ? 'text-emerald-400' :
                               globalTaskFilter === 'pending' ? 'text-amber-400' : 'text-red-400'
           const filterBgColor = globalTaskFilter === 'completed' ? 'bg-emerald-500/10 border-emerald-500/20' :
@@ -1856,7 +2232,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                                 globalTaskFilter === 'pending' ? 'bg-amber-400' :
                                 'bg-red-400'
                               }`} />
-                              <span className="leading-relaxed">{t.text}</span>
+                              <span className="leading-relaxed break-words min-w-0">{t.text}</span>
                             </div>
                           ))}
                         </div>
@@ -1874,7 +2250,7 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-white/40">Cargando proyectos desde DynamoDB...</p>
+              <p className="text-sm text-white/40">{t('projects.list.loading')}</p>
             </div>
           </div>
         )}
@@ -1884,13 +2260,13 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
               <FolderKanban className="w-12 h-12 text-white/10" />
               {proyectos.length === 0 ? (
                 <>
-                  <p className="text-sm text-white/40">Aún no tienes proyectos</p>
-                  <p className="text-xs text-white/20">Crea tu primer proyecto con el botón "Nuevo proyecto"</p>
+                  <p className="text-sm text-white/40">{t('projects.list.emptyNoProjects')}</p>
+                  <p className="text-xs text-white/20">{t('projects.list.emptyHint')}</p>
                 </>
               ) : (
                 <>
-                  <p className="text-sm text-white/40">No hay proyectos que coincidan</p>
-                  <p className="text-xs text-white/20">Prueba con otro filtro o cambia la búsqueda</p>
+                  <p className="text-sm text-white/40">{t('projects.list.emptyNoMatch')}</p>
+                  <p className="text-xs text-white/20">{t('projects.list.emptyNoMatchHint')}</p>
                 </>
               )}
             </div>
@@ -1927,14 +2303,14 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                         setConfirmDelete(proyecto)
                       }}
                       className="opacity-0 group-hover:opacity-100 p-1 rounded text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                      title="Eliminar proyecto"
+                      title={t('projects.card.deleteTooltip')}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
                   {/* Badge "Invitado" cuando no es owner (en la card de la grid). */}
                   {proyecto.isOwner === false && (
-                    <span className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-300" title="Estás invitado">
+                    <span className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-300" title={t('projects.card.invitedTooltip')}>
                       👤
                     </span>
                   )}
@@ -1946,20 +2322,20 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
                 <SLABadge sla={proyecto.sla} />
                 {proyecto.deliveryDate && (
                   <span className="text-[11px] text-white/30">
-                    Entrega: {proyecto.deliveryDate} · {proyecto.daysLeft} días
+                    {t('projects.card.delivery', { date: proyecto.deliveryDate, days: proyecto.daysLeft })}
                   </span>
                 )}
                 {proyecto.status === 'paused' && (
-                  <span className="text-[11px] text-white/30">Pausado desde: 20 nov</span>
+                  <span className="text-[11px] text-white/30">{t('projects.card.pausedSince', { date: '20 nov' })}</span>
                 )}
                 {proyecto.status === 'finished' && (
-                  <span className="text-[11px] text-white/30">Cerrado: {proyecto.deliveryDate}</span>
+                  <span className="text-[11px] text-white/30">{t('projects.card.closedOn', { date: proyecto.deliveryDate })}</span>
                 )}
               </div>
 
               {/* Progress */}
               <div className="flex items-center gap-3 mt-3">
-                <span className="text-[11px] text-white/30">Avance</span>
+                <span className="text-[11px] text-white/30">{t('projects.card.progress')}</span>
                 <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
                   <div className={`h-full rounded-full transition-all ${progressColor(proyecto.sla)}`} style={{ width: `${proyecto.progress}%` }} />
                 </div>
@@ -1971,10 +2347,10 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
               {/* Stats */}
               <div className="grid grid-cols-4 gap-2 mt-4">
                 {[
-                  { value: proyecto.hechas, label: 'Hechas', color: 'text-emerald-400' },
-                  { value: proyecto.pendientes, label: 'Pendientes', color: 'text-amber-400' },
-                  { value: proyecto.bloqueadas, label: 'Bloqueadas', color: 'text-red-400' },
-                  { value: proyecto.mensajesIA, label: 'Mensajes IA', color: 'text-violet-400' },
+                  { value: proyecto.hechas,     label: t('projects.card.statsDone'),       color: 'text-emerald-400' },
+                  { value: proyecto.pendientes, label: t('projects.card.statsPending'),    color: 'text-amber-400' },
+                  { value: proyecto.bloqueadas, label: t('projects.card.statsBlocked'),    color: 'text-red-400' },
+                  { value: proyecto.mensajesIA, label: t('projects.card.statsAiMessages'), color: 'text-violet-400' },
                 ].map((s, i) => (
                   <div key={i} className="bg-white/5 rounded-lg py-2 text-center">
                     <p className={`text-base font-bold ${s.color}`}>{s.value}</p>
@@ -2002,8 +2378,15 @@ export default function Projects({ onNavigate, gmailConectado, resetSignal }: Pr
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
                 <div className="flex -space-x-2">
                   {proyecto.team.slice(0, 4).map((m, i) => (
-                    <div key={i} className={`w-6 h-6 rounded-full bg-gradient-to-br ${m.color} flex items-center justify-center text-[9px] text-white font-bold border-2 border-[#161625]`}>
-                      {m.iniciales}
+                    <div key={i} className="relative group">
+                      <div
+                        className={`w-6 h-6 rounded-full bg-gradient-to-br ${m.color} flex items-center justify-center text-[9px] text-white font-bold border-2 border-[#161625] cursor-default`}
+                      >
+                        {m.iniciales}
+                      </div>
+                      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/90 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+                        {m.nombre}{m.rol ? ` — ${m.rol}` : ''}
+                      </div>
                     </div>
                   ))}
                   {proyecto.team.length > 4 && (

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from 'react-oidc-context'
+import { useTranslation } from 'react-i18next'
 import { api } from '../services/api'
 import {
   Zap, CheckCircle2, Eye, X, AlertTriangle, Clock,
@@ -29,6 +30,7 @@ const ChannelIcon = ({ type, className = 'w-3.5 h-3.5' }: { type: string; classN
 
 export default function Intelligence() {
   const auth = useAuth()
+  const { t } = useTranslation()
   const token = auth.user?.access_token || ''
   const [actions, setActions] = useState<IAAction[]>([])
   const [loading, setLoading] = useState(true)
@@ -81,27 +83,27 @@ export default function Intelligence() {
   }), [actions])
 
   const actionsByType = useMemo(() => {
-    const typeMap: Record<string, { label: string; color: string }> = {
-      'task_created': { label: 'Tareas creadas', color: 'bg-violet-500' },
-      'decision':     { label: 'Decisiones', color: 'bg-blue-500' },
-      'followup':     { label: 'Follow-ups / Emails', color: 'bg-indigo-500' },
-      'blocker':      { label: 'Bloqueadores', color: 'bg-red-500' },
-      'risk':         { label: 'Riesgos', color: 'bg-orange-500' },
-      'sla':          { label: 'SLA / Escalaciones', color: 'bg-red-500' },
-      'notification': { label: 'Notificaciones', color: 'bg-sky-500' },
-      'classification':{ label: 'Auto-clasificaci\u00F3n', color: 'bg-teal-500' },
-      'summary':      { label: 'Res\u00FAmenes', color: 'bg-purple-500' },
+    const colorMap: Record<string, string> = {
+      'task_created':  'bg-violet-500',
+      'decision':      'bg-blue-500',
+      'followup':      'bg-indigo-500',
+      'blocker':       'bg-red-500',
+      'risk':          'bg-orange-500',
+      'sla':           'bg-red-500',
+      'notification':  'bg-sky-500',
+      'classification':'bg-teal-500',
+      'summary':       'bg-purple-500',
     }
     const counts: Record<string, number> = {}
     actions.forEach(a => { counts[a.type] = (counts[a.type] || 0) + 1 })
     return Object.entries(counts)
       .map(([type, count]) => ({
-        label: typeMap[type]?.label || type,
+        label: t(`intelligence.typeLabels.${type}`, type),
         count,
-        color: typeMap[type]?.color || 'bg-white/20',
+        color: colorMap[type] || 'bg-white/20',
       }))
       .sort((a, b) => b.count - a.count)
-  }, [actions])
+  }, [actions, t])
 
   const activityDays = [
     { day: 'L', value: 30 }, { day: 'M', value: 45 }, { day: 'X', value: 35 },
@@ -114,12 +116,12 @@ export default function Intelligence() {
       <aside className="w-56 border-r border-white/5 bg-[#0E0E1A] flex-shrink-0 overflow-y-auto">
         <div className="p-4 space-y-6">
           <div>
-            <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">Filtrar por Tipo</h3>
+            <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('intelligence.filters.typeHeader')}</h3>
             {[
-              { id: 'all', label: 'Todas las acciones', count: actions.length, icon: Zap, color: 'text-yellow-400' },
-              { id: 'executed', label: 'Ejecutadas', count: stats.acciones, icon: CheckCircle2, color: 'text-emerald-400' },
-              { id: 'review', label: 'Requieren revisión', count: stats.revision, icon: Eye, color: 'text-amber-400' },
-              { id: 'errors', label: 'Errores', count: stats.noClasificados, icon: X, color: 'text-red-400' },
+              { id: 'all',      label: t('intelligence.filters.typeAll'),          count: actions.length,        icon: Zap,          color: 'text-yellow-400' },
+              { id: 'executed', label: t('intelligence.filters.typeExecuted'),     count: stats.acciones,        icon: CheckCircle2, color: 'text-emerald-400' },
+              { id: 'review',   label: t('intelligence.filters.typeNeedsReview'),  count: stats.revision,        icon: Eye,          color: 'text-amber-400' },
+              { id: 'errors',   label: t('intelligence.filters.typeErrors'),       count: stats.noClasificados,  icon: X,            color: 'text-red-400' },
             ].map(f => {
               const Icon = f.icon
               return (
@@ -141,7 +143,7 @@ export default function Intelligence() {
           </div>
 
           <div>
-            <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">Filtrar por Proyecto</h3>
+            <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('intelligence.filters.projectHeader')}</h3>
             {projectsList.map(name => (
               <button
                 key={name}
@@ -163,10 +165,9 @@ export default function Intelligence() {
           </div>
 
           <div>
-            <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">Filtrar por Canal</h3>
+            <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('intelligence.filters.channelHeader')}</h3>
             {[
-              { icon: 'whatsapp', label: 'WhatsApp' },
-              { icon: 'sms', label: 'SMS' },
+              // WhatsApp/SMS escondidos — hoy solo trabajamos con correo.
               { icon: 'email', label: 'Email' },
               { icon: 'partners', label: 'Partners' },
               { icon: 'slack', label: 'Slack' },
@@ -189,38 +190,40 @@ export default function Intelligence() {
       <main className="flex-1 overflow-y-auto p-6">
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">Centro de Inteligencia</h1>
+            <h1 className="text-2xl font-bold text-white">{t('intelligence.title')}</h1>
             <p className="text-sm text-white/40 mt-1">
-              {loading ? 'Cargando datos...' : `${actions.length} acciones registradas · Datos en tiempo real desde DynamoDB`}
+              {loading ? t('intelligence.loading') : t('intelligence.subtitle', { count: actions.length })}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {['Hoy', 'Últimas 48h', 'Esta semana', 'Este mes'].map(t => {
-              const tId = t === 'Hoy' ? 'hoy' : t === 'Últimas 48h' ? '48h' : t === 'Esta semana' ? 'semana' : 'mes'
-              return (
-                <button
-                  key={t}
-                  onClick={() => setFiltroTiempo(tId)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
-                    filtroTiempo === tId
-                      ? 'bg-white/10 text-white border-white/20'
-                      : 'text-white/40 border-white/5 hover:border-white/10'
-                  }`}
-                >
-                  {t}
-                </button>
-              )
-            })}
+            {([
+              { id: 'hoy',    labelKey: 'today' },
+              { id: '48h',    labelKey: 'last48h' },
+              { id: 'semana', labelKey: 'thisWeek' },
+              { id: 'mes',    labelKey: 'thisMonth' },
+            ] as const).map(pill => (
+              <button
+                key={pill.id}
+                onClick={() => setFiltroTiempo(pill.id)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                  filtroTiempo === pill.id
+                    ? 'bg-white/10 text-white border-white/20'
+                    : 'text-white/40 border-white/5 hover:border-white/10'
+                }`}
+              >
+                {t(`intelligence.period.${pill.labelKey}`)}
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="grid grid-cols-5 gap-4 mb-6">
           {[
-            { icon: Mail, value: stats.mensajes, label: 'Mensajes procesados', color: 'text-white/60' },
-            { icon: Zap, value: stats.acciones, label: 'Acciones ejecutadas', color: 'text-emerald-400' },
-            { icon: Eye, value: stats.revision, label: 'Requieren revisión', color: 'text-amber-400' },
-            { icon: X, value: stats.noClasificados, label: 'No clasificados', color: 'text-red-400' },
-            { icon: TrendingUp, value: `${stats.precision}%`, label: 'Precisión clasificación', color: 'text-emerald-400' },
+            { icon: Mail,        value: stats.mensajes,             label: t('intelligence.metrics.processed'),    color: 'text-white/60' },
+            { icon: Zap,         value: stats.acciones,             label: t('intelligence.metrics.executed'),     color: 'text-emerald-400' },
+            { icon: Eye,         value: stats.revision,             label: t('intelligence.metrics.needsReview'),  color: 'text-amber-400' },
+            { icon: X,           value: stats.noClasificados,       label: t('intelligence.metrics.unclassified'), color: 'text-red-400' },
+            { icon: TrendingUp,  value: `${stats.precision}%`,      label: t('intelligence.metrics.accuracy'),     color: 'text-emerald-400' },
           ].map((stat, i) => {
             const Icon = stat.icon
             return (
@@ -239,7 +242,7 @@ export default function Intelligence() {
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-white/40">Cargando insights desde DynamoDB...</p>
+              <p className="text-sm text-white/40">{t('intelligence.loading')}</p>
             </div>
           </div>
         )}
@@ -247,8 +250,7 @@ export default function Intelligence() {
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-3">
               <Zap className="w-12 h-12 text-white/10" />
-              <p className="text-sm text-white/40">No hay acciones de IA registradas a&#250;n</p>
-              <p className="text-xs text-white/20">Usa el chat para interactuar con el agente y generar insights</p>
+              <p className="text-sm text-white/40">{t('intelligence.empty')}</p>
             </div>
           </div>
         )}
@@ -267,18 +269,18 @@ export default function Intelligence() {
                 </div>
                 {action.requiresReview && (
                   <button className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/20 text-amber-400 rounded-lg text-xs font-bold hover:bg-amber-500/30 transition-all">
-                    <Eye className="w-3.5 h-3.5" /> Revisar
+                    <Eye className="w-3.5 h-3.5" /> {t('intelligence.reviewBtn')}
                   </button>
                 )}
                 {action.status === 'error' && (
                   <span className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold">
-                    <X className="w-3.5 h-3.5" /> Sin clasificar
+                    <X className="w-3.5 h-3.5" /> {t('intelligence.unclassified')}
                   </span>
                 )}
               </div>
 
               <div className="flex items-start gap-2 mb-2">
-                <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">DETECTÓ</span>
+                <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">{t('intelligence.actionCard.detected')}</span>
                 <p className="text-sm text-white/80">{action.detected}</p>
               </div>
 
@@ -307,14 +309,14 @@ export default function Intelligence() {
 
       <aside className="w-72 border-l border-white/5 bg-[#0E0E1A] flex-shrink-0 overflow-y-auto p-4 space-y-6">
         <div className="text-center">
-          <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">Precisión de Clasificación</h3>
+          <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('intelligence.rightPanel.accuracyTitle')}</h3>
           <div className="text-6xl font-black text-emerald-400">{stats.precision}<span className="text-3xl">%</span></div>
-          <p className="text-xs text-white/40 mt-2">Precisi&#243;n actual</p>
-          <p className="text-xs text-emerald-400">{stats.acciones} acciones ejecutadas de {actions.length}</p>
+          <p className="text-xs text-white/40 mt-2">{t('intelligence.rightPanel.accuracyCurrent')}</p>
+          <p className="text-xs text-emerald-400">{t('intelligence.rightPanel.accuracyDetail', { done: stats.acciones, total: actions.length })}</p>
         </div>
 
         <div>
-          <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">Acciones por Tipo</h3>
+          <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('intelligence.rightPanel.actionsByType')}</h3>
           <div className="space-y-2.5">
             {actionsByType.map((a, i) => (
               <div key={i} className="flex items-center gap-3">
@@ -330,7 +332,7 @@ export default function Intelligence() {
         </div>
 
         <div>
-          <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">Actividad Últimos 7 Días</h3>
+          <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('intelligence.rightPanel.activity7days')}</h3>
           <div className="flex items-end gap-1.5 h-16">
             {activityDays.map((d, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
@@ -345,7 +347,7 @@ export default function Intelligence() {
         </div>
 
         <div>
-          <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">Proyectos con Actividad IA</h3>
+          <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('intelligence.rightPanel.activeProjects')}</h3>
           <div className="space-y-3">
             {projectsList.length > 0 ? projectsList.map((name, i) => {
               const count = actions.filter(a => a.projectName === name).length
@@ -358,11 +360,11 @@ export default function Intelligence() {
                   }`}
                 >
                   <p className="text-xs text-white/70 font-medium">{name}</p>
-                  <p className="text-[10px] text-white/30 mt-1">{count} acciones registradas</p>
+                  <p className="text-[10px] text-white/30 mt-1">{t('intelligence.rightPanel.registeredActions', { count })}</p>
                 </button>
               )
             }) : (
-              <p className="text-xs text-white/30">Sin actividad IA registrada</p>
+              <p className="text-xs text-white/30">{t('intelligence.noAiActivity')}</p>
             )}
           </div>
         </div>
