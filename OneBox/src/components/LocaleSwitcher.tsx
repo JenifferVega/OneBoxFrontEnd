@@ -1,13 +1,13 @@
 // ============================================================================
-// LocaleSwitcher.tsx — Dropdown minimalista de idioma (ES/EN).
+// LocaleSwitcher.tsx — Minimal language dropdown (ES/EN).
 // ----------------------------------------------------------------------------
-// Se usa desde Layout (después de login) y también desde LandingPage
-// (antes de login). Persiste la elección en localStorage vía setAppLocale
-// definido en src/i18n.ts, así el idioma se conserva entre sesiones.
+// Used from Layout (post-login) and also from LandingPage (pre-login).
+// Persists the choice in localStorage via setAppLocale defined in
+// src/i18n.ts, so the language is preserved across sessions.
 //
-// Variante `light`: para fondos claros (LandingPage). Cambia colores para
-// que sea legible sobre blanco/gris claro. `dark` es el default (usado
-// dentro del dashboard oscuro).
+// Variant `light`: for light backgrounds (LandingPage). Adjusts colors to
+// stay legible on white/light gray. `dark` is the default (used inside
+// the dark dashboard).
 // ============================================================================
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -43,7 +43,7 @@ export default function LocaleSwitcher({ variant = 'dark' }: Props) {
       <button
         onClick={() => setOpen(o => !o)}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
-        title={t('common.language', 'Idioma / Language')}
+        title={t('common.language', 'Language')}
         className={buttonClass}
       >
         <Globe className="w-4 h-4" />

@@ -17,30 +17,30 @@ interface TextPasterProps {
   successMessage?: string
   errorMessage?: string
   onAnalyze: (text: string, source: 'whatsapp' | 'gmail' | 'paste') => void
-  /** Si está embebido (compact), el panel ya está abierto. */
+  /** If embedded (compact), the panel is already open. */
   compact?: boolean
   label?: string
   hint?: string
 }
 
-// Fuente 'whatsapp' escondida en la UI (hoy solo trabajamos con correo).
-// El backend sigue aceptando 'whatsapp' como source si viene, pero acá el
-// user solo elige entre correo y "otro".
+// 'whatsapp' source hidden in the UI (today we only work with email).
+// The backend still accepts 'whatsapp' as source if provided, but here the
+// user only chooses between email and "other".
 const SOURCE_OPTIONS = [
-  { id: 'gmail' as const,    label: 'Correo Gmail', icon: Mail, color: 'text-rose-500', bg: 'bg-rose-500/10' },
-  { id: 'paste' as const,    label: 'Otro / nota', icon: FileText, color: 'text-violet-500', bg: 'bg-violet-500/10' },
+  { id: 'gmail' as const,    label: 'Gmail email', icon: Mail, color: 'text-rose-500', bg: 'bg-rose-500/10' },
+  { id: 'paste' as const,    label: 'Other / note', icon: FileText, color: 'text-violet-500', bg: 'bg-violet-500/10' },
 ]
 
 export default function TextPaster({
   variant = 'dark',
   loading = false,
-  loadingText = 'Analizando con IA...',
+  loadingText = 'Analyzing with AI...',
   successMessage,
   errorMessage,
   onAnalyze,
   compact = false,
-  label = 'Pega una conversación',
-  hint = 'Copia un chat de WhatsApp, hilo de correo o cualquier texto. La IA detectará tareas, riesgos y decisiones.',
+  label = 'Paste a conversation',
+  hint = 'Paste a WhatsApp chat, email thread or any text. The AI will detect tasks, risks and decisions.',
 }: TextPasterProps) {
   const [text, setText] = useState('')
   const [source, setSource] = useState<'whatsapp' | 'gmail' | 'paste'>('paste')
@@ -60,18 +60,18 @@ export default function TextPaster({
         setLocalError('')
       }
     } catch {
-      setLocalError('Tu navegador no permite leer el portapapeles. Pega manualmente con Cmd+V.')
+      setLocalError('Your browser does not allow reading the clipboard. Paste manually with Cmd+V.')
     }
   }
 
   const handleAnalyze = () => {
     setLocalError('')
     if (length < MIN_LENGTH) {
-      setLocalError(`Texto muy corto (mínimo ${MIN_LENGTH} caracteres).`)
+      setLocalError(`Text too short (minimum ${MIN_LENGTH} characters).`)
       return
     }
     if (length > MAX_LENGTH) {
-      setLocalError(`Texto muy largo (máximo ${MAX_LENGTH.toLocaleString()} caracteres).`)
+      setLocalError(`Text too long (maximum ${MAX_LENGTH.toLocaleString()} characters).`)
       return
     }
     onAnalyze(trimmed, source)
@@ -79,7 +79,7 @@ export default function TextPaster({
 
   const error = localError || errorMessage
 
-  // Estilos por variante
+  // Variant-specific styles
   const containerCls = isLight
     ? 'bg-white border-slate-200'
     : 'bg-[#161625] border-white/10'
@@ -104,7 +104,7 @@ export default function TextPaster({
         </div>
       )}
 
-      {/* Selector de origen */}
+      {/* Source selector */}
       <div className="flex gap-2 mb-3">
         {SOURCE_OPTIONS.map(opt => {
           const Icon = opt.icon
@@ -140,10 +140,10 @@ export default function TextPaster({
           rows={8}
           placeholder={
             source === 'whatsapp'
-              ? '[28/04/26, 10:15] Juan: Hola equipo, necesitamos cerrar el lanzamiento esta semana...\n[28/04/26, 10:20] Ana: Falta aprobar los creativos...'
+              ? '[04/28/26, 10:15] John: Hi team, we need to close the launch this week...\n[04/28/26, 10:20] Anna: Still need to approve the creatives...'
               : source === 'gmail'
-                ? 'De: cliente@empresa.com\nAsunto: Avance proyecto\n\nHola, te escribo para revisar el estado del proyecto...'
-                : 'Pega aquí cualquier texto: notas de reunión, requerimientos, mensajes...'
+                ? 'From: client@company.com\nSubject: Project update\n\nHi, I am writing to review the project status...'
+                : 'Paste any text here: meeting notes, requirements, messages...'
           }
           className={`w-full px-3 py-2.5 rounded-lg border text-sm resize-none focus:outline-none focus:ring-2 focus:border-transparent transition disabled:opacity-50 ${taCls}`}
         />
@@ -152,19 +152,19 @@ export default function TextPaster({
             type="button"
             onClick={() => setText('')}
             className={`absolute top-2 right-2 p-1 rounded ${isLight ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100' : 'text-white/40 hover:text-white hover:bg-white/10'} transition-colors`}
-            title="Limpiar"
+            title="Clear"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
 
-      {/* Footer: contador + acciones */}
+      {/* Footer: counter + actions */}
       <div className="flex items-center justify-between mt-2">
         <div className="flex items-center gap-3">
           <span className={`text-xs ${counterCls}`}>
             {length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars
-            {length > 0 && length < MIN_LENGTH && <span className="text-amber-500 ml-1">· mínimo {MIN_LENGTH}</span>}
+            {length > 0 && length < MIN_LENGTH && <span className="text-amber-500 ml-1">· minimum {MIN_LENGTH}</span>}
           </span>
           <button
             type="button"
@@ -172,7 +172,7 @@ export default function TextPaster({
             onClick={handlePasteFromClipboard}
             className={`text-xs underline ${isLight ? 'text-violet-600 hover:text-violet-700' : 'text-violet-400 hover:text-violet-300'} disabled:opacity-50`}
           >
-            Pegar del portapapeles
+            Paste from clipboard
           </button>
         </div>
         <button
@@ -188,18 +188,18 @@ export default function TextPaster({
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Analizando...
+              Analyzing...
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4" />
-              Analizar con IA
+              Analyze with AI
             </>
           )}
         </button>
       </div>
 
-      {/* Mensajes */}
+      {/* Messages */}
       <AnimatePresence>
         {error && (
           <motion.div

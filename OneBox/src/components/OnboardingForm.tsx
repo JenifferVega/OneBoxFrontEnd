@@ -15,12 +15,12 @@ export interface PendingProject {
   description: string
   whatsappNumbers?: string[]
   emails?: string[]
-  /** Documento adjunto serializado (base64) — la IA lo procesará tras el login. */
+  /** Serialized attached document (base64) — the AI will process it after login. */
   documentBase64?: string
   documentName?: string
   documentContentType?: string
   documentSize?: number
-  /** Texto pegado pre-login (WhatsApp, Gmail, etc.) — la IA lo procesará tras el login. */
+  /** Pre-login pasted text (WhatsApp, Gmail, etc.) — the AI will process it after login. */
   pastedText?: string
   pastedSource?: 'whatsapp' | 'gmail' | 'paste'
 }
@@ -31,20 +31,20 @@ interface OnboardingFormProps {
   onLoginInstead?: () => void
 }
 
-// WhatsApp escondido hasta que se active el canal (hoy solo trabajamos con
-// correo). Para volver a mostrarlo, agregar la entrada de nuevo acá.
+// WhatsApp hidden until the channel is enabled (today we only work with
+// email). To show it again, add the entry back here.
 const CHANNELS = [
   { id: 'Gmail', label: 'Gmail', icon: Mail, color: 'text-rose-500', bg: 'bg-rose-50', bgActive: 'bg-rose-100 border-rose-300' },
 ]
 
-const PROJECT_TYPES = ['Desarrollo Web', 'Infraestructura', 'Diseño', 'Marketing', 'Ecommerce', 'Consultoría', 'Soporte', 'RRHH', 'Otro']
+const PROJECT_TYPES = ['Web Development', 'Infrastructure', 'Design', 'Marketing', 'Ecommerce', 'Consulting', 'Support', 'HR', 'Other']
 
 export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: OnboardingFormProps) {
   const { t } = useTranslation()
   const [mode, setMode] = useState<'choose' | 'document' | 'paste' | 'manual'>('choose')
   const [channels, setChannels] = useState<string[]>(['Gmail'])
   const [name, setName] = useState('')
-  const [type, setType] = useState('Desarrollo Web')
+  const [type, setType] = useState('Web Development')
   const [description, setDescription] = useState('')
   const [whatsappNumbers, setWhatsappNumbers] = useState<string[]>([])
   const [whatsappInput, setWhatsappInput] = useState('')
@@ -52,23 +52,23 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
   const [emailInput, setEmailInput] = useState('')
   const [emailError, setEmailError] = useState('')
 
-  // Documento adjunto (modo documento)
+  // Attached document (document mode)
   const [documentFile, setDocumentFile] = useState<File | null>(null)
   const [documentError, setDocumentError] = useState('')
   const [documentSubmitting, setDocumentSubmitting] = useState(false)
 
-  // Texto pegado (modo paste)
+  // Pasted text (paste mode)
   const [pastedText, setPastedText] = useState('')
   const [pastedSource, setPastedSource] = useState<'whatsapp' | 'gmail' | 'paste'>('whatsapp')
   const [pasteError, setPasteError] = useState('')
   const [pasteSubmitting, setPasteSubmitting] = useState(false)
 
-  // Convierte un archivo a base64 (sin el prefijo data:)
+  // Convert a file to base64 (without the data: prefix)
   const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
       const result = reader.result as string
-      // Quitar prefijo "data:...;base64,"
+      // Strip the "data:...;base64," prefix
       const idx = result.indexOf(',')
       resolve(idx >= 0 ? result.substring(idx + 1) : result)
     }
@@ -78,7 +78,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
 
   const handleDocumentSelected = (file: File) => {
     setDocumentError('')
-    // Limitar a 4 MB para que quepa en localStorage tras base64 (~5.3 MB string)
+    // Limit to 4 MB so it fits in localStorage after base64 (~5.3 MB string)
     const MAX_BYTES_FOR_LOCALSTORAGE = 4 * 1024 * 1024
     if (file.size > MAX_BYTES_FOR_LOCALSTORAGE) {
       setDocumentError(t('onboarding.errors.fileTooBig'))
@@ -96,7 +96,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
       onSubmit({
         channels: ['Gmail'],
         name: '',
-        type: 'Otro',
+        type: 'Other',
         description: '',
         documentBase64: base64,
         documentName: documentFile.name,
@@ -104,7 +104,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
         documentSize: documentFile.size,
       })
     } catch (err) {
-      console.error('[Onboarding] Error preparando documento:', err)
+      console.error('[Onboarding] Error preparing document:', err)
       setDocumentError(t('onboarding.errors.docReadFailed'))
       setDocumentSubmitting(false)
     }
@@ -117,7 +117,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
       setPasteError(t('onboarding.errors.pasteTooShort'))
       return
     }
-    // Limitar a 100k caracteres para no saturar localStorage
+    // Limit to 100k characters to avoid saturating localStorage
     if (text.length > 100000) {
       setPasteError(t('onboarding.errors.pasteTooLong'))
       return
@@ -126,7 +126,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
     onSubmit({
       channels: ['Gmail'],
       name: '',
-      type: 'Otro',
+      type: 'Other',
       description: '',
       pastedText: text,
       pastedSource: pastedSource,
@@ -156,7 +156,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
     const value = emailInput.trim().toLowerCase()
     setEmailError('')
     if (!value) return
-    // Validación básica de email
+    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(value)) {
       setEmailError(t('onboarding.errors.emailInvalid'))
@@ -191,7 +191,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex items-center justify-center px-6 py-12">
-      {/* Selector de idioma fijo arriba a la derecha, antes de login. */}
+      {/* Language switcher pinned to the top right, pre-login. */}
       <div className="absolute top-4 right-4 z-10">
         <LocaleSwitcher variant="light" />
       </div>
@@ -235,7 +235,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
               : t('onboarding.subtitle.choose')}
         </p>
 
-        {/* Selector de modo: 3 opciones (pegar conversación, subir doc, formulario manual) */}
+        {/* Mode selector: 3 options (paste conversation, upload doc, manual form) */}
         {mode === 'choose' && (
           <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
             <button
@@ -304,7 +304,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
           </div>
         )}
 
-        {/* Modo: subir documento */}
+        {/* Mode: upload document */}
         {mode === 'document' && (
           <div className="mt-8 space-y-4">
             <button
@@ -345,7 +345,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
           </div>
         )}
 
-        {/* Modo: pegar conversación */}
+        {/* Mode: paste conversation */}
         {mode === 'paste' && (
           <div className="mt-8 space-y-4">
             <button
@@ -356,7 +356,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
               <ArrowLeft className="w-3 h-3" /> {t('onboarding.changeMode')}
             </button>
 
-            {/* Selector de fuente */}
+            {/* Source selector */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">{t('onboarding.paste.sourceLabel')}</label>
               <div className="grid grid-cols-3 gap-2">
@@ -449,14 +449,14 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
           </div>
         )}
 
-        {/* Modo: formulario manual */}
+        {/* Mode: manual form */}
         {mode === 'manual' && (
           <button
             type="button"
             onClick={() => setMode('choose')}
             className="text-xs text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-1 mt-6"
           >
-            <ArrowLeft className="w-3 h-3" /> Cambiar de opción
+            <ArrowLeft className="w-3 h-3" /> {t('onboarding.changeMode')}
           </button>
         )}
 
@@ -508,7 +508,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
                     value={emailInput}
                     onChange={(e) => { setEmailInput(e.target.value); setEmailError('') }}
                     onKeyPress={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEmail() } }}
-                    placeholder="nombre@empresa.com"
+                    placeholder="name@company.com"
                     className={`flex-1 px-3 py-2 bg-white border rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500 ${
                       emailError ? 'border-red-400' : 'border-rose-200'
                     }`}
@@ -604,7 +604,7 @@ export default function OnboardingForm({ onBack, onSubmit, onLoginInstead }: Onb
             />
           </div>
 
-          {/* Project type (input libre con sugerencias) */}
+          {/* Project type (free-form input with suggestions) */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">{t('onboarding.manual.typeLabel')}</label>
             <input

@@ -4,8 +4,8 @@ import { AuthProvider } from 'react-oidc-context'
 import { WebStorageStateStore } from 'oidc-client-ts'
 import App from './App'
 import './index.css'
-// Inicializar i18n antes del primer render. En Fase 0 nadie usa t() aún;
-// el import solo garantiza que el dropdown de idioma tenga a i18n listo.
+// Initialize i18n before the first render. In Phase 0 nobody uses t() yet;
+// the import only guarantees that the language dropdown has i18n ready.
 import './i18n'
 
 

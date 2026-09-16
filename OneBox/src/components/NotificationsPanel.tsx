@@ -1,16 +1,16 @@
 /**
- * Campana de notificaciones del header.
+ * Notifications bell in the header.
  *
- * Antes: este componente abría un dropdown grande con toda la lista de
- * notificaciones. El dropdown tenía interacción limitada y no agrupaba
- * por proyecto — quedaba como un panel difícil de usar.
+ * Before: this component opened a big dropdown with the full list of
+ * notifications. The dropdown had limited interaction and didn't group
+ * by project — it ended up being a panel that was hard to use.
  *
- * Ahora: este componente es SOLO el icono + badge de no-leídas. Al click
- * navega a la página /notificaciones (NotificationsPage.tsx) donde hay
- * vista completa, filtros y agrupación por proyecto.
+ * Now: this component is ONLY the icon + unread badge. Clicking it
+ * navigates to the /notifications page (NotificationsPage.tsx), which
+ * has the full view, filters, and grouping by project.
  *
- * Mantenemos aquí el polling cada 60s para que el badge esté siempre
- * actualizado sin abrir la página.
+ * We keep the 60s polling here so the badge is always up to date
+ * without having to open the page.
  */
 import { useState, useEffect } from 'react'
 import { useAuth } from 'react-oidc-context'
@@ -24,7 +24,7 @@ interface Notification {
 }
 
 interface Props {
-  /** Callback que dispara la navegación a la página de notificaciones. */
+  /** Callback that triggers navigation to the notifications page. */
   onOpen: () => void
 }
 
@@ -34,8 +34,8 @@ export default function NotificationsPanel({ onOpen }: Props) {
   const token = auth.user?.access_token || ''
   const [unreadCount, setUnreadCount] = useState(0)
 
-  // Polling del badge. Trae todas las notificaciones (es lo único que el
-  // endpoint expone hoy), cuenta no-leídas y descarta el resto.
+  // Badge polling. Fetches all notifications (the only thing the endpoint
+  // exposes today), counts unread and discards the rest.
   useEffect(() => {
     if (!token) return
     let cancelled = false

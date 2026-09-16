@@ -1,4 +1,4 @@
-"""Genera un diagrama de Gantt a partir del CSV exportado y lo guarda en PDF y PNG."""
+"""Generates a Gantt diagram from the exported CSV and saves it as PDF and PNG."""
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,29 +9,43 @@ import os
 
 CSV_PATH = "/Users/jenifferfunez/Downloads/export_file (1) 1.csv"
 OUT_DIR = "/Users/jenifferfunez/Desktop/OneBox"
-PDF_PATH = os.path.join(OUT_DIR, "diagrama_gantt.pdf")
-PNG_PATH = os.path.join(OUT_DIR, "diagrama_gantt.png")
+PDF_PATH = os.path.join(OUT_DIR, "gantt_diagram.pdf")
+PNG_PATH = os.path.join(OUT_DIR, "gantt_diagram.png")
 
 STATUS_COLORS = {
-    "Cerrada completa": "#4CAF50",
-    "En curso":         "#2196F3",
-    "Pendiente":        "#FFC107",
-    "Cancelada":        "#9E9E9E",
+    "Completed":   "#4CAF50",
+    "In Progress": "#2196F3",
+    "Pending":     "#FFC107",
+    "Cancelled":   "#9E9E9E",
 }
 DEFAULT_COLOR = "#90A4AE"
 
+# NOTE: The CSV headers may come from either the English or Spanish export
+# of the project-management tool. We normalize any Spanish header to its
+# English equivalent so the rest of the script only deals with English names.
+COLUMN_ALIASES = {
+    "Fecha de inicio planificada": "Planned start date",
+    "Fecha de finalización planificada": "Planned end date",
+    "Nivel": "Level",
+    "Porcentaje completado": "Percent complete",
+    "EDT": "WBS",
+    "Descripción breve": "Short description",
+    "Estado": "Status",
+}
+
 df = pd.read_csv(CSV_PATH)
 df.columns = [c.strip() for c in df.columns]
+df = df.rename(columns=COLUMN_ALIASES)
 
-start_col = "Fecha de inicio planificada"
-end_col   = "Fecha de finalización planificada"
+start_col = "Planned start date"
+end_col   = "Planned end date"
 df[start_col] = pd.to_datetime(df[start_col], errors="coerce")
 df[end_col]   = pd.to_datetime(df[end_col],   errors="coerce")
-df["Nivel"]   = pd.to_numeric(df["Nivel"], errors="coerce")
-df["Porcentaje completado"] = pd.to_numeric(df["Porcentaje completado"], errors="coerce").fillna(0)
+df["Level"]   = pd.to_numeric(df["Level"], errors="coerce")
+df["Percent complete"] = pd.to_numeric(df["Percent complete"], errors="coerce").fillna(0)
 
 df = df.dropna(subset=[start_col, end_col]).reset_index(drop=True)
-df = df[df["Nivel"] >= 2].reset_index(drop=True)
+df = df[df["Level"] >= 2].reset_index(drop=True)
 
 def short(text, n=70):
     if not isinstance(text, str):
@@ -40,7 +54,7 @@ def short(text, n=70):
     return text if len(text) <= n else text[: n - 1] + "…"
 
 df["label"] = df.apply(
-    lambda r: ("    " * int(max(r["Nivel"] - 2, 0))) + f'{r["EDT"]} {short(r["Descripción breve"])}',
+    lambda r: ("    " * int(max(r["Level"] - 2, 0))) + f'{r["WBS"]} {short(r["Short description"])}',
     axis=1,
 )
 
@@ -53,8 +67,8 @@ for i, row in df.iterrows():
     start = row[start_col]
     end = row[end_col]
     duration = max((end - start).total_seconds() / 86400, 0.4)
-    color = STATUS_COLORS.get(row["Estado"], DEFAULT_COLOR)
-    is_summary = row["Nivel"] == 2
+    color = STATUS_COLORS.get(row["Status"], DEFAULT_COLOR)
+    is_summary = row["Level"] == 2
 
     ax.barh(
         i, duration, left=start, height=0.55 if is_summary else 0.42,
@@ -62,22 +76,22 @@ for i, row in df.iterrows():
         alpha=0.95 if is_summary else 0.75,
     )
 
-    pct = row["Porcentaje completado"] / 100.0
+    pct = row["Percent complete"] / 100.0
     if pct > 0:
         ax.barh(i, duration * pct, left=start, height=0.18,
                 color="black", alpha=0.55)
 
     if duration >= 4:
         ax.text(start + (end - start) / 2, i,
-                f'{int(row["Porcentaje completado"])}%',
+                f'{int(row["Percent complete"])}%',
                 ha="center", va="center", fontsize=7, color="white",
                 fontweight="bold")
 
 ax.set_yticks(range(len(df)))
 ax.set_yticklabels(df["label"], fontsize=8)
 
-for tick, nivel in zip(ax.get_yticklabels(), df["Nivel"]):
-    if nivel == 2:
+for tick, level in zip(ax.get_yticklabels(), df["Level"]):
+    if level == 2:
         tick.set_fontweight("bold")
 
 ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO))
@@ -91,18 +105,18 @@ ax.set_axisbelow(True)
 today = pd.Timestamp(datetime.now().date())
 if df[start_col].min() <= today <= df[end_col].max():
     ax.axvline(today, color="red", linewidth=1.4, linestyle="--", alpha=0.8)
-    ax.text(today, len(df) - 0.5, " hoy", color="red",
+    ax.text(today, len(df) - 0.5, " today", color="red",
             fontsize=8, fontweight="bold", va="top")
 
 project_name = "DHL Projects — PRJ0019825"
-ax.set_title(f"Diagrama de Gantt — {project_name}",
+ax.set_title(f"Gantt Diagram — {project_name}",
              fontsize=14, fontweight="bold", pad=14)
-ax.set_xlabel("Fecha")
+ax.set_xlabel("Date")
 ax.margins(y=0.005)
 
 legend_items = [Patch(facecolor=c, edgecolor="black", label=s)
                 for s, c in STATUS_COLORS.items()]
-legend_items.append(Patch(facecolor="black", alpha=0.55, label="Avance %"))
+legend_items.append(Patch(facecolor="black", alpha=0.55, label="Progress %"))
 ax.legend(handles=legend_items, loc="lower right", fontsize=9, framealpha=0.95)
 
 plt.tight_layout()
@@ -112,4 +126,4 @@ plt.close()
 
 print(f"PDF: {PDF_PATH}")
 print(f"PNG: {PNG_PATH}")
-print(f"Tareas graficadas: {len(df)}")
+print(f"Tasks plotted: {len(df)}")

@@ -1,20 +1,20 @@
 // ============================================================================
 // ProjectGantt.tsx
 // ----------------------------------------------------------------------------
-// Vista Gantt simple, custom (SVG + tailwind), para mostrar las tareas de
-// UN proyecto en una línea de tiempo horizontal.
+// Simple, custom Gantt view (SVG + tailwind) to display the tasks of a
+// SINGLE project on a horizontal timeline.
 //
-// Decisiones de diseño:
-//  - SIN librería externa (no más npm install) → más liviano, más control de
-//    estilos para que encaje con el dark theme.
-//  - SVG para las barras (simple y escala bien).
-//  - Escala dinámica: el rango de fechas va desde la tarea más temprana hasta
-//    la más tardía, con margen. Si no hay rango, default ±15 días desde hoy.
-//  - Línea vertical "HOY" para orientación temporal.
-//  - Tareas sin fechas → no se muestran en el Gantt (se listan en otra sección
-//    del proyecto). Eso lo decide el padre, este componente solo dibuja las
-//    que tengan ambas fechas.
-//  - Click en una barra → callback al padre (abre modal de la tarea existente).
+// Design decisions:
+//  - NO external library (no more npm install) → lighter, more control over
+//    styles to fit with the dark theme.
+//  - SVG for the bars (simple and scales well).
+//  - Dynamic scale: the date range spans from the earliest task to the
+//    latest one, with margin. If there's no range, defaults to ±15 days from today.
+//  - "TODAY" vertical line for temporal orientation.
+//  - Tasks without dates → not shown in the Gantt (they're listed in another
+//    section of the project). The parent decides that; this component only
+//    draws the ones that have both dates.
+//  - Click on a bar → callback to the parent (opens the existing task's modal).
 // ============================================================================
 
 import { useMemo, useState } from 'react'
@@ -26,7 +26,7 @@ export interface GanttTask {
   status: string             // pending | in_progress | done | blocked
   startDate?: string         // YYYY-MM-DD
   dueDate?: string           // YYYY-MM-DD
-  assignedTo?: string        // nombre para tooltip
+  assignedTo?: string        // name for tooltip
 }
 
 interface Props {
@@ -34,8 +34,8 @@ interface Props {
   onTaskClick?: (taskId: string) => void
 }
 
-// Colores por estado — el mismo lenguaje visual que en el resto de la app.
-// El label se resuelve con i18n al render (labelKey → gantt.statusLabels.<key>).
+// Colors by status — the same visual language as the rest of the app.
+// The label is resolved with i18n at render (labelKey → gantt.statusLabels.<key>).
 const STATUS_COLORS: Record<string, { fill: string; stroke: string; labelKey: string }> = {
   pending:     { fill: 'rgb(245, 158, 11)',  stroke: 'rgb(217, 119, 6)',  labelKey: 'pending' },      // amber
   in_progress: { fill: 'rgb(56, 189, 248)',  stroke: 'rgb(14, 165, 233)', labelKey: 'in_progress' },  // sky
@@ -54,18 +54,18 @@ function daysBetween(a: Date, b: Date): number {
 }
 
 function formatDate(d: Date): string {
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
+  return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' })
 }
 
 export default function ProjectGantt({ tasks, onTaskClick }: Props) {
   const { t } = useTranslation()
-  // Filtro por estado — click en la leyenda toggle ese estado.
-  // Arranca con todos activos (comportamiento previo, sin filtro visible).
+  // Status filter — clicking the legend toggles that status.
+  // Starts with all active (previous behavior, no visible filter).
   const [activeStatuses, setActiveStatuses] = useState<Set<string>>(
     () => new Set(Object.keys(STATUS_COLORS))
   )
-  // Filtro por participante — click en una fila de la columna izquierda toggle
-  // ese participante como filtro único. null = sin filtro (muestra todas).
+  // Assignee filter — clicking a row in the left column toggles that
+  // participant as a single filter. null = no filter (shows all).
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null)
   const toggleStatus = (key: string) => {
     setActiveStatuses(prev => {
@@ -80,8 +80,8 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
     setAssigneeFilter(null)
   }
 
-  // Filtrar solo tareas con AMBAS fechas válidas — antes del filtro por estado
-  // para saber si el proyecto tiene tareas planificadas (empty state distinto).
+  // Filter only tasks with BOTH valid dates — before the status filter,
+  // to know if the project has scheduled tasks at all (different empty state).
   const scheduledAll = useMemo(() => {
     return tasks
       .map(t => ({
@@ -100,8 +100,8 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
     ),
     [scheduledAll, activeStatuses, assigneeFilter]
   )
-  // Lista de participantes DERIVADA de las tareas planificadas (deduplicada,
-  // conservando orden de aparición). Cada uno con su count de tareas.
+  // Participants list DERIVED from the scheduled tasks (deduplicated,
+  // preserving order of appearance). Each with their task count.
   const participants = useMemo(() => {
     const seen = new Map<string, number>()
     for (const t of scheduledAll) {
@@ -124,10 +124,10 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
     )
   }
 
-  // Calcular rango de fechas: desde la más temprana hasta la más tardía, con
-  // margen de 3 días a cada lado para que las barras no toquen el borde.
-  // Usamos scheduledAll (no scheduled) para que el eje temporal NO se reajuste
-  // cuando el usuario toggle un filtro. La ventana visible es estable.
+  // Compute the date range: from the earliest to the latest, with a 3-day
+  // margin on each side so the bars don't touch the edge.
+  // We use scheduledAll (not scheduled) so the time axis does NOT re-adjust
+  // when the user toggles a filter. The visible window is stable.
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const minStart = scheduledAll.reduce((m, t) => (t.start < m ? t.start : m), scheduledAll[0].start)
@@ -138,14 +138,14 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
   rangeEnd.setDate(rangeEnd.getDate() + 3)
   const totalDays = Math.max(1, daysBetween(rangeStart, rangeEnd))
 
-  // Dimensiones del SVG
+  // SVG dimensions
   const rowHeight = 36
   const headerHeight = 40
-  const dayWidth = Math.max(20, Math.min(60, 900 / totalDays)) // adaptativo
+  const dayWidth = Math.max(20, Math.min(60, 900 / totalDays)) // adaptive
   const width = totalDays * dayWidth
   const height = headerHeight + scheduled.length * rowHeight + 10
 
-  // Generar ticks de fechas para el header — cada N días según el zoom
+  // Generate date ticks for the header — every N days depending on zoom
   const tickEvery = totalDays > 60 ? 7 : totalDays > 30 ? 3 : 1
   const ticks: Array<{ x: number; date: Date }> = []
   for (let i = 0; i <= totalDays; i += tickEvery) {
@@ -154,16 +154,16 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
     ticks.push({ x: i * dayWidth, date: d })
   }
 
-  // Posición de la línea "HOY"
+  // Position of the "TODAY" line
   const todayDays = daysBetween(rangeStart, today)
   const todayX = todayDays * dayWidth
   const todayInRange = todayDays >= 0 && todayDays <= totalDays
 
   return (
     <div className="bg-[#0E0E18] border border-white/5 rounded-2xl overflow-hidden">
-      {/* Leyenda de colores arriba — cada chip es un toggle de filtro por estado.
-          Click apaga/enciende ese estado. Chip apagado se ve atenuado y
-          desaturado; el contador y las barras respetan el filtro. */}
+      {/* Color legend on top — each chip is a status filter toggle.
+          Click turns that status on/off. A disabled chip is dimmed and
+          desaturated; the counter and bars respect the filter. */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5 text-[11px] text-white/60">
         {Object.entries(STATUS_COLORS).map(([key, val]) => {
           const isActive = activeStatuses.has(key)
@@ -209,11 +209,11 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
           </button>
         </div>
       ) : (
-      /* Layout de dos columnas:
-         - IZQUIERDA (sticky): lista de participantes, cada uno clickeable
-           para filtrar el Gantt a sus tareas. Solo aparece si hay al menos
-           un participante asignado.
-         - DERECHA: SVG con scroll horizontal cuando el proyecto es largo. */
+      /* Two-column layout:
+         - LEFT (sticky): participants list, each clickable to filter the
+           Gantt down to their tasks. Only appears if there's at least one
+           assigned participant.
+         - RIGHT: SVG with horizontal scroll when the project is long. */
       <div className="flex">
         {participants.length > 0 && (
           <div className="w-44 flex-shrink-0 border-r border-white/5 bg-[#0B0B14]">
@@ -264,7 +264,7 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
         )}
       <div className="overflow-x-auto flex-1">
         <svg width={width} height={height} className="block min-w-full">
-          {/* Fondo de grid: líneas verticales en cada tick */}
+          {/* Grid background: vertical lines at each tick */}
           {ticks.map((t, i) => (
             <line
               key={`grid-${i}`}
@@ -277,7 +277,7 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
             />
           ))}
 
-          {/* Header: etiquetas de fecha */}
+          {/* Header: date labels */}
           {ticks.map((t, i) => (
             <text
               key={`tick-${i}`}
@@ -299,7 +299,7 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
             strokeWidth={1}
           />
 
-          {/* Línea de HOY (vertical roja punteada) */}
+          {/* TODAY line (vertical dashed) */}
           {todayInRange && (
             <>
               <line
@@ -318,27 +318,27 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
                 fontSize={9}
                 fontWeight={700}
               >
-                HOY
+                TODAY
               </text>
             </>
           )}
 
-          {/* Barras de tareas */}
+          {/* Task bars */}
           {scheduled.map((task, i) => {
             const startDays = daysBetween(rangeStart, task.start)
             const durationDays = Math.max(1, daysBetween(task.start, task.end) + 1)
             const x = startDays * dayWidth
             const y = headerHeight + i * rowHeight + 6
-            // Ancho mínimo para que el label SIEMPRE quepa adentro (al menos
-            // una palabra + ellipsis). Preferimos leer "Confirmar…" dentro
-            // del bar antes que texto flotando por fuera, aunque la barra
-            // quede un pelín más ancha de lo que la duración real implicaría.
-            // El tooltip nativo sigue mostrando el texto completo.
+            // Minimum width so the label ALWAYS fits inside (at least one
+            // word + ellipsis). We prefer reading "Confirm…" inside the
+            // bar over text floating outside, even if the bar ends up a
+            // little wider than the real duration would imply.
+            // The native tooltip still shows the full text.
             const naturalW = durationDays * dayWidth - 4
             const w = Math.max(70, naturalW)
             const h = rowHeight - 12
             const colors = STATUS_COLORS[task.status] || STATUS_COLORS.pending
-            // Cálculo grosero de chars visibles a 11px: ~6px por char.
+            // Rough estimate of visible chars at 11px: ~6px per char.
             const labelMaxChars = Math.max(4, Math.floor((w - 12) / 6))
             const label = task.text.length > labelMaxChars
               ? task.text.slice(0, Math.max(1, labelMaxChars - 1)) + '…'
@@ -372,7 +372,7 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
                 >
                   {label}
                 </text>
-                {/* Tooltip nativo del navegador con info completa */}
+                {/* Native browser tooltip with full info */}
                 <title>
                   {`${task.text}\n${t(`gantt.statusLabels.${colors.labelKey}`)}\n${formatDate(task.start)} → ${formatDate(task.end)}${task.assignedTo ? `\n${t('gantt.assignedTo', { name: task.assignedTo })}` : ''}`}
                 </title>

@@ -29,8 +29,8 @@ export default function LoginPage() {
     auth.signinRedirect({ extraQueryParams: { identity_provider: 'Google' } })
   }
 
-  // Microsoft SSO. El nombre 'Microsoft' debe coincidir EXACTAMENTE con el
-  // ProviderName configurado en Cognito (us-east-1_b76prubhx → IdP OIDC).
+  // Microsoft SSO. The 'Microsoft' name must match EXACTLY the ProviderName
+  // configured in Cognito (us-east-1_b76prubhx → OIDC IdP).
   function handleMicrosoftLogin() {
     auth.signinRedirect({ extraQueryParams: { identity_provider: 'Microsoft' } })
   }
@@ -43,17 +43,17 @@ export default function LoginPage() {
     setLoading(true); setError(''); setInfo('')
     try {
       await signIn(email.trim(), password)
-      // react-oidc-context lee la sesión del storage al iniciar → recargamos.
+      // react-oidc-context reads the session from storage on init → reload.
       window.location.href = '/'
     } catch (e: any) {
-      // Caso especial: cuenta invitada con contraseña temporal — debe definir una propia.
+      // Special case: invited account with a temporary password — must set their own.
       if (e instanceof NewPasswordRequiredError || e?.name === 'NewPasswordRequiredError') {
         reset('newPassword')
         setPassword('')
         setInfo(t('login.info.tempPassword'))
         return
       }
-      // Si no está confirmado, llevamos al paso de código.
+      // If not confirmed, take them to the code step.
       if ((e?.code || e?.name) === 'UserNotConfirmedException') {
         setInfo(t('login.info.notConfirmed'))
         try { await resendCode(email.trim()) } catch {}
@@ -96,7 +96,7 @@ export default function LoginPage() {
     setLoading(true); setError(''); setInfo('')
     try {
       await confirmSignUp(email.trim(), code.trim())
-      // Auto-login tras confirmar (usamos la contraseña que ya tenemos).
+      // Auto-login after confirming (use the password we already have).
       await signIn(email.trim(), password)
       window.location.href = '/'
     } catch (e: any) {
@@ -148,7 +148,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
-      {/* Selector de idioma fijo arriba a la derecha del login. */}
+      {/* Language switcher pinned to the top right of the login. */}
       <div className="absolute top-4 right-4 z-10">
         <LocaleSwitcher />
       </div>
@@ -286,11 +286,11 @@ export default function LoginPage() {
                 </svg>
                 {t('login.continueGoogle')}
               </button>
-              {/* SSO con Microsoft (Entra ID + cuentas personales).
-                  El IdP 'Microsoft' está configurado en el User Pool como OIDC
-                  apuntando a login.microsoftonline.com/common. El Pre-SignUp
-                  Lambda vincula automáticamente si el mismo email ya existe
-                  vía Google o nativo. */}
+              {/* Microsoft SSO (Entra ID + personal accounts).
+                  The 'Microsoft' IdP is configured in the User Pool as OIDC
+                  pointing at login.microsoftonline.com/common. The Pre-SignUp
+                  Lambda automatically links if the same email already exists
+                  via Google or native. */}
               <button
                 onClick={handleMicrosoftLogin}
                 className="w-full mt-3 py-3 px-4 bg-white hover:bg-slate-50 rounded-xl font-semibold text-slate-800 transition-all flex items-center justify-center gap-3 shadow-lg"

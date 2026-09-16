@@ -26,10 +26,10 @@ interface Attachment {
 interface ProjectAttachmentsProps {
   projectId: string
   projectName: string
-  /** ¿El usuario actual es dueño del proyecto?
-   *  Default true (compatibilidad con instancias que no pasen el prop). */
+  /** Is the current user the project owner?
+   *  Defaults to true (compatibility with instances that don't pass the prop). */
   isOwner?: boolean
-  /** Callback cuando se sube un nuevo adjunto que generó insights nuevos. */
+  /** Callback for when a new attachment is uploaded that generated new insights. */
   onInsightsGenerated?: (count: number) => void
 }
 
@@ -54,10 +54,10 @@ function formatDate(iso: string): string {
     const d = new Date(iso)
     const diff = Date.now() - d.getTime()
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    if (days === 0) return 'Hoy'
-    if (days === 1) return 'Ayer'
-    if (days < 7) return `Hace ${days} días`
-    return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+    if (days === 0) return 'Today'
+    if (days === 1) return 'Yesterday'
+    if (days < 7) return `${days} days ago`
+    return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
   } catch {
     return ''
   }
@@ -102,10 +102,10 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
       const ig = result?.insightsGenerated || {}
       const count = ig.count || 0
       if (count > 0) {
-        setUploadResult({ msg: `✓ Documento adjuntado y la IA generó ${count} insights nuevos.`, ok: true })
+        setUploadResult({ msg: `✓ Document attached and the AI generated ${count} new insights.`, ok: true })
         onInsightsGenerated?.(count)
       } else {
-        setUploadResult({ msg: '✓ Documento adjuntado.', ok: true })
+        setUploadResult({ msg: '✓ Document attached.', ok: true })
       }
       await fetchAttachments()
       setTimeout(() => {
@@ -114,7 +114,7 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
       }, 2500)
     } catch (err: any) {
       console.error('[Attachments] upload error:', err)
-      setUploadResult({ msg: err?.message?.substring(0, 200) || 'Error subiendo el archivo.', ok: false })
+      setUploadResult({ msg: err?.message?.substring(0, 200) || 'Error uploading the file.', ok: false })
     } finally {
       setUploading(false)
     }
@@ -128,10 +128,10 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
       const ig = result?.insightsGenerated || {}
       const count = ig.count || 0
       if (count > 0) {
-        setUploadResult({ msg: `✓ Texto analizado: la IA generó ${count} insights nuevos.`, ok: true })
+        setUploadResult({ msg: `✓ Text analyzed: the AI generated ${count} new insights.`, ok: true })
         onInsightsGenerated?.(count)
       } else {
-        setUploadResult({ msg: '✓ Texto guardado.', ok: true })
+        setUploadResult({ msg: '✓ Text saved.', ok: true })
       }
       await fetchAttachments()
       setTimeout(() => {
@@ -140,7 +140,7 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
       }, 2500)
     } catch (err: any) {
       console.error('[Attachments] paste text error:', err)
-      setUploadResult({ msg: err?.message?.substring(0, 200) || 'Error analizando el texto.', ok: false })
+      setUploadResult({ msg: err?.message?.substring(0, 200) || 'Error analyzing the text.', ok: false })
     } finally {
       setUploading(false)
     }
@@ -151,28 +151,28 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
     try {
       const result = await api.getAttachmentDownloadUrl(projectId, attachmentId, token)
       if (!result?.url) {
-        alert('No se pudo obtener el link de descarga.')
+        alert('Could not get the download link.')
         return
       }
-      // ⚠️ ANTES usaba window.open(url, '_blank'). Problema: tras un `await`
-      // el browser ya NO está en contexto de user-gesture síncrono y muchos
-      // navegadores bloquean la nueva pestaña como popup → el botón parecía
-      // no hacer nada.
+      // ⚠️ Previously used window.open(url, '_blank'). Problem: after an `await`
+      // the browser is no longer in a synchronous user-gesture context and many
+      // browsers block the new tab as a popup → the button appeared to
+      // do nothing.
       //
-      // Ahora usamos un anchor temporal con el atributo `download` y le
-      // disparamos click(). Esto se trata como descarga, no como popup
-      // → funciona siempre, incluso con popup blocker estricto.
+      // Now we use a temporary anchor with the `download` attribute and
+      // trigger click() on it. This is treated as a download, not a popup
+      // → works reliably, even with strict popup blockers.
       const a = document.createElement('a')
       a.href = result.url
-      a.download = fileName || result.fileName || 'archivo'
+      a.download = fileName || result.fileName || 'file'
       a.rel = 'noopener noreferrer'
-      // Algunos navegadores requieren que el anchor esté en el DOM
+      // Some browsers require the anchor to be in the DOM
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
     } catch (err) {
       console.error('[Attachments] download error:', err)
-      alert('No se pudo descargar el archivo.')
+      alert('Could not download the file.')
     } finally {
       setDownloadingId(null)
     }
@@ -227,7 +227,7 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
         )}
       </div>
 
-      {/* Panel toggle: pegar texto o subir documento */}
+      {/* Toggle panel: paste text or upload document */}
       <AnimatePresence>
         {panelMode !== 'closed' && (
           <motion.div
@@ -280,7 +280,7 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
         )}
       </AnimatePresence>
 
-      {/* Lista de adjuntos */}
+      {/* Attachments list */}
       {loading && attachments.length === 0 ? (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="w-5 h-5 text-violet-400 animate-spin" />
@@ -317,7 +317,7 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
                     <span>{formatSize(att.fileSize)}</span>
                     <span>·</span>
                     <span>{formatDate(att.createdAt)}</span>
-                    {/* Badge WhatsApp escondido — hoy solo trabajamos con correo. */}
+                    {/* WhatsApp badge hidden — today we only work with email. */}
                     {att.extractedTextLength > 0 && (
                       <>
                         <span>·</span>
@@ -338,7 +338,7 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
                   >
                     {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                   </button>
-                  {/* Borrar adjunto: solo owner. */}
+                  {/* Delete attachment: owner-only. */}
                   {isOwner && (
                     <button
                       onClick={() => handleDelete(att.attachmentId)}

@@ -28,14 +28,14 @@ interface ProjectInsightsSidebarProps {
   projectName: string
   channels: string[]
   onBack: () => void
-  /** Si se pasa, filtra los insights mostrados por este término. */
+  /** If provided, filters the shown insights by this term. */
   searchQuery?: string
 }
 
-// Orden de aparición en el sidebar — los más importantes primero.
-// Nota: NO incluye 'summary' porque ya está visible como descripción del proyecto
-// (evitamos redundancia entre la descripción central y el sidebar).
-// El `label` es una key i18n; se resuelve con t() en tiempo de render.
+// Order of appearance in the sidebar — the most important first.
+// Note: does NOT include 'summary' because it's already visible as the project's
+// description (avoids redundancy between the central description and the sidebar).
+// The `label` is an i18n key; it's resolved with t() at render time.
 const SECTIONS = [
   { key: 'key_insight',              icon: Lightbulb,     color: 'text-amber-300',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20' },
   { key: 'project_characterization', icon: Target,        color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', border: 'border-fuchsia-500/20' },
@@ -51,8 +51,9 @@ const SECTIONS = [
 
 const CHANNEL_CONFIG: Record<string, { icon: any; label: string; color: string; bg: string }> = {
   Gmail: { icon: Mail, label: 'Gmail', color: 'text-rose-400', bg: 'bg-rose-500/10' },
-  // WhatsApp escondido del UI. Si viene en `channels` desde la DB, cae al
-  // fallback genérico (icon Inbox) sin mostrarse como canal explícito.
+  // WhatsApp hidden from the UI. If it comes in `channels` from the DB, it
+  // falls through to the generic fallback (icon Inbox) without appearing as
+  // an explicit channel.
 }
 
 export default function ProjectInsightsSidebar({
@@ -91,7 +92,7 @@ export default function ProjectInsightsSidebar({
         setLoading(true)
         const data = await api.getInsights(token)
         if (!cancelled && Array.isArray(data)) {
-          // Filtrar por projectId, o por projectName si projectId no viene
+          // Filter by projectId, or by projectName if projectId is missing
           const filtered = data.filter((i: Insight) => {
             if (i.projectId) return i.projectId === projectId
             return i.projectName === projectName
@@ -108,7 +109,7 @@ export default function ProjectInsightsSidebar({
     return () => { cancelled = true }
   }, [token, projectId])
 
-  // Filtrar por searchQuery si está presente
+  // Filter by searchQuery if present
   const searchTerm = (searchQuery || '').trim().toLowerCase()
   const filteredInsights = searchTerm
     ? insights.filter(i => {
@@ -135,7 +136,7 @@ export default function ProjectInsightsSidebar({
   return (
     <aside className="w-72 border-r border-white/5 bg-[#0E0E1A] flex-shrink-0 overflow-y-auto">
       <div className="p-4 space-y-4">
-        {/* Header con botón de volver */}
+        {/* Header with back button */}
         <div>
           <button
             onClick={onBack}
@@ -171,7 +172,7 @@ export default function ProjectInsightsSidebar({
           </div>
         )}
 
-        {/* Sections de insights */}
+        {/* Insight sections */}
         {!loading && totalInsights > 0 && SECTIONS.map(section => {
           const items = grouped[section.key] || []
           if (items.length === 0) return null
@@ -210,11 +211,11 @@ export default function ProjectInsightsSidebar({
                     <div className="px-3 pb-3 space-y-2">
                       {items.map(insight => {
                         const key = insight.insightId || insight.id || Math.random().toString()
-                        // El contenido rico de la IA vive en distintos campos según el tipo:
-                        // - 'summary': la narrativa va en description (el title es solo la etiqueta "Resumen del Proyecto").
-                        // - key_insight / project_characterization / client_profile: el contenido real va en
-                        //   title/detected; su description es una etiqueta genérica del backend
-                        //   ("Tipo real del proyecto detectado por IA", etc.), por eso NO debe mostrarse.
+                        // The rich AI content lives in different fields depending on the type:
+                        // - 'summary': the narrative goes in description (the title is just the label "Project Summary").
+                        // - key_insight / project_characterization / client_profile: the real content lives in
+                        //   title/detected; its description is a generic backend label
+                        //   ("Real project type detected by AI", etc.), so it should NOT be shown.
                         const contentInDescription = insight.type === 'summary'
                         const text = contentInDescription
                           ? (insight.description || insight.action || insight.title || insight.detected || '')
@@ -238,7 +239,7 @@ export default function ProjectInsightsSidebar({
           )
         })}
 
-        {/* Canales conectados al proyecto */}
+        {/* Channels connected to the project */}
         {channels && channels.length > 0 && (
           <div className="rounded-lg border border-white/10 bg-white/[0.02]">
             <button
@@ -307,7 +308,7 @@ export default function ProjectInsightsSidebar({
           </div>
         )}
 
-        {/* Mensaje cuando hay búsqueda y 0 matches */}
+        {/* Message when there's a search and 0 matches */}
         {!loading && isFiltered && totalInsights === 0 && totalAll > 0 && (
           <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3 text-center">
             <p className="text-xs text-white/40">

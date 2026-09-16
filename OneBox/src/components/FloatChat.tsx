@@ -20,10 +20,10 @@ import { getUserId, getUserEmail } from '../services/api'
 
 const AGENT_API = import.meta.env.VITE_AGENT_API || 'https://TU-LAMBDA-URL.lambda-url.us-east-1.on.aws/'
 
-interface Mensaje {
+interface Message {
   id: string
-  tipo: 'usuario' | 'asistente' | 'sistema'
-  contenido: string
+  type: 'user' | 'assistant' | 'system'
+  content: string
   timestamp: Date
   isLoading?: boolean
   toolsUsed?: string[]
@@ -35,16 +35,17 @@ interface HistoryMessage {
 }
 
 // ============================================================================
-// PERSISTENCIA DEL CHAT EN localStorage
+// CHAT PERSISTENCE IN localStorage
 // ----------------------------------------------------------------------------
-// El history (lo que se manda al backend) y los mensajes (lo que ve el usuario)
-// se guardan localmente para que sobrevivan al refresh de la página. El key se
-// scopea por uid → si te logueas como otra persona en el mismo navegador, ves
-// chat separado y no contaminas el de nadie más.
+// Both the history (what gets sent to the backend) and the messages (what the
+// user sees) are stored locally so they survive a page refresh. The key is
+// scoped by uid, so if you log in as someone else in the same browser you see
+// a separate chat and don't contaminate anyone else's.
 //
-// Límite duro: las últimas MAX_PERSIST entradas. Más allá de eso, el chat se
-// rota (queda solo lo más reciente) para no reventar localStorage (~5MB).
-// Cada Mensaje + HistoryMessage pesa poco, 50 entradas son ~30-50KB típicos.
+// Hard limit: the last MAX_PERSIST entries. Beyond that, the chat rotates
+// (only the most recent entries are kept) so we don't blow out localStorage
+// (~5MB). Each Message + HistoryMessage is small; 50 entries are typically
+// around 30-50KB.
 // ============================================================================
 const MAX_PERSIST = 50
 
@@ -66,15 +67,16 @@ function saveToStorage(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value))
   } catch {
-    /* localStorage lleno o desactivado (modo privado). Fallar silencioso es OK:
-       el chat sigue funcionando en memoria, solo no se persistirá. */
+    /* localStorage full or disabled (private mode). Failing silently is OK:
+       the chat continues to work in memory, it just won't be persisted. */
   }
 }
 
-// Los Mensaje se serializan con timestamp como Date, pero al pasar por JSON
-// se convierte en string ISO. Hay que reconvertirlo o la UI explota al llamar
-// .toLocaleTimeString(). Esta función reanima los mensajes cargados de storage.
-function reviveMensajes(arr: any[]): Mensaje[] {
+// Messages are serialized with timestamp as a Date, but going through JSON
+// turns it into an ISO string. We have to convert it back or the UI blows up
+// when calling .toLocaleTimeString(). This function revives messages loaded
+// from storage.
+function reviveMessages(arr: any[]): Message[] {
   if (!Array.isArray(arr)) return []
   return arr.map(m => ({
     ...m,
@@ -82,7 +84,7 @@ function reviveMensajes(arr: any[]): Mensaje[] {
   }))
 }
 
-// ¿Son dos fechas el mismo día (ignorando hora)?
+// Are two dates the same day (ignoring time)?
 function isSameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -91,9 +93,9 @@ function isSameDay(a: Date, b: Date): boolean {
   )
 }
 
-// Etiqueta de día estilo WhatsApp: "Hoy", "Ayer", o "lunes 2 jun" si es de
-// esta semana, o "2 jun 2026" si es más antiguo. Usado en el separador
-// que aparece entre mensajes de días distintos en el chat.
+// WhatsApp-style day label: "Today", "Yesterday", or "Monday 2 Jun" if it's
+// within this week, or "2 Jun 2026" if it's older. Used in the separator
+// that appears between messages from different days in the chat.
 function getDateLabel(date: Date): string {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -102,69 +104,68 @@ function getDateLabel(date: Date): string {
   const weekAgo = new Date(today)
   weekAgo.setDate(today.getDate() - 6)
 
-  if (isSameDay(date, today)) return 'Hoy'
-  if (isSameDay(date, yesterday)) return 'Ayer'
+  if (isSameDay(date, today)) return 'Today'
+  if (isSameDay(date, yesterday)) return 'Yesterday'
   if (date >= weekAgo) {
-    // Dentro de la última semana: nombre del día capitalizado, ej. "lunes 2 jun"
-    const dia = date.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'short' })
-    return dia.charAt(0).toUpperCase() + dia.slice(1)
+    // Within the last week: capitalized weekday name, e.g. "Monday 2 Jun"
+    const day = date.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short' })
+    return day.charAt(0).toUpperCase() + day.slice(1)
   }
-  // Más antiguo: fecha corta
-  return date.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
+  // Older: short date
+  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export default function ChatFloat() {
-  // Auth: el chatbot DEBE enviar credenciales para que el backend aísle datos
-  // por usuario. Sin esto el endpoint /chat devuelve 401 (fix de seguridad
-  // crítico — antes el agente usaba un USER_ID global y filtraba datos de
-  // otros usuarios).
+  // Auth: the chatbot MUST send credentials so the backend isolates data per
+  // user. Without this the /chat endpoint returns 401 (critical security fix;
+  // before, the agent used a global USER_ID and leaked other users' data).
   const auth = useAuth()
   const { t } = useTranslation()
-  // uid actual del usuario logueado — sirve para keyear el localStorage por
-  // persona, así dos cuentas que usen el mismo navegador no se pisan el chat.
-  // Mientras Cognito carga es undefined: en ese tiempo no leemos ni escribimos
-  // storage (esperar a tener uid real evita corromper data o cargar el chat
-  // equivocado).
+  // Current logged-in user's uid — used to key localStorage per person, so
+  // two accounts on the same browser don't clobber each other's chat. While
+  // Cognito is loading it's undefined: during that time we don't read or
+  // write storage (waiting for a real uid avoids corrupting data or loading
+  // the wrong chat).
   const uid = auth.user?.profile?.sub || ''
   const isReady = !!uid
 
-  const MENSAJE_BIENVENIDA: Mensaje = {
+  const WELCOME_MESSAGE: Message = {
     id: '1',
-    tipo: 'asistente',
-    contenido: t('chat.welcome'),
+    type: 'assistant',
+    content: t('chat.welcome'),
     timestamp: new Date()
   }
 
-  const [abierto, setAbierto] = useState(false)
-  // Estado inicial sin tocar localStorage. Cuando uid esté listo, un effect
-  // carga lo guardado. Así evitamos: (1) leer la key 'anon' por error, y
-  // (2) que el render inicial se rompa si lo guardado tiene timestamps
-  // serializados como strings.
-  const [mensajes, setMensajes] = useState<Mensaje[]>([MENSAJE_BIENVENIDA])
+  const [open, setOpen] = useState(false)
+  // Initial state without touching localStorage. Once uid is ready, an
+  // effect loads what was saved. This way we avoid: (1) reading the 'anon'
+  // key by mistake, and (2) the initial render breaking if the stored data
+  // has timestamps serialized as strings.
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE])
   const [input, setInput] = useState('')
-  const [procesando, setProcesando] = useState(false)
-  const [estadoAgente, setEstadoAgente] = useState<string>(t('chat.statusConnected'))
+  const [processing, setProcessing] = useState(false)
+  const [agentStatus, setAgentStatus] = useState<string>(t('chat.statusConnected'))
   const [history, setHistory] = useState<HistoryMessage[]>([])
-  // session_id: identificador de esta conversación. Se mantiene hasta que el
-  // usuario apriete "Reset" (limpiarChat), donde se rota. Se manda al backend
-  // en cada request (campo opcional, hoy se ignora pero lo dejamos listo para
-  // cuando el backend persista conversaciones por sesión).
+  // session_id: identifier for this conversation. Kept until the user presses
+  // "Reset" (clearChat), where it's rotated. It's sent to the backend on every
+  // request (optional field, currently ignored, but we leave it ready for when
+  // the backend persists conversations by session).
   const [sessionId, setSessionId] = useState<string>('')
-  // hydrated: marca cuando ya hidratamos desde storage. Mientras false, los
-  // effects de persistencia NO escriben (evita pisar lo guardado con el state
-  // inicial vacío durante el primer render).
+  // hydrated: marks when we've already hydrated from storage. While false,
+  // the persistence effects DO NOT write (avoids overwriting stored data
+  // with the empty initial state during first render).
   const [hydrated, setHydrated] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Hidratación: cuando uid esté disponible, cargar el chat guardado.
-  // Se ejecuta una vez al login y otra vez si cambia de usuario en el mismo
-  // navegador (cosa rara pero posible).
+  // Hydration: when uid is available, load the saved chat. Runs once at
+  // login and again if the user changes in the same browser (rare, but
+  // possible).
   useEffect(() => {
     if (!isReady) return
-    const storedMensajes = loadFromStorage<any[]>(storageKey(uid, 'mensajes'), [])
-    if (storedMensajes.length > 0) {
-      setMensajes(reviveMensajes(storedMensajes))
+    const storedMessages = loadFromStorage<any[]>(storageKey(uid, 'messages'), [])
+    if (storedMessages.length > 0) {
+      setMessages(reviveMessages(storedMessages))
     }
     const storedHistory = loadFromStorage<HistoryMessage[]>(storageKey(uid, 'history'), [])
     setHistory(storedHistory)
@@ -177,13 +178,13 @@ export default function ChatFloat() {
     setHydrated(true)
   }, [uid, isReady])
 
-  // Persistir cada cambio (rotamos a MAX_PERSIST últimas para no crecer infinito).
-  // Solo escribimos cuando ya hidratamos: si no, en el primer render el state
-  // inicial (vacío) pisaría lo guardado en disco.
+  // Persist on every change (rotate to the last MAX_PERSIST entries so it
+  // doesn't grow forever). We only write once we've hydrated: otherwise the
+  // empty initial state would overwrite what's on disk during first render.
   useEffect(() => {
     if (!hydrated || !isReady) return
-    saveToStorage(storageKey(uid, 'mensajes'), mensajes.slice(-MAX_PERSIST))
-  }, [mensajes, uid, hydrated, isReady])
+    saveToStorage(storageKey(uid, 'messages'), messages.slice(-MAX_PERSIST))
+  }, [messages, uid, hydrated, isReady])
 
   useEffect(() => {
     if (!hydrated || !isReady) return
@@ -196,13 +197,13 @@ export default function ChatFloat() {
 
   useEffect(() => {
     scrollToBottom()
-  }, [mensajes])
+  }, [messages])
 
   useEffect(() => {
-    if (abierto && inputRef.current) {
+    if (open && inputRef.current) {
       inputRef.current.focus()
     }
-  }, [abierto])
+  }, [open])
 
   const formatText = (text: string) => {
     const parts = text.split(/(\*\*[^*]+\*\*)/g)
@@ -214,36 +215,36 @@ export default function ChatFloat() {
     })
   }
 
-  const enviarMensaje = useCallback(async () => {
-    if (!input.trim() || procesando) return
+  const sendMessage = useCallback(async () => {
+    if (!input.trim() || processing) return
 
-    const textoUsuario = input.trim()
+    const userText = input.trim()
     setInput('')
 
-    const msgUsuario: Mensaje = {
+    const userMsg: Message = {
       id: crypto.randomUUID(),
-      tipo: 'usuario',
-      contenido: textoUsuario,
+      type: 'user',
+      content: userText,
       timestamp: new Date()
     }
-    setMensajes(prev => [...prev, msgUsuario])
+    setMessages(prev => [...prev, userMsg])
 
     const loadingId = crypto.randomUUID()
-    setMensajes(prev => [...prev, {
+    setMessages(prev => [...prev, {
       id: loadingId,
-      tipo: 'asistente',
-      contenido: '',
+      type: 'assistant',
+      content: '',
       timestamp: new Date(),
       isLoading: true
     }])
 
-    setProcesando(true)
-    setEstadoAgente(t('chat.statusThinking'))
+    setProcessing(true)
+    setAgentStatus(t('chat.statusThinking'))
 
     try {
-      // SEGURIDAD: mandar identidad del usuario para que el agente filtre
-      // datos por su uid (NO por un USER_ID global). Sin headers válidos el
-      // backend responde 401.
+      // SECURITY: send the user's identity so the agent filters data by
+      // their uid (NOT by a global USER_ID). Without valid headers the
+      // backend responds with 401.
       const token = auth.user?.access_token || ''
       const userId = getUserId()
       const userEmail = getUserEmail()
@@ -259,11 +260,11 @@ export default function ChatFloat() {
           'x-user-email': userEmail,
         },
         body: JSON.stringify({
-          message: textoUsuario,
+          message: userText,
           history: history,
-          // session_id: agrupa los mensajes de esta conversación. Backend lo
-          // recibe pero hoy no lo persiste — listo para cuando se añada
-          // persistencia server-side de conversaciones.
+          // session_id: groups the messages in this conversation. The backend
+          // receives it but currently doesn't persist it — ready for when
+          // server-side conversation persistence is added.
           session_id: sessionId,
         })
       })
@@ -277,22 +278,22 @@ export default function ChatFloat() {
 
       setHistory(prev => [
         ...prev,
-        { role: 'user', content: textoUsuario },
+        { role: 'user', content: userText },
         { role: 'assistant', content: data.response }
       ])
 
-      setMensajes(prev => prev.map(m =>
+      setMessages(prev => prev.map(m =>
         m.id === loadingId
           ? {
               ...m,
-              contenido: data.response,
+              content: data.response,
               isLoading: false,
               toolsUsed: data.toolsUsed
             }
           : m
       ))
 
-      setEstadoAgente(t('chat.statusConnected'))
+      setAgentStatus(t('chat.statusConnected'))
 
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : t('chat.errors.unknown')
@@ -302,48 +303,48 @@ export default function ChatFloat() {
         userErrorMsg = t('chat.errors.network')
       }
 
-      setMensajes(prev => prev.map(m =>
+      setMessages(prev => prev.map(m =>
         m.id === loadingId
           ? {
               ...m,
-              contenido: `${userErrorMsg}\n\n_${errorMsg}_`,
+              content: `${userErrorMsg}\n\n_${errorMsg}_`,
               isLoading: false,
-              tipo: 'sistema' as const
+              type: 'system' as const
             }
           : m
       ))
 
-      setEstadoAgente(t('chat.statusError'))
+      setAgentStatus(t('chat.statusError'))
     } finally {
-      setProcesando(false)
+      setProcessing(false)
     }
-  }, [input, procesando, history, sessionId, uid, auth.user?.access_token])
+  }, [input, processing, history, sessionId, uid, auth.user?.access_token])
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      enviarMensaje()
+      sendMessage()
     }
   }
 
-  const limpiarChat = () => {
-    setMensajes([{
+  const clearChat = () => {
+    setMessages([{
       id: crypto.randomUUID(),
-      tipo: 'asistente',
-      contenido: t('chat.reset'),
+      type: 'assistant',
+      content: t('chat.reset'),
       timestamp: new Date()
     }])
     setHistory([])
-    setEstadoAgente(t('chat.statusConnected'))
-    // Generar nuevo session_id — esto es una conversación distinta.
-    // El useEffect de session_id se dispara y lo persiste solo.
+    setAgentStatus(t('chat.statusConnected'))
+    // Generate a new session_id — this is a different conversation.
+    // The session_id useEffect fires and persists it on its own.
     const fresh = crypto.randomUUID()
     setSessionId(fresh)
     saveToStorage(storageKey(uid, 'session_id'), fresh)
   }
 
-  const usarSugerencia = (texto: string) => {
-    setInput(texto)
+  const useSuggestion = (text: string) => {
+    setInput(text)
     setTimeout(() => {
       if (inputRef.current) inputRef.current.focus()
     }, 50)
@@ -352,14 +353,14 @@ export default function ChatFloat() {
   return (
     <>
       <AnimatePresence>
-        {!abierto && (
+        {!open && (
           <motion.button
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            onClick={() => setAbierto(true)}
+            onClick={() => setOpen(true)}
             className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 w-14 h-14 bg-gradient-to-r from-cyan-500 to-violet-500 rounded-full shadow-lg shadow-cyan-500/25 flex items-center justify-center text-white"
           >
             <MessageSquare className="w-6 h-6" />
@@ -369,7 +370,7 @@ export default function ChatFloat() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {abierto && (
+        {open && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -384,31 +385,31 @@ export default function ChatFloat() {
                     <Sparkles className="w-4 h-4 text-white" />
                   </div>
                   <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-800 ${
-                    estadoAgente === t('chat.statusError') ? 'bg-red-400' :
-                    procesando ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
+                    agentStatus === t('chat.statusError') ? 'bg-red-400' :
+                    processing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
                   }`} />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-white">OneBox Agent</h3>
-                  <p className="text-xs text-slate-400">{estadoAgente}</p>
+                  <p className="text-xs text-slate-400">{agentStatus}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
                 <button
-                  onClick={limpiarChat}
+                  onClick={clearChat}
                   className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
                   title={t('chat.resetTooltip')}
                 >
                   <RotateCcw className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setAbierto(false)}
+                  onClick={() => setOpen(false)}
                   className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
                 >
                   <Minimize2 className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setAbierto(false)}
+                  onClick={() => setOpen(false)}
                   className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
                 >
                   <X className="w-4 h-4" />
@@ -417,18 +418,18 @@ export default function ChatFloat() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {mensajes.map((mensaje, idx) => {
-                // Separador de fecha estilo WhatsApp: aparece antes del primer
-                // mensaje y cada vez que el día cambia respecto al mensaje anterior.
-                const prev = idx > 0 ? mensajes[idx - 1] : null
+              {messages.map((message, idx) => {
+                // WhatsApp-style date separator: appears before the first
+                // message and every time the day changes from the previous message.
+                const prev = idx > 0 ? messages[idx - 1] : null
                 const showDateDivider =
-                  !prev || !isSameDay(prev.timestamp, mensaje.timestamp)
+                  !prev || !isSameDay(prev.timestamp, message.timestamp)
                 return (
-                <Fragment key={mensaje.id}>
+                <Fragment key={message.id}>
                   {showDateDivider && (
                     <div className="flex justify-center my-2">
                       <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 bg-slate-800/60 px-3 py-1 rounded-full">
-                        {getDateLabel(mensaje.timestamp)}
+                        {getDateLabel(message.timestamp)}
                       </span>
                     </div>
                   )}
@@ -436,16 +437,16 @@ export default function ChatFloat() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={`flex gap-2.5 ${
-                    mensaje.tipo === 'usuario' ? 'justify-end' : 'justify-start'
+                    message.type === 'user' ? 'justify-end' : 'justify-start'
                   }`}
                 >
-                  {mensaje.tipo !== 'usuario' && (
+                  {message.type !== 'user' && (
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                      mensaje.tipo === 'sistema'
+                      message.type === 'system'
                         ? 'bg-red-500/20'
                         : 'bg-gradient-to-br from-cyan-400 to-violet-500'
                     }`}>
-                      {mensaje.tipo === 'sistema'
+                      {message.type === 'system'
                         ? <AlertCircle className="w-3.5 h-3.5 text-red-400" />
                         : <Bot className="w-3.5 h-3.5 text-white" />
                       }
@@ -454,20 +455,20 @@ export default function ChatFloat() {
 
                   <div className="max-w-[85%]">
                     <div className={`rounded-2xl px-3.5 py-2.5 ${
-                      mensaje.tipo === 'usuario'
+                      message.type === 'user'
                         ? 'bg-gradient-to-r from-cyan-500 to-violet-500 text-white'
-                        : mensaje.tipo === 'sistema'
+                        : message.type === 'system'
                         ? 'bg-red-500/10 border border-red-500/20 text-red-300'
                         : 'bg-slate-800 text-slate-300'
                     }`}>
-                      {mensaje.isLoading ? (
+                      {message.isLoading ? (
                         <div className="flex items-center gap-2 py-1">
                           <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
                           <span className="text-sm text-slate-400">{t('chat.loading')}</span>
                         </div>
                       ) : (
                         <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                          {mensaje.contenido.split('\n').map((line, i) => (
+                          {message.content.split('\n').map((line, i) => (
                             <span key={i}>
                               {i > 0 && <br />}
                               {line.startsWith('• ') || line.startsWith('- ') ? (
@@ -484,28 +485,28 @@ export default function ChatFloat() {
                       )}
                     </div>
 
-                    {mensaje.toolsUsed && mensaje.toolsUsed.length > 0 && (
+                    {message.toolsUsed && message.toolsUsed.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1.5 px-1">
-                        {[...new Set(mensaje.toolsUsed)].map((tool, i) => (
+                        {[...new Set(message.toolsUsed)].map((tool, i) => (
                           <span key={i} className="text-[10px] text-slate-600 bg-slate-800/50 px-2 py-0.5 rounded-full flex items-center gap-1">
                             {tool === 'listar_correos' && <Mail className="w-2.5 h-2.5" />}
                             {tool === 'inspeccionar_correo' && <Paperclip className="w-2.5 h-2.5" />}
-                            {tool === 'listar_correos' ? 'Gmail API' : 'Inspección S3'}
+                            {tool === 'listar_correos' ? 'Gmail API' : 'S3 Inspection'}
                           </span>
                         ))}
                       </div>
                     )}
 
-                    {!mensaje.isLoading && (
+                    {!message.isLoading && (
                       <p className={`text-[10px] mt-1 px-1 ${
-                        mensaje.tipo === 'usuario' ? 'text-right text-white/50' : 'text-slate-600'
+                        message.type === 'user' ? 'text-right text-white/50' : 'text-slate-600'
                       }`}>
-                        {mensaje.timestamp.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                        {message.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     )}
                   </div>
 
-                  {mensaje.tipo === 'usuario' && (
+                  {message.type === 'user' && (
                     <div className="w-7 h-7 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
                       <User className="w-3.5 h-3.5 text-slate-300" />
                     </div>
@@ -517,7 +518,7 @@ export default function ChatFloat() {
               <div ref={messagesEndRef} />
             </div>
 
-            {mensajes.length <= 2 && !procesando && (
+            {messages.length <= 2 && !processing && (
               <div className="px-4 pb-2">
                 <div className="flex flex-wrap gap-1.5">
                   {[
@@ -527,7 +528,7 @@ export default function ChatFloat() {
                   ].map((sug) => (
                     <button
                       key={sug}
-                      onClick={() => usarSugerencia(sug)}
+                      onClick={() => useSuggestion(sug)}
                       className="text-xs px-3 py-1.5 bg-slate-800/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded-full border border-slate-700/50 transition-all"
                     >
                       {sug}
@@ -544,8 +545,8 @@ export default function ChatFloat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyPress}
-                  placeholder={procesando ? t('chat.inputWaiting') : t('chat.inputPlaceholder')}
-                  disabled={procesando}
+                  placeholder={processing ? t('chat.inputWaiting') : t('chat.inputPlaceholder')}
+                  disabled={processing}
                   rows={1}
                   className="flex-1 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all resize-none disabled:opacity-50 max-h-24"
                   style={{ minHeight: '40px' }}
@@ -556,11 +557,11 @@ export default function ChatFloat() {
                   }}
                 />
                 <button
-                  onClick={enviarMensaje}
-                  disabled={!input.trim() || procesando}
+                  onClick={sendMessage}
+                  disabled={!input.trim() || processing}
                   className="p-2.5 bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-400 hover:to-violet-400 text-white rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
                 >
-                  {procesando ? (
+                  {processing ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <Send className="w-4 h-4" />

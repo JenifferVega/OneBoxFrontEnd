@@ -1,6 +1,6 @@
 const API_BASE = import.meta.env.VITE_API_URL
 
-// IMPORTANTE: Leemos siempre del localStorage en cada llamada para evitar
+// IMPORTANT: We always read from localStorage on each call to avoid stale values.
 
 function readUserCreds() {
   let userId = ''
@@ -56,9 +56,9 @@ export const api = {
   createProject: (data: any, token: string) =>
     fetchAPI('/api/projects', token, { method: 'POST', body: JSON.stringify(data) }),
 
-  /** Edición parcial de proyecto existente. Solo se mandan los campos a cambiar.
-   *  Campos válidos: name, description, type, status, deliveryDate, timing.
-   *  Backend valida que el caller sea el owner y rechaza con 403 si no.
+  /** Partial edit of an existing project. Only the fields to change are sent.
+   *  Valid fields: name, description, type, status, deliveryDate, timing.
+   *  The backend validates that the caller is the owner and rejects with 403 otherwise.
    */
   updateProject: (
     projectId: string,
@@ -80,27 +80,27 @@ export const api = {
   deleteProject: (projectId: string, token: string) =>
     fetchAPI(`/api/projects/${projectId}`, token, { method: 'DELETE' }),
 
-  /** Miembros de la organización del user logueado.
-   *  Excluye al propio user. Usado por el ProjectWizard para poblar el
-   *  buscador de team (antes era una lista hardcoded).
+  /** Members of the logged-in user's organization.
+   *  Excludes the user themselves. Used by the ProjectWizard to populate the
+   *  team search (previously a hardcoded list).
    */
   getOrgMembers: (token: string) =>
     fetchAPI('/api/org/members', token) as Promise<{
       members: Array<{
         userId: string
         email: string
-        nombre: string
-        iniciales: string
+        name: string
+        initials: string
         rolGlobal: string
       }>
     }>,
 
   // ────────────────────────────────────────────────────────────────────
-  // Contexto del user logueado (rol global, org, flags)
+  // Context of the logged-in user (global role, org, flags)
   // ────────────────────────────────────────────────────────────────────
-  /** Devuelve el contexto multi-tenant del user actual:
-   *  rolGlobal, orgId, isPlatformAdmin, capabilities. El frontend lo llama
-   *  en el mount para decidir qué UI mostrar (ej: tab Plataforma).
+  /** Returns the multi-tenant context of the current user:
+   *  rolGlobal, orgId, isPlatformAdmin, capabilities. The frontend calls it
+   *  on mount to decide which UI to show (e.g. the Platform tab).
    */
   getMe: (token: string) =>
     fetchAPI('/api/me', token) as Promise<{
@@ -122,10 +122,10 @@ export const api = {
     }>,
 
   // ────────────────────────────────────────────────────────────────────
-  // Endpoints de plataforma — SOLO para users con isPlatformAdmin=true.
-  // El backend valida con require_capability(ADMINISTRAR_PLATAFORMA)
-  // así que aunque alguien pegue a estos endpoints sin permiso, responde
-  // 403. El frontend solo los llama desde el panel de super admin.
+  // Platform endpoints — ONLY for users with isPlatformAdmin=true.
+  // The backend validates with require_capability(ADMINISTRAR_PLATAFORMA)
+  // so even if someone hits these endpoints without permission, it responds
+  // 403. The frontend only calls them from the super admin panel.
   // ────────────────────────────────────────────────────────────────────
   listPlatformOrgs: (token: string, statusFilter?: string) => {
     const q = statusFilter ? `?status=${encodeURIComponent(statusFilter)}` : ''
@@ -189,8 +189,8 @@ export const api = {
       pendingInvitationsTotal: number
     }>,
 
-  /** Elimina un miembro de una org. Backend rechaza (400) si es el último
-   *  propietario, el último super admin, o el propio actor. */
+  /** Removes a member from an org. The backend rejects (400) if it is the last
+   *  owner, the last super admin, or the actor themselves. */
   removePlatformMember: (orgId: string, userId: string, token: string) =>
     fetchAPI(
       `/api/platform/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(userId)}`,
@@ -198,7 +198,7 @@ export const api = {
       { method: 'DELETE' }
     ) as Promise<{ success: boolean; orgId: string; userId: string; removedAt: string }>,
 
-  /** Cancela / borra una invitación pendiente. */
+  /** Cancels / deletes a pending invitation. */
   cancelPlatformInvitation: (invitationId: string, token: string) =>
     fetchAPI(
       `/api/platform/invitations/${encodeURIComponent(invitationId)}`,
@@ -221,10 +221,10 @@ export const api = {
   deleteTask: (taskId: string, token: string, cascade: boolean = false) =>
     fetchAPI(`/api/tasks/${taskId}?cascade=${cascade ? 'true' : 'false'}`, token, { method: 'DELETE' }),
 
-  /** Añade / invita a un participante al proyecto.
-   *  - email y/o phone (al menos uno).
-   *  - name y role opcionales.
-   *  - sendNotification=false → solo registra el contacto sin enviar email/WhatsApp.
+  /** Adds / invites a participant to the project.
+   *  - email and/or phone (at least one).
+   *  - name and role optional.
+   *  - sendNotification=false → only records the contact without sending email/WhatsApp.
    */
   inviteUserToProject: (
     projectId: string,
@@ -256,10 +256,10 @@ export const api = {
   updateParticipants: (projectId: string, participants: any[], token: string) =>
     fetchAPI(`/api/projects/${projectId}/participants`, token, { method: 'PUT', body: JSON.stringify({ participants }) }),
 
-  /** Elimina un participante del equipo del proyecto.
-   *  Identifica por email (preferido) o phone o name.
-   *  - Sus tareas asignadas quedan como "Sin asignar".
-   *  - Si tenía invitación aceptada, se revoca (pierde acceso).
+  /** Removes a participant from the project team.
+   *  Identified by email (preferred) or phone or name.
+   *  - Their assigned tasks become "Unassigned".
+   *  - If they had an accepted invitation, it is revoked (they lose access).
    */
   removeParticipant: (
     projectId: string,
@@ -294,7 +294,7 @@ export const api = {
   },
 
   // ============================================================
-  // ATTACHMENTS / DOCUMENTOS
+  // ATTACHMENTS / DOCUMENTS
   // ============================================================
 
   createProjectFromDocument: async (file: File, opts: { name?: string; channels?: string[]; userId: string; token: string }) => {
@@ -312,7 +312,7 @@ export const api = {
     })
     if (!res.ok) {
       const t = await res.text()
-      throw new Error(t || 'Error al subir documento')
+      throw new Error(t || 'Error uploading document')
     }
     return res.json()
   },
@@ -333,16 +333,16 @@ export const api = {
     })
     if (!res.ok) {
       const t = await res.text()
-      throw new Error(t || 'Error al analizar documento')
+      throw new Error(t || 'Error analyzing document')
     }
     return res.json()
   },
 
-  /** Crea el proyecto definitivo a partir de un draft analizado.
-   *  `tasks` son las tareas confirmadas por el usuario en el preview
-   *  (con `assigned_to` ya propuesto por la IA). Si vienen, el backend
-   *  las persiste tal cual y SALTA la regeneración automática que
-   *  perdería el `assigned_to`. */
+  /** Creates the final project from an analyzed draft.
+   *  `tasks` are the tasks confirmed by the user in the preview
+   *  (with `assigned_to` already proposed by the AI). If provided, the backend
+   *  persists them as-is and SKIPS the automatic regeneration that
+   *  would lose the `assigned_to`. */
   createProjectFromDraft: (data: {
     draftId: string;
     name: string;
@@ -369,7 +369,7 @@ export const api = {
   }, token: string) =>
     fetchAPI('/api/projects/from-document-draft', token, { method: 'POST', body: JSON.stringify(data) }),
 
-  /** Adjunta un documento a un proyecto existente. */
+  /** Attaches a document to an existing project. */
   uploadAttachment: async (projectId: string, file: File, opts: { userId: string; token: string }) => {
     const formData = new FormData()
     formData.append('file', file)
@@ -383,7 +383,7 @@ export const api = {
     })
     if (!res.ok) {
       const t = await res.text()
-      throw new Error(t || 'Error subiendo adjunto')
+      throw new Error(t || 'Error uploading attachment')
     }
     return res.json()
   },
@@ -397,11 +397,11 @@ export const api = {
   deleteAttachment: (projectId: string, attachmentId: string, token: string) =>
     fetchAPI(`/api/attachments/${projectId}/${attachmentId}`, token, { method: 'DELETE' }),
 
-  /** Crea un proyecto desde texto pegado (conversación WhatsApp/Gmail/notas). */
+  /** Creates a project from pasted text (WhatsApp/Gmail conversation/notes). */
   createProjectFromText: (data: { text: string; name?: string; channels?: string[]; source?: string }, token: string) =>
     fetchAPI('/api/projects/from-text', token, { method: 'POST', body: JSON.stringify(data) }),
 
-  /** Analiza un texto pegado dentro de un proyecto existente. La IA genera insights. */
+  /** Analyzes pasted text within an existing project. The AI generates insights. */
   analyzeTextForProject: (projectId: string, data: { text: string; source?: string }, token: string) =>
     fetchAPI(`/api/projects/${projectId}/analyze-text`, token, { method: 'POST', body: JSON.stringify(data) }),
 }

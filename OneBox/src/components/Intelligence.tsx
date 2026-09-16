@@ -15,6 +15,7 @@ interface IAAction {
   badge: string; badgeColor: string; icon: string; iconColor: string;
   detected: string; action: string; actionType: string; actionColor: string;
   tags: ActionTag[]; time: string; status: string; requiresReview: boolean;
+  category: 'observation' | 'action'; chipColor: string; createdAt: string;
 }
 
 const ChannelIcon = ({ type, className = 'w-3.5 h-3.5' }: { type: string; className?: string }) => {
@@ -34,10 +35,11 @@ export default function Intelligence() {
   const token = auth.user?.access_token || ''
   const [actions, setActions] = useState<IAAction[]>([])
   const [loading, setLoading] = useState(true)
-  const [filtroTipo, setFiltroTipo] = useState('all')
-  const [filtroProyecto, setFiltroProyecto] = useState<string | null>(null)
-  const [filtroCanal, setFiltroCanal] = useState<string | null>(null)
-  const [filtroTiempo, setFiltroTiempo] = useState('hoy')
+  const [filterType, setFilterType] = useState('all')
+  const [filterProject, setFilterProject] = useState<string | null>(null)
+  // No channel filter: insights carry no channel field, so the old one was a
+  // set of buttons that changed nothing.
+  const [filterTime, setFilterTime] = useState<'hoy' | '48h' | 'semana' | 'mes' | 'todo'>('todo')
 
   const userId = auth.user?.profile?.sub || ''
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function Intelligence() {
           setActions(data)
         }
       } catch (err) {
-        console.warn('[Intelligence] Error cargando insights del API:', err)
+        console.warn('[Intelligence] Error loading insights from API:', err)
       } finally {
         setLoading(false)
       }
@@ -63,23 +65,45 @@ export default function Intelligence() {
     return Array.from(names).sort()
   }, [actions])
 
+  // The time filter used to be decorative: it held state and nothing read it.
+  const cutoffMs = useMemo(() => {
+    const H = 3600_000
+    switch (filterTime) {
+      case 'hoy':    return Date.now() - 24 * H
+      case '48h':    return Date.now() - 48 * H
+      case 'semana': return Date.now() - 7 * 24 * H
+      case 'mes':    return Date.now() - 30 * 24 * H
+      default:       return 0
+    }
+  }, [filterTime])
+
   const filtered = useMemo(() => {
     let result = actions
-    if (filtroTipo === 'executed') result = result.filter(a => a.status === 'executed')
-    if (filtroTipo === 'review') result = result.filter(a => a.status === 'review')
-    if (filtroTipo === 'errors') result = result.filter(a => a.status === 'error')
-    if (filtroProyecto) result = result.filter(a => a.projectName === filtroProyecto)
+    if (filterType === 'observations') result = result.filter(a => a.category === 'observation')
+    if (filterType === 'actions')      result = result.filter(a => a.category === 'action')
+    if (filterType === 'review')       result = result.filter(a => a.status === 'review')
+    if (filterType === 'errors')       result = result.filter(a => a.status === 'error')
+    if (filterProject) result = result.filter(a => a.projectName === filterProject)
+    if (cutoffMs > 0) {
+      result = result.filter(a => {
+        const ts = Date.parse(a.createdAt || '')
+        return Number.isNaN(ts) ? true : ts >= cutoffMs
+      })
+    }
     return result
-  }, [filtroTipo, filtroProyecto, actions])
+  }, [filterType, filterProject, cutoffMs, actions])
 
+  // No "accuracy" metric here. The old one was executed/total, and since the
+  // backend marked everything executed it always read 100% -- it measured
+  // nothing. Measuring whether the AI was RIGHT needs human feedback that
+  // this system does not collect yet, so the tiles report plain counts.
   const stats = useMemo(() => ({
-    mensajes: actions.length,
-    acciones: actions.filter(a => a.status === 'executed').length,
-    revision: actions.filter(a => a.status === 'review').length,
-    noClasificados: actions.filter(a => a.status === 'error').length,
-    precision: actions.length > 0
-      ? Math.round((actions.filter(a => a.status === 'executed').length / actions.length) * 100)
-      : 0,
+    total: actions.length,
+    observations: actions.filter(a => a.category === 'observation').length,
+    actionsCount: actions.filter(a => a.category === 'action').length,
+    review: actions.filter(a => a.status === 'review').length,
+    unclassified: actions.filter(a => a.status === 'error').length,
+    projects: new Set(actions.map(a => a.projectName).filter(Boolean)).size,
   }), [actions])
 
   const actionsByType = useMemo(() => {
@@ -105,11 +129,28 @@ export default function Intelligence() {
       .sort((a, b) => b.count - a.count)
   }, [actions, t])
 
-  const activityDays = [
-    { day: 'L', value: 30 }, { day: 'M', value: 45 }, { day: 'X', value: 35 },
-    { day: 'J', value: 50 }, { day: 'V', value: 40 }, { day: 'S', value: 15 },
-    { day: 'H', value: 65 },
-  ]
+  // Real counts per day. This used to be a hardcoded array, so the chart drew
+  // the same bars whether you had zero insights or five hundred.
+  const activityDays = useMemo(() => {
+    const LETTERS = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
+    const days: { day: string; count: number }[] = []
+    const now = new Date()
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(now.getDate() - i)
+      days.push({ day: LETTERS[d.getDay()], count: 0 })
+    }
+    const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0)
+    actions.forEach(a => {
+      const ts = Date.parse(a.createdAt || '')
+      if (Number.isNaN(ts)) return
+      const diff = Math.floor((startOfToday.getTime() - ts) / 86_400_000)
+      const idx = 6 - diff
+      if (idx >= 0 && idx <= 6) days[idx].count++
+    })
+    const max = Math.max(1, ...days.map(d => d.count))
+    return days.map(d => ({ ...d, value: Math.round((d.count / max) * 100) }))
+  }, [actions])
 
   return (
     <div className="flex h-[calc(100vh-56px)]">
@@ -118,18 +159,19 @@ export default function Intelligence() {
           <div>
             <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('intelligence.filters.typeHeader')}</h3>
             {[
-              { id: 'all',      label: t('intelligence.filters.typeAll'),          count: actions.length,        icon: Zap,          color: 'text-yellow-400' },
-              { id: 'executed', label: t('intelligence.filters.typeExecuted'),     count: stats.acciones,        icon: CheckCircle2, color: 'text-emerald-400' },
-              { id: 'review',   label: t('intelligence.filters.typeNeedsReview'),  count: stats.revision,        icon: Eye,          color: 'text-amber-400' },
-              { id: 'errors',   label: t('intelligence.filters.typeErrors'),       count: stats.noClasificados,  icon: X,            color: 'text-red-400' },
+              { id: 'all',          label: t('intelligence.filters.typeAll', 'All'),                    count: stats.total,        icon: Zap,          color: 'text-yellow-400' },
+              { id: 'observations', label: t('intelligence.filters.typeObservations', 'Observations'),  count: stats.observations, icon: Eye,          color: 'text-sky-300' },
+              { id: 'actions',      label: t('intelligence.filters.typeActions', 'Actions'),            count: stats.actionsCount, icon: CheckCircle2, color: 'text-emerald-400' },
+              { id: 'review',       label: t('intelligence.filters.typeNeedsReview', 'Needs review'),   count: stats.review,       icon: Eye,          color: 'text-amber-400' },
+              { id: 'errors',       label: t('intelligence.filters.typeErrors', 'Failed'),              count: stats.unclassified, icon: X,            color: 'text-red-400' },
             ].map(f => {
               const Icon = f.icon
               return (
                 <button
                   key={f.id}
-                  onClick={() => setFiltroTipo(f.id)}
+                  onClick={() => setFilterType(f.id)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all ${
-                    filtroTipo === f.id ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+                    filterType === f.id ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white/70 hover:bg-white/5'
                   }`}
                 >
                   <span className="flex items-center gap-2">
@@ -147,9 +189,9 @@ export default function Intelligence() {
             {projectsList.map(name => (
               <button
                 key={name}
-                onClick={() => setFiltroProyecto(filtroProyecto === name ? null : name)}
+                onClick={() => setFilterProject(filterProject === name ? null : name)}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
-                  filtroProyecto === name ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+                  filterProject === name ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white/70 hover:bg-white/5'
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${
@@ -157,33 +199,13 @@ export default function Intelligence() {
                   name.includes('ADS') ? 'bg-red-400' :
                   name.includes('AWS') ? 'bg-orange-400' :
                   name.includes('Recruiting') ? 'bg-blue-400' :
-                  name.includes('Soporte') ? 'bg-cyan-400' : 'bg-purple-400'
+                  name.includes('Support') ? 'bg-cyan-400' : 'bg-purple-400'
                 }`} />
                 <span className="truncate">{name}</span>
               </button>
             ))}
           </div>
 
-          <div>
-            <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('intelligence.filters.channelHeader')}</h3>
-            {[
-              // WhatsApp/SMS escondidos — hoy solo trabajamos con correo.
-              { icon: 'email', label: 'Email' },
-              { icon: 'partners', label: 'Partners' },
-              { icon: 'slack', label: 'Slack' },
-            ].map(ch => (
-              <button
-                key={ch.icon}
-                onClick={() => setFiltroCanal(filtroCanal === ch.icon ? null : ch.icon)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
-                  filtroCanal === ch.icon ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white/70 hover:bg-white/5'
-                }`}
-              >
-                <ChannelIcon type={ch.icon} className="w-4 h-4" />
-                {ch.label}
-              </button>
-            ))}
-          </div>
         </div>
       </aside>
 
@@ -197,6 +219,7 @@ export default function Intelligence() {
           </div>
           <div className="flex items-center gap-2">
             {([
+              { id: 'todo',   labelKey: 'all' },
               { id: 'hoy',    labelKey: 'today' },
               { id: '48h',    labelKey: 'last48h' },
               { id: 'semana', labelKey: 'thisWeek' },
@@ -204,14 +227,14 @@ export default function Intelligence() {
             ] as const).map(pill => (
               <button
                 key={pill.id}
-                onClick={() => setFiltroTiempo(pill.id)}
+                onClick={() => setFilterTime(pill.id as typeof filterTime)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
-                  filtroTiempo === pill.id
+                  filterTime === pill.id
                     ? 'bg-white/10 text-white border-white/20'
                     : 'text-white/40 border-white/5 hover:border-white/10'
                 }`}
               >
-                {t(`intelligence.period.${pill.labelKey}`)}
+                {t(`intelligence.period.${pill.labelKey}`, pill.labelKey === 'all' ? 'All' : pill.labelKey)}
               </button>
             ))}
           </div>
@@ -219,11 +242,11 @@ export default function Intelligence() {
 
         <div className="grid grid-cols-5 gap-4 mb-6">
           {[
-            { icon: Mail,        value: stats.mensajes,             label: t('intelligence.metrics.processed'),    color: 'text-white/60' },
-            { icon: Zap,         value: stats.acciones,             label: t('intelligence.metrics.executed'),     color: 'text-emerald-400' },
-            { icon: Eye,         value: stats.revision,             label: t('intelligence.metrics.needsReview'),  color: 'text-amber-400' },
-            { icon: X,           value: stats.noClasificados,       label: t('intelligence.metrics.unclassified'), color: 'text-red-400' },
-            { icon: TrendingUp,  value: `${stats.precision}%`,      label: t('intelligence.metrics.accuracy'),     color: 'text-emerald-400' },
+            { icon: Zap,         value: stats.total,        label: t('intelligence.metrics.processed', 'Insights'),        color: 'text-white/60' },
+            { icon: Eye,         value: stats.observations, label: t('intelligence.metrics.observations', 'Observations'), color: 'text-sky-300' },
+            { icon: CheckCircle2, value: stats.actionsCount, label: t('intelligence.metrics.actions', 'Actions'),           color: 'text-emerald-400' },
+            { icon: TrendingUp,  value: stats.projects,     label: t('intelligence.metrics.projects', 'Projects'),         color: 'text-violet-400' },
+            { icon: X,           value: stats.review + stats.unclassified, label: t('intelligence.metrics.needsAttention', 'Need attention'), color: 'text-amber-400' },
           ].map((stat, i) => {
             const Icon = stat.icon
             return (
@@ -285,7 +308,10 @@ export default function Intelligence() {
               </div>
 
               <div className="flex items-start gap-2 mb-3 pl-4 border-l-2 border-white/10 ml-1">
-                <span className={`text-[10px] font-bold ${action.actionColor} bg-${action.status === 'error' ? 'red' : action.status === 'review' ? 'amber' : 'emerald'}-500/10 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0`}>
+                {/* Full class strings, never interpolated. Tailwind scans the
+                    source as text at build time, so `bg-${x}-500/10` produces
+                    no CSS at all -- the badge silently lost its background. */}
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0 ${action.chipColor}`}>
                   {action.actionType}
                 </span>
                 <p className="text-sm text-white/50">{action.action}</p>
@@ -308,11 +334,24 @@ export default function Intelligence() {
       </main>
 
       <aside className="w-72 border-l border-white/5 bg-[#0E0E1A] flex-shrink-0 overflow-y-auto p-4 space-y-6">
+        {/* This used to be a big "accuracy" percentage. It was executed/total,
+            and since every insight was marked executed it always read 100%.
+            A number that cannot go down is not a measurement. Until the
+            product collects human feedback on whether the AI was right, the
+            honest thing to show is the split it actually knows. */}
         <div className="text-center">
-          <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">{t('intelligence.rightPanel.accuracyTitle')}</h3>
-          <div className="text-6xl font-black text-emerald-400">{stats.precision}<span className="text-3xl">%</span></div>
-          <p className="text-xs text-white/40 mt-2">{t('intelligence.rightPanel.accuracyCurrent')}</p>
-          <p className="text-xs text-emerald-400">{t('intelligence.rightPanel.accuracyDetail', { done: stats.acciones, total: actions.length })}</p>
+          <h3 className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-3">
+            {t('intelligence.rightPanel.breakdownTitle', 'What the AI produced')}
+          </h3>
+          <div className="text-6xl font-black text-white">{stats.total}</div>
+          <p className="text-xs text-white/40 mt-2">
+            {t('intelligence.rightPanel.breakdownDetail', 'insights across {{projects}} project(s)', { projects: stats.projects })}
+          </p>
+          <div className="flex items-center justify-center gap-3 mt-3 text-xs">
+            <span className="text-sky-300">{stats.observations} {t('intelligence.metrics.observations', 'observations')}</span>
+            <span className="text-white/20">|</span>
+            <span className="text-emerald-400">{stats.actionsCount} {t('intelligence.metrics.actions', 'actions')}</span>
+          </div>
         </div>
 
         <div>
@@ -337,8 +376,9 @@ export default function Intelligence() {
             {activityDays.map((d, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
                 <div
+                  title={`${d.count}`}
                   className={`w-full rounded-sm transition-all ${i === activityDays.length - 1 ? 'bg-violet-500' : 'bg-white/10'}`}
-                  style={{ height: `${(d.value / 65) * 48}px` }}
+                  style={{ height: `${Math.max(2, (d.value / 100) * 48)}px` }}
                 />
                 <span className="text-[9px] text-white/30">{d.day}</span>
               </div>
@@ -354,9 +394,9 @@ export default function Intelligence() {
               return (
                 <button
                   key={i}
-                  onClick={() => setFiltroProyecto(filtroProyecto === name ? null : name)}
+                  onClick={() => setFilterProject(filterProject === name ? null : name)}
                   className={`w-full bg-white/5 rounded-lg p-3 text-left hover:bg-white/10 transition-all ${
-                    filtroProyecto === name ? 'ring-1 ring-violet-500/50' : ''
+                    filterProject === name ? 'ring-1 ring-violet-500/50' : ''
                   }`}
                 >
                   <p className="text-xs text-white/70 font-medium">{name}</p>

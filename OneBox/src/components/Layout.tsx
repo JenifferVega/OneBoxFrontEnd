@@ -26,25 +26,26 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
                   auth.user?.profile?.given_name ||
                   auth.user?.profile?.preferred_username ||
                   userEmail.split('@')[0] ||
-                  'Usuario'
+                  'User'
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
 
   function handleLogout() {
     const domain = import.meta.env.VITE_COGNITO_DOMAIN
     const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID
     const logoutUri = import.meta.env.VITE_REDIRECT_URI || 'http://localhost:5173'
-    // Limpiar TODA la sesión local antes de redirigir
+    // Clear the ENTIRE local session before redirecting
     clearUserSession()
     auth.removeUser()
     window.location.href = `https://${domain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`
   }
 
   const navItems: { id: PageType; label: string }[] = [
-    { id: 'proyectos', label: t('nav.projects', 'Proyectos') },
-    { id: 'inteligencia', label: t('nav.intelligence', 'Inteligencia') },
-    // La pestaña "Organizaciones" solo se agrega si el user es super admin.
-    // El backend igualmente blinda cada /api/platform/* con 403.
-    ...(isPlatformAdmin ? [{ id: 'plataforma' as PageType, label: t('nav.organizations', 'Organizaciones') }] : []),
+    { id: 'projects', label: t('nav.projects', 'Projects') },
+    { id: 'intelligence', label: t('nav.intelligence', 'Intelligence') },
+    { id: 'integrations', label: t('nav.integrations', 'Integrations') },
+    // The "Organizations" tab is only added if the user is a super admin.
+    // The backend still guards each /api/platform/* with 403.
+    ...(isPlatformAdmin ? [{ id: 'platform' as PageType, label: t('nav.organizations', 'Organizations') }] : []),
   ]
 
   return (
@@ -52,13 +53,13 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#12121E]/90 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-full mx-auto px-6">
           <div className="flex items-center justify-between h-20">
-            <div className="flex items-center cursor-pointer" onClick={() => onNavigate('proyectos')}>
+            <div className="flex items-center cursor-pointer" onClick={() => onNavigate('projects')}>
               <Logo variant="dark" size="sm" />
             </div>
 
             <nav className="hidden md:flex items-center gap-1">
               {navItems.map(item => {
-                const isActive = currentPage === item.id || (item.id === 'proyectos' && currentPage === 'wizard')
+                const isActive = currentPage === item.id || (item.id === 'projects' && currentPage === 'wizard')
                 return (
                   <button
                     key={item.id}
@@ -76,18 +77,18 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
             </nav>
 
             <div className="flex items-center gap-3">
-              {currentPage === 'proyectos' && onNewProject && (
+              {currentPage === 'projects' && onNewProject && (
                 <button
                   onClick={onNewProject}
                   className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-all"
                 >
                   <Plus className="w-4 h-4" />
-                  {t('common.newProject', 'Nuevo proyecto')}
+                  {t('common.newProject', 'New project')}
                 </button>
               )}
-              <NotificationsPanel onOpen={() => onNavigate('notificaciones')} />
+              <NotificationsPanel onOpen={() => onNavigate('notifications')} />
 
-              {/* Selector de idioma — persiste en localStorage. */}
+              {/* Language switcher — persisted in localStorage. */}
               <LocaleSwitcher />
 
               <div className="flex items-center gap-2.5 pl-3 border-l border-white/10">
@@ -100,7 +101,7 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
                 <button
                   onClick={handleLogout}
                   className="ml-1 p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-white/5 transition-all"
-                  title={t('common.logout', 'Cerrar sesión')}
+                  title={t('common.logout', 'Sign out')}
                 >
                   <LogOut className="w-4 h-4" />
                 </button>

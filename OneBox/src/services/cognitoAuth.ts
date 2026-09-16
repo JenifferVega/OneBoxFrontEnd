@@ -37,7 +37,7 @@ export class NewPasswordRequiredError extends Error {
 
 export function friendlyError(err: any): string {
   const code = err?.code || err?.name || ''
-  const msg = err?.message || 'Error inesperado'
+  const msg = err?.message || 'Unexpected error'
 
   if (code === 'UserLambdaValidationException' || /PreSignUp failed with error/i.test(msg)) {
     const cleaned = msg
@@ -45,24 +45,24 @@ export function friendlyError(err: any): string {
       .replace(/^PreAuthentication failed with error\s*/i, '')
       .replace(/\s*\.$/, '')
       .trim()
-    return cleaned || 'No se pudo crear la cuenta.'
+    return cleaned || 'Could not create the account.'
   }
 
   const map: Record<string, string> = {
-    UsernameExistsException: 'Ya existe una cuenta con ese correo.',
-    NotAuthorizedException: 'Correo o contraseña incorrectos.',
-    UserNotConfirmedException: 'Tu correo aún no está verificado. Revisa el código.',
-    CodeMismatchException: 'El código no es correcto.',
-    ExpiredCodeException: 'El código expiró. Pide uno nuevo.',
-    InvalidPasswordException: 'La contraseña no cumple los requisitos (mín. 8, mayúscula y número).',
-    InvalidParameterException: 'Revisa los datos ingresados.',
-    UserNotFoundException: 'No existe una cuenta con ese correo.',
-    LimitExceededException: 'Demasiados intentos. Espera un momento e inténtalo de nuevo.',
+    UsernameExistsException: 'An account with that email already exists.',
+    NotAuthorizedException: 'Incorrect email or password.',
+    UserNotConfirmedException: 'Your email is not verified yet. Check the code.',
+    CodeMismatchException: 'The code is incorrect.',
+    ExpiredCodeException: 'The code expired. Request a new one.',
+    InvalidPasswordException: 'The password does not meet the requirements (min. 8 characters, uppercase and number).',
+    InvalidParameterException: 'Please review the entered data.',
+    UserNotFoundException: 'No account exists with that email.',
+    LimitExceededException: 'Too many attempts. Please wait a moment and try again.',
   }
   return map[code] || msg
 }
 
-/** Registro: crea el usuario (Cognito enviará un código al correo). */
+/** Sign-up: creates the user (Cognito will send a code to the email). */
 export function signUp(email: string, password: string, name?: string): Promise<void> {
   const attrs = [new CognitoUserAttribute({ Name: 'email', Value: email })]
   if (name) attrs.push(new CognitoUserAttribute({ Name: 'name', Value: name }))
@@ -71,14 +71,14 @@ export function signUp(email: string, password: string, name?: string): Promise<
   })
 }
 
-/** Confirma el registro con el código que llegó al correo. */
+/** Confirms the sign-up with the code that arrived by email. */
 export function confirmSignUp(email: string, code: string): Promise<void> {
   return new Promise((resolve, reject) => {
     makeUser(email).confirmRegistration(code, true, (err) => (err ? reject(err) : resolve()))
   })
 }
 
-/** Reenvía el código de verificación. */
+/** Resends the verification code. */
 export function resendCode(email: string): Promise<void> {
   return new Promise((resolve, reject) => {
     makeUser(email).resendConfirmationCode((err) => (err ? reject(err) : resolve()))
@@ -115,15 +115,15 @@ export function signIn(email: string, password: string): Promise<void> {
 export function completeNewPassword(newPassword: string): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!_pendingChallenge) {
-      reject(new Error('No hay sesión pendiente. Vuelve a iniciar sesión.'))
+      reject(new Error('No pending session. Please sign in again.'))
       return
     }
     const { user, userAttributes, email } = _pendingChallenge
-    // Cognito no permite reenviar email/email_verified durante el reto.
+    // Cognito does not allow resending email/email_verified during the challenge.
     delete userAttributes.email_verified
     delete userAttributes.email
-    // Si el pool requiere "name" y el invitado no lo tiene, ponemos un default
-    // (el prefijo del email). Evita errores tipo "Attribute name is required".
+    // If the pool requires "name" and the invitee does not have one, we set a default
+    // (the email prefix). Avoids errors like "Attribute name is required".
     if (!userAttributes.name) {
       userAttributes.name = email.split('@')[0]
     }
@@ -144,7 +144,7 @@ export function completeNewPassword(newPassword: string): Promise<void> {
   })
 }
 
-/** Inicia el flujo "olvidé mi contraseña" (envía código al correo). */
+/** Starts the "forgot my password" flow (sends a code to the email). */
 export function forgotPassword(email: string): Promise<void> {
   return new Promise((resolve, reject) => {
     makeUser(email).forgotPassword({
@@ -154,7 +154,7 @@ export function forgotPassword(email: string): Promise<void> {
   })
 }
 
-/** Confirma la nueva contraseña con el código recibido. */
+/** Confirms the new password with the received code. */
 export function confirmForgotPassword(email: string, code: string, newPassword: string): Promise<void> {
   return new Promise((resolve, reject) => {
     makeUser(email).confirmPassword(code, newPassword, {
@@ -164,7 +164,7 @@ export function confirmForgotPassword(email: string, code: string, newPassword: 
   })
 }
 
-/** Escribe la sesión de Cognito en el storage de oidc-client-ts. */
+/** Writes the Cognito session to the oidc-client-ts storage. */
 async function bridgeToOidc(session: CognitoUserSession): Promise<void> {
   const idToken = session.getIdToken()
   const accessToken = session.getAccessToken()

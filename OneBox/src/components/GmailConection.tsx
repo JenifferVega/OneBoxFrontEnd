@@ -14,20 +14,20 @@ import {
 } from 'lucide-react'
 import { PageType } from '../App'
 
-interface ConectarGmailProps {
+interface ConnectGmailProps {
   onNavigate: (page: PageType) => void
-  onConectado: () => void
-  gmailConectado: boolean
+  onConnected: () => void
+  gmailConnected: boolean
 }
 
-export default function ConectarGmail({ onNavigate, onConectado, gmailConectado }: ConectarGmailProps) {
+export default function ConnectGmail({ onNavigate, onConnected, gmailConnected }: ConnectGmailProps) {
   const { t } = useTranslation()
-  const [conectando, setConectando] = useState(false)
-  const [paso, setPaso] = useState<'inicio' | 'permisos' | 'conectado'>('inicio')
+  const [connecting, setConnecting] = useState(false)
+  const [step, setStep] = useState<'start' | 'permissions' | 'connected'>('start')
 
-  const handleConectar = async () => {
-    setConectando(true)
-    setPaso('permisos')
+  const handleConnect = async () => {
+    setConnecting(true)
+    setStep('permissions')
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -40,23 +40,23 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
       if (data.auth_url) {
         window.location.href = data.auth_url
       } else {
-        setPaso('inicio')
-        setConectando(false)
+        setStep('start')
+        setConnecting(false)
       }
     } catch (error) {
       console.error('Error connecting Gmail:', error)
-      setPaso('inicio')
-      setConectando(false)
+      setStep('start')
+      setConnecting(false)
     }
   }
 
-  const permisos = [
-    { icon: Eye,    texto: t('gmail.connect.permissions.readTitle'),     descripcion: t('gmail.connect.permissions.readDesc') },
-    { icon: Inbox,  texto: t('gmail.connect.permissions.inboxTitle'),    descripcion: t('gmail.connect.permissions.inboxDesc') },
-    { icon: Shield, texto: t('gmail.connect.permissions.readonlyTitle'), descripcion: t('gmail.connect.permissions.readonlyDesc') },
+  const permissions = [
+    { icon: Eye,    text: t('gmail.connect.permissions.readTitle'),     description: t('gmail.connect.permissions.readDesc') },
+    { icon: Inbox,  text: t('gmail.connect.permissions.inboxTitle'),    description: t('gmail.connect.permissions.inboxDesc') },
+    { icon: Shield, text: t('gmail.connect.permissions.readonlyTitle'), description: t('gmail.connect.permissions.readonlyDesc') },
   ]
 
-  if (gmailConectado) {
+  if (gmailConnected) {
     return (
       <div className="min-h-screen bg-slate-50">
         <div className="max-w-2xl mx-auto px-4 md:px-8 py-6">
@@ -78,7 +78,7 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
                     <Mail className="w-5 h-5 text-white" />
                   </div>
                   <div className="text-left">
-                    <p className="text-slate-900 font-medium">usuario@gmail.com</p>
+                    <p className="text-slate-900 font-medium">user@gmail.com</p>
                     <p className="text-sm text-slate-500">{t('gmail.connected.lastSync')}</p>
                   </div>
                 </div>
@@ -90,7 +90,7 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
 
             <div className="flex gap-3">
               <button
-                onClick={() => onNavigate('proyectos')}
+                onClick={() => onNavigate('projects')}
                 className="flex-1 py-3 bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 text-white font-medium rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-200"
               >
                 {t('gmail.connected.viewInbox')}
@@ -119,7 +119,7 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm"
         >
-          {paso === 'inicio' && (
+          {step === 'start' && (
             <div className="p-8">
               <div className="relative w-32 h-32 mx-auto mb-8">
                 <div className="absolute inset-0 bg-gradient-to-br from-violet-200 to-indigo-200 rounded-3xl animate-pulse"></div>
@@ -136,10 +136,10 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
               </p>
 
               <div className="space-y-3 mb-8">
-                {permisos.map((permiso, i) => {
-                  const Icon = permiso.icon
+                {permissions.map((permission, i) => {
+                  const Icon = permission.icon
                   return (
-                    <div 
+                    <div
                       key={i}
                       className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100"
                     >
@@ -147,8 +147,8 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
                         <Icon className="w-5 h-5 text-violet-600" />
                       </div>
                       <div>
-                        <p className="text-slate-900 font-medium">{permiso.texto}</p>
-                        <p className="text-sm text-slate-500">{permiso.descripcion}</p>
+                        <p className="text-slate-900 font-medium">{permission.text}</p>
+                        <p className="text-sm text-slate-500">{permission.description}</p>
                       </div>
                     </div>
                   )
@@ -168,7 +168,7 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
               </div>
 
               <button
-                onClick={handleConectar}
+                onClick={handleConnect}
                 className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -182,7 +182,7 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
             </div>
           )}
 
-          {paso === 'permisos' && (
+          {step === 'permissions' && (
             <div className="p-8 text-center">
               <div className="w-20 h-20 bg-violet-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <Loader2 className="w-10 h-10 text-violet-600 animate-spin" />
@@ -191,7 +191,7 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
               <p className="text-slate-600">{t('gmail.connecting.subtitle')}</p>
 
               <div className="mt-8 space-y-3">
-                {[t('gmail.connecting.step1'), t('gmail.connecting.step2'), t('gmail.connecting.step3')].map((paso, i) => (
+                {[t('gmail.connecting.step1'), t('gmail.connecting.step2'), t('gmail.connecting.step3')].map((stepLabel, i) => (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, x: -20 }}
@@ -200,14 +200,14 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
                     className="flex items-center gap-3 justify-center text-slate-600"
                   >
                     <CheckCircle className="w-4 h-4 text-emerald-600" />
-                    {paso}
+                    {stepLabel}
                   </motion.div>
                 ))}
               </div>
             </div>
           )}
 
-          {paso === 'conectado' && (
+          {step === 'connected' && (
             <div className="p-8 text-center">
               <motion.div
                 initial={{ scale: 0 }}
@@ -220,7 +220,7 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
               <p className="text-slate-600 mb-8">{t('gmail.success.subtitle')}</p>
               
               <button
-                onClick={() => onNavigate('proyectos')}
+                onClick={() => onNavigate('projects')}
                 className="w-full py-4 bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-200"
               >
                 {t('gmail.success.goToProjects')}
@@ -230,17 +230,17 @@ export default function ConectarGmail({ onNavigate, onConectado, gmailConectado 
           )}
         </motion.div>
 
-        {paso === 'inicio' && (
+        {step === 'start' && (
           <div className="mt-8 space-y-4">
             <h3 className="text-lg font-semibold text-slate-900">{t('gmail.faq.title')}</h3>
             {[
-              { pregunta: t('gmail.faq.q1'), respuesta: t('gmail.faq.a1') },
-              { pregunta: t('gmail.faq.q2'), respuesta: t('gmail.faq.a2') },
-              { pregunta: t('gmail.faq.q3'), respuesta: t('gmail.faq.a3') },
+              { question: t('gmail.faq.q1'), answer: t('gmail.faq.a1') },
+              { question: t('gmail.faq.q2'), answer: t('gmail.faq.a2') },
+              { question: t('gmail.faq.q3'), answer: t('gmail.faq.a3') },
             ].map((faq, i) => (
               <div key={i} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-                <p className="text-slate-900 font-medium">{faq.pregunta}</p>
-                <p className="text-sm text-slate-600 mt-1">{faq.respuesta}</p>
+                <p className="text-slate-900 font-medium">{faq.question}</p>
+                <p className="text-sm text-slate-600 mt-1">{faq.answer}</p>
               </div>
             ))}
           </div>

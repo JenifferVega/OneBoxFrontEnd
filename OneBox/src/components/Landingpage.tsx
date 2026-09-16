@@ -40,8 +40,8 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Selector de idioma antes del login — la elección persiste
-                en localStorage y se mantiene después de autenticar. */}
+            {/* Pre-login language switcher — the choice persists in
+                localStorage and carries over after authenticating. */}
             <LocaleSwitcher variant="light" />
             <button
               onClick={handleLogin}

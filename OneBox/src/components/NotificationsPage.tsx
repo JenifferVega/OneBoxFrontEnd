@@ -1,13 +1,13 @@
 /**
- * Página de Notificaciones.
+ * Notifications page.
  *
- * Antes: la campana abría un dropdown pequeño en el header — el dropdown
- * tenía interacción limitada y no se podía filtrar fácil por proyecto.
+ * Before: the bell opened a small dropdown in the header — the dropdown
+ * had limited interaction and couldn't be filtered easily by project.
  *
- * Ahora: la campana navega a esta página completa. Las notificaciones se
- * agrupan por proyecto (FolderKanban), cada grupo es colapsable. Permite
- * marcar como leído (individual y todas), filtrar por canal/estado y
- * volver al dashboard con un botón.
+ * Now: the bell navigates to this full page. Notifications are grouped
+ * by project (FolderKanban), and each group is collapsible. Supports
+ * marking as read (individually and all at once), filtering by
+ * channel/status, and returning to the dashboard with a button.
  */
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from 'react-oidc-context'
@@ -28,8 +28,8 @@ interface Notification {
   projectName?: string
   type: string
   title: string
-  mensaje?: string
-  canal: string
+  message?: string
+  channel: string
   status: string
   createdAt: string
   readAt?: string
@@ -39,8 +39,8 @@ interface Props {
   onNavigate: (page: PageType) => void
 }
 
-// Mapa tipo → estética. Las claves cubren los tipos que el backend emite.
-// El `labelKey` es una key i18n; se resuelve con t() en tiempo de render.
+// Type → aesthetics map. The keys cover the types the backend emits.
+// `labelKey` is an i18n key; it's resolved with t() at render time.
 const TYPE_CONFIG: Record<string, { icon: any; color: string; bg: string; labelKey: string }> = {
   project_created:     { icon: FolderKanban, color: 'text-violet-400',  bg: 'bg-violet-500/10',  labelKey: 'project_created' },
   insights_generated:  { icon: Sparkles,     color: 'text-amber-400',   bg: 'bg-amber-500/10',   labelKey: 'insights_generated' },
@@ -58,8 +58,8 @@ function getConfig(type: string) {
 }
 
 function useFormatDate() {
-  const { t, i18n } = useTranslation()
-  const locale = i18n.language === 'en' ? 'en-US' : 'es-CO'
+  const { t } = useTranslation()
+  const locale = 'en-US'
   return (iso: string): string => {
     try {
       const d = new Date(iso)
@@ -87,7 +87,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set())
-  // Filtros opcionales: por canal y por estado (unread/all)
+  // Optional filters: by channel and by status (unread/all)
   const [filterChannel, setFilterChannel] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'unread'>('all')
 
@@ -97,7 +97,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
       setLoading(true)
       const data = await api.getNotifications(token)
       if (Array.isArray(data)) {
-        // Ordenar más reciente primero
+        // Sort most recent first
         const sorted = [...data].sort(
           (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')
         )
@@ -114,7 +114,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
     fetchNotifications()
   }, [token])
 
-  // Marcar UNA notif como leída.
+  // Mark ONE notification as read.
   const handleMarkRead = async (id: string) => {
     try {
       await api.markNotificationRead(id, token)
@@ -126,7 +126,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
     }
   }
 
-  // Marcar todas como leídas.
+  // Mark all as read.
   const handleMarkAll = async () => {
     try {
       await api.markAllNotificationsRead(token)
@@ -136,25 +136,25 @@ export default function NotificationsPage({ onNavigate }: Props) {
     }
   }
 
-  // Filtrado por canal/estado antes de agrupar.
+  // Filter by channel/status before grouping.
   const filtered = useMemo(() => {
     return notifications.filter(n => {
-      if (filterChannel !== 'all' && n.canal !== filterChannel) return false
+      if (filterChannel !== 'all' && n.channel !== filterChannel) return false
       if (filterStatus === 'unread' && n.status === 'read') return false
       return true
     })
   }, [notifications, filterChannel, filterStatus])
 
-  // Agrupar por projectId. Sin proyecto → grupo especial "Sistema / sin proyecto".
+  // Group by projectId. Without a project → special group "System / no project".
   const grouped = useMemo(() => {
     const map = new Map<string, { name: string; items: Notification[] }>()
     for (const n of filtered) {
       const key = n.projectId || '__no_project__'
-      const name = n.projectName || 'Sistema / sin proyecto'
+      const name = n.projectName || 'System / no project'
       if (!map.has(key)) map.set(key, { name, items: [] })
       map.get(key)!.items.push(n)
     }
-    // Ordenar grupos por fecha de la notif más reciente del grupo
+    // Sort groups by the most recent notification's date in the group
     return Array.from(map.entries())
       .map(([projectId, g]) => ({ projectId, name: g.name, items: g.items }))
       .sort((a, b) => {
@@ -165,12 +165,13 @@ export default function NotificationsPage({ onNavigate }: Props) {
   }, [filtered])
 
   const totalUnread = notifications.filter(n => n.status !== 'read').length
-  // Lista única de canales encontrados, para el dropdown de filtro.
-  // WhatsApp escondido — no lo listamos aunque haya notifs con canal 'whatsapp'.
+  // Unique list of channels found, for the filter dropdown.
+  // WhatsApp is hidden — we don't list it even if there are notifications
+  // with channel 'whatsapp'.
   const channels = useMemo(() => {
     const s = new Set(
       notifications
-        .map(n => n.canal)
+        .map(n => n.channel)
         .filter(Boolean)
         .filter(c => (c || '').toLowerCase() !== 'whatsapp')
     )
@@ -193,7 +194,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => onNavigate('proyectos')}
+              onClick={() => onNavigate('projects')}
               className="p-2 rounded-lg hover:bg-white/5 text-white/60 hover:text-white transition-colors"
               title={t('notifications.backToProjects')}
             >
@@ -235,7 +236,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
           </div>
         </div>
 
-        {/* Filtros */}
+        {/* Filters */}
         <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
           <span className="text-white/40">{t('notifications.filterLabel')}</span>
           <select
@@ -263,7 +264,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
           </span>
         </div>
 
-        {/* Contenido */}
+        {/* Content */}
         {loading && notifications.length === 0 ? (
           <div className="flex items-center justify-center py-16 text-white/40">
             {t('notifications.loading')}
@@ -285,7 +286,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
                   animate={{ opacity: 1, y: 0 }}
                   className="bg-[#161625] border border-white/5 rounded-xl overflow-hidden"
                 >
-                  {/* Encabezado del grupo (clickeable para colapsar) */}
+                  {/* Group header (clickable to collapse) */}
                   <button
                     onClick={() => toggleProject(group.projectId)}
                     className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors"
@@ -307,7 +308,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
                     </span>
                   </button>
 
-                  {/* Notificaciones del grupo */}
+                  {/* Group notifications */}
                   {!collapsed && (
                     <div className="border-t border-white/5">
                       {group.items.map((n) => {
@@ -331,14 +332,14 @@ export default function NotificationsPage({ onNavigate }: Props) {
                                   <span className="w-2 h-2 rounded-full bg-violet-400 flex-shrink-0 mt-1.5" />
                                 )}
                               </div>
-                              {n.mensaje && (
-                                <p className="text-xs text-white/60 mt-0.5 line-clamp-2">{n.mensaje}</p>
+                              {n.message && (
+                                <p className="text-xs text-white/60 mt-0.5 line-clamp-2">{n.message}</p>
                               )}
                               <div className="flex items-center gap-3 mt-1.5 text-[10px] text-white/30">
                                 <span>{formatDate(n.createdAt)}</span>
-                                {n.canal && (
+                                {n.channel && (
                                   <span className="px-1.5 py-0.5 bg-white/5 rounded">
-                                    {n.canal}
+                                    {n.channel}
                                   </span>
                                 )}
                                 {n.status && (

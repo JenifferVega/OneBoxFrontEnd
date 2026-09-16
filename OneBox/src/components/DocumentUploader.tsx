@@ -53,7 +53,7 @@ export default function DocumentUploader({
   compact = false,
 }: DocumentUploaderProps) {
   const { t } = useTranslation()
-  // Defaults i18n — si el caller pasa un valor explícito, gana el suyo.
+  // i18n defaults — if the caller passes an explicit value, theirs wins.
   const effectiveLoadingText = loadingText ?? t('uploader.processing')
   const effectiveLabel = label ?? t('uploader.defaultLabel')
   const effectiveHint = hint ?? t('uploader.defaultHint')
@@ -91,7 +91,7 @@ export default function DocumentUploader({
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) validateAndPick(file)
-    // Reset input para permitir reseleccionar el mismo archivo
+    // Reset input to allow reselecting the same file
     e.target.value = ''
   }
 
@@ -109,7 +109,7 @@ export default function DocumentUploader({
   const error = localError || errorMessage
   const Icon = selected ? getIconForFile(selected) : Upload
 
-  // Estilos por variante
+  // Variant-specific styles
   const baseClasses = isLight
     ? 'bg-white border-slate-200 text-slate-900'
     : 'bg-[#161625] border-white/10 text-white'
@@ -149,7 +149,7 @@ export default function DocumentUploader({
         />
 
         <AnimatePresence mode="wait">
-          {/* Estado: cargando */}
+          {/* State: loading */}
           {loading && (
             <motion.div
               key="loading"
@@ -167,7 +167,7 @@ export default function DocumentUploader({
             </motion.div>
           )}
 
-          {/* Estado: archivo seleccionado (sin cargar) */}
+          {/* State: file selected (not loading) */}
           {!loading && selected && (
             <motion.div
               key="selected"
@@ -198,7 +198,7 @@ export default function DocumentUploader({
             </motion.div>
           )}
 
-          {/* Estado: vacío */}
+          {/* State: empty */}
           {!loading && !selected && (
             <motion.div
               key="empty"
@@ -218,7 +218,7 @@ export default function DocumentUploader({
         </AnimatePresence>
       </div>
 
-      {/* Mensajes de feedback */}
+      {/* Feedback messages */}
       {error && (
         <div className={`flex items-start gap-2 px-4 py-2 ${isLight ? 'bg-red-50 border-t border-red-200' : 'bg-red-500/10 border-t border-red-500/20'}`}>
           <AlertCircle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isLight ? 'text-red-600' : 'text-red-400'}`} />

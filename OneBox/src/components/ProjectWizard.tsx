@@ -12,9 +12,9 @@ import { PageType } from '../App'
 import DocumentUploader from './DocumentUploader'
 import TextPaster from './TextPaster'
 
-// Paleta de gradientes que asignamos deterministamente por email — el backend
-// no manda color por miembro, lo derivamos acá para que cada persona tenga
-// siempre el mismo avatar entre sesiones.
+// Gradient palette assigned deterministically by email — the backend
+// doesn't send a color per member, we derive it here so each person always
+// gets the same avatar across sessions.
 const AVATAR_GRADIENTS = [
   'from-violet-500 to-indigo-600',
   'from-blue-500 to-cyan-600',
@@ -32,20 +32,20 @@ function gradientForEmail(email: string): string {
   return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length]
 }
 
-const ROLES = ['PM', 'Dev Frontend', 'Dev Backend', 'DevOps', 'Diseño', 'QA', 'Partner', 'Cliente']
-const PROJECT_TYPES = ['Desarrollo Web', 'Infraestructura', 'Diseño', 'Marketing', 'Ecommerce', 'Consultoría', 'Soporte', 'RRHH', 'Otro']
-// WhatsApp escondido hasta que se re-active el canal (hoy solo trabajamos con
-// correo). Para volver a mostrarlo, agregar la entrada de nuevo acá.
+const ROLES = ['PM', 'Dev Frontend', 'Dev Backend', 'DevOps', 'Design', 'QA', 'Partner', 'Client']
+const PROJECT_TYPES = ['Web Development', 'Infrastructure', 'Design', 'Marketing', 'Ecommerce', 'Consulting', 'Support', 'HR', 'Other']
+// WhatsApp hidden until the channel is re-enabled (today we only work with
+// email). To show it again, add the entry back here.
 const CHANNELS = [
   { id: 'Gmail', label: 'Gmail', icon: Mail, color: 'text-blue-400', bgActive: 'bg-blue-500/20 border-blue-500/30' },
 ]
 
 interface TeamMember {
-  nombre: string
+  name: string
   email: string
-  telefono: string
-  rol: string
-  iniciales: string
+  phone: string
+  role: string
+  initials: string
   color: string
   projectCount: number
   isExternal?: boolean
@@ -56,11 +56,11 @@ export interface DetectedParticipant {
   role_inferred: string
 }
 
-/** Una tarea sugerida por la IA en el preview. La IA propone `assigned_to`
- *  con el nombre de uno de los `detected_participants`; el usuario revisa y
- *  se manda tal cual al backend en /api/projects/from-document-draft.
- *  `_include` es client-only: true por defecto, false si el usuario la
- *  desmarca en el preview (entonces no se envía). */
+/** A task suggested by the AI in the preview. The AI proposes `assigned_to`
+ *  with the name of one of the `detected_participants`; the user reviews and
+ *  it's sent as-is to the backend at /api/projects/from-document-draft.
+ *  `_include` is client-only: true by default, false if the user unchecks
+ *  it in the preview (then it's not sent). */
 export interface PreviewTask {
   text: string
   assigned_to?: string
@@ -87,9 +87,9 @@ export interface InitialDocumentDraft {
 
 interface ProjectsWizardProps {
   onNavigate: (page: PageType) => void
-  /** Si se pasa, el wizard arranca en modo "document-review" con este draft. */
+  /** If provided, the wizard starts in "document-review" mode with this draft. */
   initialDraft?: InitialDocumentDraft | null
-  /** Callback cuando el wizard termina (para que App.tsx pueda limpiar el draft). */
+  /** Callback for when the wizard closes (so App.tsx can clear the draft). */
   onWizardClose?: () => void
 }
 
@@ -98,15 +98,15 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
   const { t } = useTranslation()
   const token = auth.user?.access_token || ''
 
-  // Si llega un initialDraft, arrancamos directo en la pantalla de revisión
+  // If an initialDraft arrives, we start directly on the review screen
   const [mode, setMode] = useState<'choose' | 'document' | 'document-review' | 'paste' | 'manual'>(
     initialDraft ? 'document-review' : 'choose'
   )
 
-  // Estado del flujo de documento
+  // Document flow state
   const [docDraft, setDocDraft] = useState<InitialDocumentDraft | null>(initialDraft || null)
   const [docDraftName, setDocDraftName] = useState(initialDraft?.suggestion?.name || '')
-  const [docDraftType, setDocDraftType] = useState(initialDraft?.suggestion?.type || 'Otro')
+  const [docDraftType, setDocDraftType] = useState(initialDraft?.suggestion?.type || 'Other')
   const [docDraftDescription, setDocDraftDescription] = useState(initialDraft?.suggestion?.description || '')
   const [docDraftChannels, setDocDraftChannels] = useState<string[]>(['Gmail'])
   const [docDraftEmails, setDocDraftEmails] = useState<string[]>([])
@@ -115,13 +115,13 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
   const [docDraftPhoneInput, setDocDraftPhoneInput] = useState('')
   const [docDraftTiming, setDocDraftTiming] = useState('')
   const [docDraftCreating, setDocDraftCreating] = useState(false)
-  // Tareas sugeridas por la IA en el preview (con assigned_to).
-  // Se forwardean tal cual a /from-document-draft para que el backend las
-  // persista sin regenerarlas (lo que perdería el assigned_to).
+  // Tasks suggested by the AI in the preview (with assigned_to).
+  // They're forwarded as-is to /from-document-draft so the backend persists
+  // them without regenerating (which would lose the assigned_to).
   const [docDraftTasks, setDocDraftTasks] = useState<PreviewTask[]>(
     (initialDraft?.suggestion?.tasks || []).map(t => ({ ...t, _include: t._include !== false }))
   )
-  // Personas extras agregadas manualmente (además de las detectadas por IA)
+  // Extra people added manually (in addition to those detected by the AI)
   const [extraPeople, setExtraPeople] = useState<Array<{
     name: string
     email: string
@@ -137,13 +137,13 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
     const name = extraForm.name.trim()
     const email = extraForm.email.trim().toLowerCase()
     const phone = extraForm.phone.trim()
-    const role = extraForm.role.trim() || 'Participante'
+    const role = extraForm.role.trim() || 'Participant'
     if (!name && !email && !phone) {
-      setExtraFormError('Ingresa al menos el nombre y correo')
+      setExtraFormError('Enter at least a name and email')
       return
     }
     if (email && !email.includes('@')) {
-      setExtraFormError('El correo no es válido')
+      setExtraFormError('The email is not valid')
       return
     }
     setExtraPeople([...extraPeople, {
@@ -165,7 +165,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
   const removeExtraPerson = (idx: number) => {
     setExtraPeople(extraPeople.filter((_, i) => i !== idx))
   }
-  // Personas que la IA detectó en el texto — el usuario puede agregar email/teléfono/rol
+  // People the AI detected in the text — the user can add email/phone/role
   const [detectedParticipants, setDetectedParticipants] = useState<Array<{
     name: string
     roleInferred: string
@@ -176,20 +176,20 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
   }>>(
     (initialDraft?.suggestion?.detected_participants || []).map(p => ({
       name: p.name,
-      roleInferred: p.role_inferred || 'Participante',
+      roleInferred: p.role_inferred || 'Participant',
       email: '',
       phone: '',
-      role: p.role_inferred || 'Participante',
+      role: p.role_inferred || 'Participant',
       include: true,
     }))
   )
 
-  const DOC_PROJECT_TYPES = ['Desarrollo Web', 'Infraestructura', 'Diseño', 'Marketing', 'Ecommerce', 'Consultoría', 'Soporte', 'RRHH', 'Otro']
+  const DOC_PROJECT_TYPES = ['Web Development', 'Infrastructure', 'Design', 'Marketing', 'Ecommerce', 'Consulting', 'Support', 'HR', 'Other']
   const [step, setStep] = useState(1)
   const [creating, setCreating] = useState(false)
-  // Ref-guard adicional al state: `setCreating(true)` recién refleja en el
-  // siguiente render, así que un usuario ansioso puede clickear 2 veces antes
-  // de que el `disabled` se aplique. El ref bloquea en el mismo tick.
+  // Extra ref-guard on top of state: `setCreating(true)` doesn't reflect until
+  // the next render, so an eager user can click twice before the `disabled`
+  // is applied. The ref blocks it within the same tick.
   const creatingRef = useRef(false)
   const [manualCreateError, setManualCreateError] = useState('')
   const [uploadingDoc, setUploadingDoc] = useState(false)
@@ -198,22 +198,22 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
 
   const userId = auth.user?.profile?.sub || ''
 
-  // Pegar texto: ahora también pasa por la pantalla de revisión (igual que documento)
+  // Paste text: now also goes through the review screen (same as document)
   const handlePastedText = async (text: string, source: 'whatsapp' | 'gmail' | 'paste') => {
     setUploadError('')
     setUploadSuccess('')
-    // Guard: la descripción/conversación pegada es la materia prima para que
-    // la IA infiera nombre, tareas y participantes. Con menos de 15 chars no
-    // hay señal suficiente y termina generando basura (o el proyecto queda
-    // vacío). Mismo umbral que el modo manual para ser consistentes.
+    // Guard: the pasted description/conversation is the raw material for the
+    // AI to infer name, tasks and participants. With fewer than 15 chars there
+    // isn't enough signal and it ends up generating garbage (or the project
+    // is left empty). Same threshold as manual mode for consistency.
     if ((text || '').trim().length < 15) {
-      setUploadError('Pega al menos 15 caracteres para que la IA pueda analizar.')
+      setUploadError('Paste at least 15 characters so the AI can analyze it.')
       return
     }
     setUploadingDoc(true)
     try {
       const result = await api.analyzeTextPreview({ text, source }, token)
-      // Reutilizamos el state del draft (el endpoint /from-document-draft acepta cualquier draft)
+      // We reuse the draft state (the /from-document-draft endpoint accepts any draft)
       setDocDraft({
         draftId: result.draftId,
         fileName: result.fileName,
@@ -222,42 +222,42 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
         suggestion: result.suggestion,
       })
       setDocDraftName(result.suggestion?.name || '')
-      setDocDraftType(result.suggestion?.type || 'Otro')
+      setDocDraftType(result.suggestion?.type || 'Other')
       setDocDraftDescription(result.suggestion?.description || '')
       setDocDraftChannels(['Gmail'])
       setDocDraftEmails([])
       setDocDraftPhones([])
-      // Tareas sugeridas con assigned_to (las preservamos para mandarlas al crear).
-      // _include: true por defecto — el usuario puede desmarcar en el preview.
+      // Suggested tasks with assigned_to (we preserve them to send on create).
+      // _include: true by default — the user can uncheck in the preview.
       setDocDraftTasks(((result.suggestion?.tasks || []) as PreviewTask[]).map(t => ({ ...t, _include: true })))
-      // Detectados por IA: el usuario completará email/teléfono
+      // Detected by AI: the user will fill in email/phone
       const detected = (result.suggestion?.detected_participants || []) as DetectedParticipant[]
       setDetectedParticipants(detected.map(p => ({
         name: p.name,
-        roleInferred: p.role_inferred || 'Participante',
+        roleInferred: p.role_inferred || 'Participant',
         email: '',
         phone: '',
-        role: p.role_inferred || 'Participante',
+        role: p.role_inferred || 'Participant',
         include: true,
       })))
       setMode('document-review')
     } catch (err: any) {
       console.error('[ProjectWizard] analyze text error:', err)
-      const msg = err?.message || 'No se pudo procesar el texto.'
+      const msg = err?.message || 'Could not process the text.'
       setUploadError(msg.length > 200 ? msg.substring(0, 200) + '...' : msg)
     } finally {
       setUploadingDoc(false)
     }
   }
 
-  // Paso 1: el usuario sube el doc, el backend analiza y devuelve el draft con sugerencia
+  // Step 1: user uploads the doc, backend analyzes it and returns the draft with suggestion
   const handleDocumentUpload = async (file: File) => {
     setUploadError('')
     setUploadSuccess('')
-    // Guard: rechazar archivos vacíos antes de subir (el backend fallaría
-    // igual pero con un mensaje menos claro).
+    // Guard: reject empty files before uploading (the backend would fail
+    // anyway but with a less clear message).
     if (!file || file.size === 0) {
-      setUploadError('El archivo está vacío. Selecciona uno con contenido para que la IA pueda analizarlo.')
+      setUploadError('The file is empty. Select one with content so the AI can analyze it.')
       return
     }
     setUploadingDoc(true)
@@ -270,44 +270,44 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
         extractedTextLength: result.extractedTextLength,
         suggestion: result.suggestion,
       })
-      // Pre-rellenar campos editables con la sugerencia de la IA
+      // Pre-fill editable fields with the AI suggestion
       setDocDraftName(result.suggestion?.name || '')
-      setDocDraftType(result.suggestion?.type || 'Otro')
+      setDocDraftType(result.suggestion?.type || 'Other')
       setDocDraftDescription(result.suggestion?.description || '')
       setDocDraftChannels(['Gmail'])
       setDocDraftEmails([])
       setDocDraftPhones([])
-      // Tareas sugeridas con assigned_to (las preservamos para mandarlas al crear).
-      // _include: true por defecto — el usuario puede desmarcar en el preview.
+      // Suggested tasks with assigned_to (we preserve them to send on create).
+      // _include: true by default — the user can uncheck in the preview.
       setDocDraftTasks(((result.suggestion?.tasks || []) as PreviewTask[]).map(t => ({ ...t, _include: true })))
       const detected = (result.suggestion?.detected_participants || []) as DetectedParticipant[]
       setDetectedParticipants(detected.map(p => ({
         name: p.name,
-        roleInferred: p.role_inferred || 'Participante',
+        roleInferred: p.role_inferred || 'Participant',
         email: '',
         phone: '',
-        role: p.role_inferred || 'Participante',
+        role: p.role_inferred || 'Participant',
         include: true,
       })))
       setMode('document-review')
     } catch (err: any) {
       console.error('[ProjectWizard] doc analyze error:', err)
-      const msg = err?.message || 'No se pudo procesar el documento.'
+      const msg = err?.message || 'Could not process the document.'
       setUploadError(msg.length > 200 ? msg.substring(0, 200) + '...' : msg)
     } finally {
       setUploadingDoc(false)
     }
   }
 
-  // Paso 2: el usuario confirma → crear proyecto definitivo
+  // Step 2: user confirms → create the final project
   const handleConfirmDraft = async () => {
     if (!docDraft) return
-    if (!docDraftName.trim()) { setUploadError('Falta el nombre del proyecto'); return }
-    if (docDraftChannels.length === 0) { setUploadError('Selecciona al menos un canal'); return }
+    if (!docDraftName.trim()) { setUploadError('Project name is required'); return }
+    if (docDraftChannels.length === 0) { setUploadError('Select at least one channel'); return }
     setUploadError('')
     setDocDraftCreating(true)
     try {
-      // Preparar participantes detectados con nombre original (Kevin, Mateo...)
+      // Prepare detected participants with original name (Kevin, Mateo...)
       const includedDetected = detectedParticipants
         .filter(p => p.include && (p.name.trim() || p.email.trim() || p.phone.trim()))
         .map(p => {
@@ -316,26 +316,26 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
             name: p.name.trim(),
             email: p.email.trim().toLowerCase(),
             phone: phoneRaw.length >= 9 ? '+' + phoneRaw : '',
-            role: p.role || p.roleInferred || 'Participante',
+            role: p.role || p.roleInferred || 'Participant',
           }
         })
 
-      // Agregar también las personas extra que el usuario añadió manualmente
+      // Also add the extra people the user added manually
       const extras = extraPeople.map(p => {
         const phoneRaw = (p.phone || '').replace(/\D/g, '')
         return {
           name: p.name,
           email: p.email,
           phone: phoneRaw.length >= 9 ? '+' + phoneRaw : '',
-          role: p.role || 'Participante',
+          role: p.role || 'Participant',
         }
       })
 
       const allParticipants = [...includedDetected, ...extras]
 
-      // Filtrar solo las tareas que el usuario marcó como incluidas, quitar
-      // el flag client-only _include antes de mandar al backend, y validar
-      // que assigned_to sea un nombre real del equipo (sino → vacío).
+      // Keep only the tasks the user marked as included, strip the
+      // client-only _include flag before sending to the backend, and
+      // validate that assigned_to is a real team name (otherwise → empty).
       const validNames = new Set(allParticipants.map(p => p.name.trim().toLowerCase()).filter(Boolean))
       const tasksToSend = docDraftTasks
         .filter(t => t._include !== false && t.text.trim())
@@ -358,20 +358,20 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
         phones: docDraftPhones,
         timing: docDraftTiming.trim() || undefined,
         detectedParticipants: allParticipants,
-        // Tareas confirmadas y editadas en el preview con su assigned_to.
+        // Tasks confirmed and edited in the preview along with their assigned_to.
         tasks: tasksToSend,
       }, token)
       const count = result?.insightsGenerated?.count || 0
       setUploadSuccess(
-        `✓ Proyecto "${result.name}" creado.${count > 0 ? ` ${count} insights generados.` : ''} Redirigiendo...`
+        `✓ Project "${result.name}" created.${count > 0 ? ` ${count} insights generated.` : ''} Redirecting...`
       )
       setTimeout(() => {
         onWizardClose?.()
-        onNavigate('proyectos')
+        onNavigate('projects')
       }, 1800)
     } catch (err: any) {
       console.error('[ProjectWizard] confirm draft error:', err)
-      setUploadError(err?.message?.substring(0, 200) || 'Error al crear el proyecto')
+      setUploadError(err?.message?.substring(0, 200) || 'Error creating the project')
     } finally {
       setDocDraftCreating(false)
     }
@@ -394,26 +394,26 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
     setDocDraftPhoneInput('')
   }
 
-  const [nombre, setNombre] = useState('')
-  const [tipo, setTipo] = useState('')
-  const [descripcion, setDescripcion] = useState('')
+  const [name, setName] = useState('')
+  const [type, setType] = useState('')
+  const [description, setDescription] = useState('')
 
   const [teamSearch, setTeamSearch] = useState('')
   const [selectedTeam, setSelectedTeam] = useState<TeamMember[]>([])
   const [teamRoles, setTeamRoles] = useState<Record<string, string>>({})
   const [teamPhones, setTeamPhones] = useState<Record<string, string>>({})
   const [externalEmail, setExternalEmail] = useState('')
-  // Nombre real de la persona externa. Antes lo derivábamos del prefijo del
-  // email (kotomivega@gmail.com → "kotomivega") lo cual resultaba en nombres
-  // feos que quedaban registrados en el proyecto. Ahora el user lo introduce
-  // explícito; si lo deja vacío, seguimos con el fallback del prefijo.
+  // Real name of the external person. Previously we derived it from the email
+  // prefix (kotomivega@gmail.com → "kotomivega") which produced ugly names
+  // that ended up registered in the project. Now the user provides it
+  // explicitly; if left empty, we fall back to the prefix.
   const [externalName, setExternalName] = useState('')
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['email'])
   const [deliveryDate, setDeliveryDate] = useState('')
 
-  // Miembros reales de la org — se traen del backend al montar. Antes esto
-  // era una lista hardcoded de 7 personas ficticias @agencia.com.
+  // Real org members — fetched from the backend on mount. Previously this
+  // was a hardcoded list of 7 fictional people @agencia.com.
   const [orgMembers, setOrgMembers] = useState<TeamMember[]>([])
   useEffect(() => {
     if (!token) return
@@ -422,23 +422,23 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
       .then(res => {
         if (cancelled) return
         const members: TeamMember[] = (res.members || []).map(m => ({
-          nombre: m.nombre,
+          name: m.name,
           email: m.email,
-          telefono: '',
-          rol: 'Miembro',
-          iniciales: m.iniciales,
+          phone: '',
+          role: 'Member',
+          initials: m.initials,
           color: gradientForEmail(m.email),
           projectCount: 0,
         }))
         setOrgMembers(members)
       })
-      .catch(() => { /* silencioso — el buscador queda vacío y se puede agregar externos */ })
+      .catch(() => { /* silent — the search stays empty and externals can still be added */ })
     return () => { cancelled = true }
   }, [token])
 
   const searchResults = teamSearch.length >= 2
     ? orgMembers.filter(p =>
-        (p.nombre.toLowerCase().includes(teamSearch.toLowerCase()) ||
+        (p.name.toLowerCase().includes(teamSearch.toLowerCase()) ||
          p.email.toLowerCase().includes(teamSearch.toLowerCase())) &&
         !selectedTeam.some(s => s.email === p.email)
       )
@@ -446,8 +446,8 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
 
   const addTeamMember = (member: TeamMember) => {
     setSelectedTeam([...selectedTeam, member])
-    setTeamRoles({ ...teamRoles, [member.email]: member.rol })
-    if (member.telefono) setTeamPhones({ ...teamPhones, [member.email]: member.telefono })
+    setTeamRoles({ ...teamRoles, [member.email]: member.role })
+    if (member.phone) setTeamPhones({ ...teamPhones, [member.email]: member.phone })
     setTeamSearch('')
   }
 
@@ -461,15 +461,15 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
     setTeamPhones(newPhones)
   }
 
-  const updateRole = (email: string, rol: string) => {
-    setTeamRoles({ ...teamRoles, [email]: rol })
+  const updateRole = (email: string, role: string) => {
+    setTeamRoles({ ...teamRoles, [email]: role })
   }
 
   const addExternal = () => {
     if (!externalEmail.includes('@')) return
-    // Nombre explícito del user > fallback al prefijo del email. Ejemplo:
-    // email=kotomivega@gmail.com sin nombre → "Kotomivega"; con nombre="María
-    // López" → "María López".
+    // Explicit user-provided name > fallback to email prefix. Example:
+    // email=kotomivega@gmail.com without name → "Kotomivega"; with name="Maria
+    // Lopez" → "Maria Lopez".
     const typedName = externalName.trim()
     const derived = externalEmail.split('@')[0]
     const finalName = typedName || (derived.charAt(0).toUpperCase() + derived.slice(1))
@@ -480,11 +480,11 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
       .map(w => w[0].toUpperCase())
       .join('') || finalName.slice(0, 2).toUpperCase()
     const newMember: TeamMember = {
-      nombre: finalName,
+      name: finalName,
       email: externalEmail,
-      telefono: '',
-      rol: 'Partner',
-      iniciales: initials,
+      phone: '',
+      role: 'Partner',
+      initials: initials,
       color: 'from-gray-500 to-gray-600',
       projectCount: 0,
       isExternal: true,
@@ -502,37 +502,37 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
   }
 
   const canAdvance = () => {
-    // Step 1: exigir nombre + tipo + descripción con contenido real (≥15 ch).
-    // Sin descripción mínima, la IA no puede generar insights útiles y el
-    // proyecto queda vacío. 15 caracteres es umbral suave para no bloquear
-    // usuarios legítimos pero rechazar entradas vacías o "aaa".
+    // Step 1: require name + type + description with real content (≥15 ch).
+    // Without a minimum description, the AI can't generate useful insights
+    // and the project ends up empty. 15 characters is a soft threshold so we
+    // don't block legitimate users but reject empty inputs or "aaa".
     if (step === 1) {
-      return nombre.trim().length >= 3
-        && tipo.length > 0
-        && descripcion.trim().length >= 15
+      return name.trim().length >= 3
+        && type.length > 0
+        && description.trim().length >= 15
     }
     if (step === 2) return selectedTeam.length > 0
     return true
   }
 
   const handleCreate = async () => {
-    // Guard doble: ref bloquea en el mismo tick del click, state maneja el
-    // disabled del botón entre renders. Sin el ref, un doble-click rápido
-    // dispara 2 análisis + 2 proyectos duplicados.
+    // Double guard: the ref blocks within the same click tick, state manages
+    // the button's disabled state between renders. Without the ref, a fast
+    // double-click triggers 2 analyses + 2 duplicate projects.
     if (creatingRef.current || creating) return
     creatingRef.current = true
     setManualCreateError('')
     setCreating(true)
     try {
-      // FLUJO UNIFICADO: en vez de POST directo /api/projects, mandamos la
-      // descripción a analyzeTextPreview para que la IA analice y proponga
-      // tareas, participantes adicionales y canales. Luego el user aterriza
-      // en `document-review` (la misma vista que usan paste/document) y
-      // confirma. Beneficio: un solo flujo de validación humana antes de
-      // que el proyecto exista. Rompemos así el atajo silencioso que
-      // permitía crear proyectos sin revisar nada.
+      // UNIFIED FLOW: instead of a direct POST /api/projects, we send the
+      // description to analyzeTextPreview so the AI analyzes and proposes
+      // tasks, additional participants and channels. Then the user lands
+      // on `document-review` (the same view used by paste/document) and
+      // confirms. Benefit: a single human validation flow before the
+      // project exists. This closes the silent shortcut that allowed
+      // creating projects without reviewing anything.
       const result = await api.analyzeTextPreview({
-        text: descripcion.trim(),
+        text: description.trim(),
         source: 'paste',
       }, token)
 
@@ -543,40 +543,40 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
         extractedTextLength: result.extractedTextLength,
         suggestion: result.suggestion,
       })
-      // Prevalece lo que el user llenó a mano; la sugerencia de la IA solo
-      // rellena huecos (descripción refinada, tareas, participantes extra).
-      setDocDraftName(nombre.trim() || result.suggestion?.name || '')
-      setDocDraftType(tipo || result.suggestion?.type || 'Otro')
-      setDocDraftDescription(result.suggestion?.description || descripcion.trim())
+      // What the user typed manually wins; the AI suggestion only fills
+      // the gaps (refined description, tasks, extra participants).
+      setDocDraftName(name.trim() || result.suggestion?.name || '')
+      setDocDraftType(type || result.suggestion?.type || 'Other')
+      setDocDraftDescription(result.suggestion?.description || description.trim())
       setDocDraftChannels(selectedChannels.length > 0 ? selectedChannels : ['Gmail'])
-      // El equipo que el user seleccionó en step 2 va como `extraPeople` para
-      // que se muestre visualmente en la pantalla de revisión. Antes lo ponía
-      // en `docDraftEmails` que solo iba al backend pero no al UI, así que el
-      // user pensaba que se habían perdido sus correos.
+      // The team the user selected in step 2 goes as `extraPeople` so it's
+      // visible on the review screen. Previously it was placed in
+      // `docDraftEmails` which only went to the backend and not the UI, so
+      // the user thought their emails had been lost.
       setDocDraftEmails([])
       setDocDraftPhones([])
       setExtraPeople(selectedTeam.map(m => ({
-        name: m.nombre || (m.email ? m.email.split('@')[0] : ''),
+        name: m.name || (m.email ? m.email.split('@')[0] : ''),
         email: m.email || '',
         phone: teamPhones[m.email] || '',
-        role: teamRoles[m.email] || m.rol || 'Participante',
+        role: teamRoles[m.email] || m.role || 'Participant',
       })))
       setDocDraftTiming('')
-      // Tareas sugeridas por la IA — el user puede desmarcar en el preview.
+      // Tasks suggested by the AI — the user can uncheck in the preview.
       setDocDraftTasks(((result.suggestion?.tasks || []) as PreviewTask[]).map(t => ({ ...t, _include: true })))
       const detected = (result.suggestion?.detected_participants || []) as DetectedParticipant[]
       setDetectedParticipants(detected.map(p => ({
         name: p.name,
-        roleInferred: p.role_inferred || 'Participante',
+        roleInferred: p.role_inferred || 'Participant',
         email: '',
         phone: '',
-        role: p.role_inferred || 'Participante',
+        role: p.role_inferred || 'Participant',
         include: true,
       })))
       setMode('document-review')
     } catch (err: any) {
       console.error('Error creating project (analyze phase):', err)
-      const msg = (err?.message || '').substring(0, 200) || 'Error al analizar la descripción del proyecto'
+      const msg = (err?.message || '').substring(0, 200) || 'Error analyzing the project description'
       setManualCreateError(msg)
     } finally {
       setCreating(false)
@@ -584,7 +584,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
     }
   }
 
-  // Pantalla inicial: elegir modo
+  // Initial screen: choose mode
   if (mode === 'choose') {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-56px)] p-6 bg-[#0B0B14]">
@@ -595,7 +595,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Opción 1: Pegar texto */}
+            {/* Option 1: Paste text */}
             <button
               onClick={() => setMode('paste')}
               className="group relative p-5 bg-gradient-to-br from-violet-600/15 to-violet-500/5 border-2 border-violet-500/30 rounded-2xl text-left hover:border-violet-400 hover:from-violet-600/25 transition-all"
@@ -619,7 +619,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
               </p>
             </button>
 
-            {/* Opción 2: Subir documento */}
+            {/* Option 2: Upload document */}
             <button
               onClick={() => setMode('document')}
               className="group p-5 bg-[#161625] border-2 border-white/10 rounded-2xl text-left hover:border-violet-500/50 hover:bg-[#1a1a2e] transition-all"
@@ -640,7 +640,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
               </p>
             </button>
 
-            {/* Opción 3: Llenar formulario manual */}
+            {/* Option 3: Fill out manual form */}
             <button
               onClick={() => setMode('manual')}
               className="group p-5 bg-[#161625] border-2 border-white/10 rounded-2xl text-left hover:border-white/20 hover:bg-[#1a1a2e] transition-all"
@@ -661,7 +661,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
           </div>
 
           <button
-            onClick={() => onNavigate('proyectos')}
+            onClick={() => onNavigate('projects')}
             className="mt-6 mx-auto block text-sm text-white/40 hover:text-white/60 transition-colors"
           >
             {t('wizard.cancel')}
@@ -671,7 +671,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
     )
   }
 
-  // Pantalla de pegar texto
+  // Paste text screen
   if (mode === 'paste') {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-56px)] p-6 bg-[#0B0B14]">
@@ -709,7 +709,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
     )
   }
 
-  // Pantalla de subir documento
+  // Upload document screen
   if (mode === 'document') {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-56px)] p-6 bg-[#0B0B14]">
@@ -749,7 +749,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
     )
   }
 
-  // Pantalla de revisión post-análisis
+  // Post-analysis review screen
   if (mode === 'document-review' && docDraft) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-56px)] p-6 bg-[#0B0B14]">
@@ -779,7 +779,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
           </div>
 
           <div className="bg-[#161625] border border-white/10 rounded-xl p-5 space-y-4">
-            {/* Nombre */}
+            {/* Name */}
             <div>
               <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1.5">{t('wizard.review.nameLabel')}</label>
               <input
@@ -791,7 +791,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
               />
             </div>
 
-            {/* Tipo (input libre con sugerencias) */}
+            {/* Type (free input with suggestions) */}
             <div>
               <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1.5">{t('wizard.review.typeLabel')}</label>
               <input
@@ -810,7 +810,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
               <p className="text-[10px] text-white/30 mt-1 italic">{t('wizard.review.typeHint')}</p>
             </div>
 
-            {/* Descripción */}
+            {/* Description */}
             <div>
               <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1.5">{t('wizard.review.descriptionLabel')}</label>
               <textarea
@@ -823,7 +823,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
               <p className="text-[10px] text-white/30 mt-1 italic">{t('wizard.review.descriptionHint')}</p>
             </div>
 
-            {/* Timing del proyecto (opcional) */}
+            {/* Project timing (optional) */}
             <div>
               <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1.5">
                 {t('wizard.review.timingLabel')} <span className="text-white/30 font-normal lowercase">{t('wizard.review.timingOptional')}</span>
@@ -840,10 +840,10 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
               <p className="text-[10px] text-white/30 mt-1 italic">{t('wizard.review.timingHint')}</p>
             </div>
 
-            {/* Canales */}
+            {/* Channels */}
             <div>
               <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-2">
-                Canales del proyecto <span className="text-amber-400">*</span>
+                Project channels <span className="text-amber-400">*</span>
               </label>
               <p className="text-[11px] text-white/40 mb-2">{t('wizard.review.channelsHint')}</p>
               <div className="grid grid-cols-1 gap-2">
@@ -871,24 +871,24 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
               </div>
             </div>
 
-            {/* === SECCIÓN UNIFICADA: PERSONAS DEL PROYECTO === */}
-            {/* Detectadas por IA + Extras agregadas manualmente + Botón "Agregar persona" */}
+            {/* === UNIFIED SECTION: PROJECT PEOPLE === */}
+            {/* Detected by AI + Extras added manually + "Add person" button */}
             <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-lg p-3">
               <div className="flex items-start gap-2 mb-3">
                 <Sparkles className="w-4 h-4 text-cyan-300 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
-                    Personas del proyecto {detectedParticipants.length + extraPeople.length > 0 ? `(${detectedParticipants.filter(p => p.include).length + extraPeople.length})` : '(opcional)'}
+                    Project people {detectedParticipants.length + extraPeople.length > 0 ? `(${detectedParticipants.filter(p => p.include).length + extraPeople.length})` : '(optional)'}
                   </p>
                   <p className="text-[11px] text-cyan-200/60 mt-0.5">
                     {detectedParticipants.length > 0
-                      ? 'La IA detectó estas personas. Completa sus contactos (o desmárcalas si no aplican). Puedes agregar más con el botón al final.'
-                      : 'No se detectaron personas en el texto. Puedes agregar miembros del equipo con el botón al final.'}
+                      ? 'The AI detected these people. Fill in their contact info (or uncheck them if they don\'t apply). You can add more with the button at the end.'
+                      : 'No people were detected in the text. You can add team members with the button at the end.'}
                   </p>
                 </div>
               </div>
 
-              {/* Detectadas por IA */}
+              {/* Detected by AI */}
               {detectedParticipants.length > 0 && (
                 <div className="space-y-2 mb-2">
                   {detectedParticipants.map((p, idx) => {
@@ -925,7 +925,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                                 {p.roleInferred}
                               </span>
                               <span className="text-[10px] text-violet-300/70 bg-violet-500/10 px-1.5 py-0.5 rounded">
-                                Detectada por IA
+                                Detected by AI
                               </span>
                             </div>
                           </div>
@@ -947,12 +947,12 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                                   hasEmail ? 'border-emerald-500/30' : 'border-white/10'
                                 }`}
                               />
-                              {/* Input de WhatsApp escondido. */}
+                              {/* WhatsApp input hidden. */}
                             </div>
                             <p className="text-[10px] text-white/40 mt-1.5 ml-5">
                               {hasEmail ? (
                                 <span className="text-emerald-300">
-                                  ✓ Se agregará con notificaciones por email
+                                  ✓ Will be added with email notifications
                                 </span>
                               ) : (
                                 <span className="text-white/40 italic">{t('wizard.manual.detectedTasks.noChannelHint')}</span>
@@ -966,7 +966,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                 </div>
               )}
 
-              {/* Extras agregadas manualmente */}
+              {/* Extras added manually */}
               {extraPeople.length > 0 && (
                 <div className="space-y-2 mb-2">
                   {extraPeople.map((p, idx) => {
@@ -986,7 +986,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                                 </span>
                               )}
                               <span className="text-[10px] text-amber-300/70 bg-amber-500/10 px-1.5 py-0.5 rounded">
-                                Agregada por ti
+                                Added by you
                               </span>
                             </div>
                             <div className="flex items-center gap-3 text-[11px] text-white/50">
@@ -1011,7 +1011,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                 </div>
               )}
 
-              {/* Mini-formulario para agregar persona extra */}
+              {/* Mini-form to add an extra person */}
               {addingExtra ? (
                 <div className="rounded-md border border-cyan-500/30 bg-[#0E0E1A] p-3 space-y-2">
                   <p className="text-[11px] font-bold text-cyan-300 uppercase tracking-wider mb-1">{t('wizard.manual.detectedTasks.addPersonTitle')}</p>
@@ -1041,7 +1041,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                       placeholder={t('wizard.manual.detectedTasks.emailPlaceholderOptional')}
                       className="px-2.5 py-1.5 bg-[#0B0B14] border border-white/10 rounded-md text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-cyan-400"
                     />
-                    {/* Input de WhatsApp escondido — solo email. */}
+                    {/* WhatsApp input hidden — email only. */}
                   </div>
                   {extraFormError && (
                     <p className="text-[11px] text-red-400">{extraFormError}</p>
@@ -1053,7 +1053,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                       disabled={docDraftCreating}
                       className="px-3 py-1.5 text-[11px] text-white/60 hover:text-white transition-colors disabled:opacity-50"
                     >
-                      Cancelar
+                      Cancel
                     </button>
                     <button
                       type="button"
@@ -1061,7 +1061,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                       disabled={docDraftCreating}
                       className="px-3 py-1.5 bg-cyan-600 text-white text-[11px] font-medium rounded-md hover:bg-cyan-500 transition-colors disabled:opacity-50 flex items-center gap-1"
                     >
-                      <Check className="w-3 h-3" /> Agregar al equipo
+                      <Check className="w-3 h-3" /> Add to team
                     </button>
                   </div>
                 </div>
@@ -1072,31 +1072,31 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                   disabled={docDraftCreating}
                   className="w-full px-3 py-2 bg-[#0E0E1A] border border-dashed border-cyan-500/30 hover:border-cyan-400/50 hover:bg-cyan-500/5 rounded-md text-xs text-cyan-300 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
-                  <span className="text-base">+</span> Agregar otra persona al equipo
+                  <span className="text-base">+</span> Add another person to the team
                 </button>
               )}
             </div>
 
-            {/* === SECCIÓN: TAREAS DETECTADAS CON ASIGNACIÓN ===
-                La IA propone tareas con responsable (regla: solo nombres del
-                equipo detectado). Aquí el usuario revisa, edita, desmarca o
-                reasigna antes de crear el proyecto — así no tiene que ir tarea
-                por tarea después en la vista del proyecto. */}
+            {/* === SECTION: DETECTED TASKS WITH ASSIGNMENT ===
+                The AI proposes tasks with an assignee (rule: only names from
+                the detected team). Here the user reviews, edits, unchecks or
+                reassigns before creating the project — so they don't have to
+                go task by task later in the project view. */}
             {docDraftTasks.length > 0 && (
               <div className="rounded-lg border border-violet-500/20 bg-[#0E0E1A] p-3 space-y-2.5">
                 <div className="flex items-center justify-between mb-1">
                   <div>
                     <p className="text-[11px] font-bold text-violet-300 uppercase tracking-wider flex items-center gap-1.5">
                       <Sparkles className="w-3 h-3" />
-                      Tareas detectadas ({docDraftTasks.filter(t => t._include !== false).length}/{docDraftTasks.length})
+                      Detected tasks ({docDraftTasks.filter(t => t._include !== false).length}/{docDraftTasks.length})
                     </p>
                     <p className="text-[10px] text-white/40 mt-0.5">
-                      La IA asignó cada tarea según el chat. Desmarca las que no apliquen o cambia el responsable.
+                      The AI assigned each task based on the chat. Uncheck the ones that don't apply or change the assignee.
                     </p>
                   </div>
                 </div>
 
-                {/* Pool de nombres válidos para el dropdown = detectados marcados + extras */}
+                {/* Pool of valid names for the dropdown = checked detected + extras */}
                 {(() => {
                   const assigneeOptions = [
                     ...detectedParticipants.filter(p => p.include && p.name.trim()).map(p => p.name.trim()),
@@ -1123,7 +1123,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                                 ? 'bg-violet-500 border-violet-500'
                                 : 'border-white/30 hover:border-white/50'
                             }`}
-                            title={included ? 'Excluir esta tarea' : 'Incluir esta tarea'}
+                            title={included ? 'Exclude this task' : 'Include this task'}
                           >
                             {included && <Check className="w-3 h-3 text-white" />}
                           </button>
@@ -1144,7 +1144,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                                 className="px-2 py-1 bg-[#0B0B14] border border-white/10 rounded text-[11px] text-white focus:outline-none focus:ring-1 focus:ring-violet-400 disabled:opacity-60"
                                 title={t('wizard.manual.detectedTasks.assigneeTooltip')}
                               >
-                                <option value="">👤 Sin asignar</option>
+                                <option value="">👤 Unassigned</option>
                                 {assigneeOptions.map(n => (
                                   <option key={n} value={n}>👤 {n}</option>
                                 ))}
@@ -1167,7 +1167,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                               />
                               {task.assigned_to && !assigneeOptions.some(n => n.toLowerCase() === task.assigned_to!.toLowerCase()) && (
                                 <span className="text-[10px] text-amber-400/80 bg-amber-500/10 px-1.5 py-0.5 rounded" title={t('wizard.manual.detectedTasks.ghostAssignee')}>
-                                  ⚠ no está en el equipo
+                                  ⚠ not on the team
                                 </span>
                               )}
                             </div>
@@ -1180,7 +1180,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
               </div>
             )}
 
-            {/* Errores y feedback */}
+            {/* Errors and feedback */}
             {uploadError && (
               <div className="px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-300 flex items-start gap-2">
                 <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
@@ -1193,7 +1193,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
               </div>
             )}
 
-            {/* Botón confirmar */}
+            {/* Confirm button */}
             <button
               type="button"
               onClick={handleConfirmDraft}
@@ -1203,18 +1203,18 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
               {docDraftCreating ? (
                 <>
                   <Sparkles className="w-4 h-4 animate-pulse" />
-                  Creando proyecto y generando insights...
+                  Creating project and generating insights...
                 </>
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  Crear proyecto
+                  Create project
                 </>
               )}
             </button>
 
             <p className="text-[10px] text-white/30 text-center">
-              El documento <strong>{docDraft.fileName}</strong> quedará anexado al proyecto.
+              The document <strong>{docDraft.fileName}</strong> will be attached to the project.
             </p>
           </div>
         </div>
@@ -1222,7 +1222,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
     )
   }
 
-  // Pantalla manual (wizard tradicional)
+  // Manual screen (traditional wizard)
   return (
     <div className="flex h-[calc(100vh-56px)]">
       <aside className="w-64 border-r border-white/5 bg-[#0E0E1A] flex-shrink-0 flex flex-col justify-between">
@@ -1231,9 +1231,9 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
 
           <div className="space-y-2">
             {[
-              { num: 1, label: 'Proyecto', sub: 'Nombre y tipo' },
-              { num: 2, label: 'Equipo', sub: 'PM y participantes' },
-              { num: 3, label: 'Canales y timing', sub: 'Comunicación y fechas' },
+              { num: 1, label: 'Project', sub: 'Name and type' },
+              { num: 2, label: 'Team', sub: 'PM and participants' },
+              { num: 3, label: 'Channels and timing', sub: 'Communication and dates' },
             ].map(s => (
               <div key={s.num} className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
@@ -1252,20 +1252,20 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
           </div>
         </div>
 
-        {nombre && (
+        {name && (
           <div className="p-4">
             <div className="bg-[#161625] rounded-xl p-4 border border-white/5">
               <p className="text-[10px] font-bold text-white/30 uppercase mb-2">{t('wizard.manual.sidebar.previewLabel')}</p>
-              <h4 className="text-sm font-bold text-white">{nombre}</h4>
-              {tipo && <p className="text-xs text-violet-400 mt-0.5">{tipo}</p>}
+              <h4 className="text-sm font-bold text-white">{name}</h4>
+              {type && <p className="text-xs text-violet-400 mt-0.5">{type}</p>}
               {selectedTeam.length > 0 && (
                 <div className="mt-3">
                   <p className="text-[10px] text-white/30 mb-1">PM</p>
                   <div className="flex items-center gap-1.5">
                     <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${selectedTeam[0].color} flex items-center justify-center text-[8px] text-white font-bold`}>
-                      {selectedTeam[0].iniciales}
+                      {selectedTeam[0].initials}
                     </div>
-                    <span className="text-xs text-white/60">{selectedTeam[0].nombre}</span>
+                    <span className="text-xs text-white/60">{selectedTeam[0].name}</span>
                   </div>
                 </div>
               )}
@@ -1275,7 +1275,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                   <div className="flex -space-x-1.5">
                     {selectedTeam.slice(1).map((m, i) => (
                       <div key={i} className={`w-5 h-5 rounded-full bg-gradient-to-br ${m.color} flex items-center justify-center text-[8px] text-white font-bold border border-[#161625]`}>
-                        {m.iniciales}
+                        {m.initials}
                       </div>
                     ))}
                   </div>
@@ -1302,7 +1302,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
               ) : (
                 <div className="mt-2">
                   <p className="text-[10px] text-white/30">{t('wizard.manual.sidebar.deliveryLabel')}</p>
-                  <p className="text-xs text-white/30">— por definir</p>
+                  <p className="text-xs text-white/30">— to be defined</p>
                 </div>
               )}
             </div>
@@ -1322,8 +1322,8 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                   <div>
                     <label className="text-sm text-white/60 block mb-2">{t('wizard.manual.step1.nameLabel')}</label>
                     <input
-                      value={nombre}
-                      onChange={e => setNombre(e.target.value)}
+                      value={name}
+                      onChange={e => setName(e.target.value)}
                       className="w-full px-4 py-3 bg-[#161625] border border-white/10 rounded-xl text-white placeholder-white/20 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 outline-none transition-all"
                       placeholder={t('wizard.manual.step1.namePlaceholder')}
                     />
@@ -1332,25 +1332,25 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                   <div>
                     <label className="text-sm text-white/60 block mb-2">{t('wizard.manual.step1.typeLabel')}</label>
                     <div className="grid grid-cols-3 gap-2 mb-2">
-                      {PROJECT_TYPES.map(t => (
+                      {PROJECT_TYPES.map(pt => (
                         <button
-                          key={t}
+                          key={pt}
                           type="button"
-                          onClick={() => setTipo(t)}
+                          onClick={() => setType(pt)}
                           className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all border ${
-                            tipo === t
+                            type === pt
                               ? 'bg-violet-600/20 border-violet-500/40 text-violet-300'
                               : 'bg-white/5 border-white/5 text-white/50 hover:border-white/10 hover:text-white/70'
                           }`}
                         >
-                          {t}
+                          {pt}
                         </button>
                       ))}
                     </div>
                     <input
                       type="text"
-                      value={tipo}
-                      onChange={e => setTipo(e.target.value)}
+                      value={type}
+                      onChange={e => setType(e.target.value)}
                       placeholder={t('wizard.manual.step1.typeCustomPlaceholder')}
                       maxLength={60}
                       className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
@@ -1363,23 +1363,23 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                       <span className="text-red-400 ml-1">*</span>
                     </label>
                     <textarea
-                      value={descripcion}
-                      onChange={e => setDescripcion(e.target.value)}
+                      value={description}
+                      onChange={e => setDescription(e.target.value)}
                       rows={3}
                       className={`w-full px-4 py-3 bg-[#161625] border rounded-xl text-white placeholder-white/20 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 outline-none transition-all resize-none ${
-                        descripcion.trim().length > 0 && descripcion.trim().length < 15
+                        description.trim().length > 0 && description.trim().length < 15
                           ? 'border-red-500/40'
                           : 'border-white/10'
                       }`}
                       placeholder={t('wizard.manual.step1.descriptionPlaceholder')}
                     />
                     <p className={`text-[11px] mt-1.5 ${
-                      descripcion.trim().length > 0 && descripcion.trim().length < 15
+                      description.trim().length > 0 && description.trim().length < 15
                         ? 'text-red-300'
                         : 'text-white/40'
                     }`}>
-                      {descripcion.trim().length > 0 && descripcion.trim().length < 15
-                        ? `${15 - descripcion.trim().length} caracteres más para el mínimo (15).`
+                      {description.trim().length > 0 && description.trim().length < 15
+                        ? `${15 - description.trim().length} more characters for the minimum (15).`
                         : t('wizard.manual.step1.descriptionHint')}
                     </p>
                   </div>
@@ -1408,18 +1408,18 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                       <div key={person.email} className="flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${person.color} flex items-center justify-center text-[10px] text-white font-bold`}>
-                            {person.iniciales}
+                            {person.initials}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-white">{person.nombre}</p>
-                            <p className="text-xs text-white/30">{person.rol} · {person.email}</p>
+                            <p className="text-sm font-medium text-white">{person.name}</p>
+                            <p className="text-xs text-white/30">{person.role} · {person.email}</p>
                           </div>
                         </div>
                         <button
                           onClick={() => addTeamMember(person)}
                           className="text-xs text-violet-400 hover:text-violet-300 font-medium transition-colors"
                         >
-                          + Añadir
+                          + Add
                         </button>
                       </div>
                     ))}
@@ -1430,7 +1430,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                   <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 mb-4">
                     <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
                     <p className="text-xs text-amber-400">
-                      <span className="font-bold">{selectedTeam.find(m => m.projectCount >= 3)?.nombre}</span> ya participa en {selectedTeam.find(m => m.projectCount >= 3)?.projectCount} proyectos activos. Puedes añadirlo igualmente.
+                      <span className="font-bold">{selectedTeam.find(m => m.projectCount >= 3)?.name}</span> is already on {selectedTeam.find(m => m.projectCount >= 3)?.projectCount} active projects. You can add them anyway.
                     </p>
                   </div>
                 )}
@@ -1443,16 +1443,16 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${member.color} flex items-center justify-center text-[10px] text-white font-bold`}>
-                              {member.iniciales}
+                              {member.initials}
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-white">{member.nombre}</p>
-                              <p className="text-xs text-white/30">{member.email}{member.isExternal ? ' · externo' : ''}</p>
+                              <p className="text-sm font-medium text-white">{member.name}</p>
+                              <p className="text-xs text-white/30">{member.email}{member.isExternal ? ' · external' : ''}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <select
-                              value={teamRoles[member.email] || member.rol}
+                              value={teamRoles[member.email] || member.role}
                               onChange={e => updateRole(member.email, e.target.value)}
                               className="bg-[#0E0E1A] border border-white/10 rounded-lg px-2 py-1 text-xs text-white/70 outline-none"
                             >
@@ -1466,7 +1466,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                             </button>
                           </div>
                         </div>
-                        {/* Input de WhatsApp escondido — solo email por ahora. */}
+                        {/* WhatsApp input hidden — email only for now. */}
                       </div>
                     ))}
                   </div>
@@ -1477,7 +1477,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                     value={externalName}
                     onChange={e => setExternalName(e.target.value)}
                     className="w-40 px-4 py-3 bg-[#161625] border border-white/10 rounded-xl text-white placeholder-white/20 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 outline-none transition-all"
-                    placeholder="Nombre"
+                    placeholder="Name"
                     onKeyDown={e => e.key === 'Enter' && addExternal()}
                     maxLength={80}
                   />
@@ -1493,11 +1493,11 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                     disabled={!externalEmail.includes('@')}
                     className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm font-medium text-white/60 hover:bg-white/10 transition-all disabled:opacity-30"
                   >
-                    + Invitar
+                    + Invite
                   </button>
                 </div>
                 <p className="text-[11px] text-white/30 mt-2 italic">
-                  El nombre es opcional pero recomendado — si lo dejás vacío usamos el prefijo del correo.
+                  Name is optional but recommended — if you leave it empty we'll use the email prefix.
                 </p>
               </motion.div>
             )}
@@ -1550,18 +1550,18 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-[10px] text-white/30 uppercase">{t('wizard.manual.step3.summaryName')}</p>
-                      <p className="text-sm text-white font-medium">{nombre}</p>
+                      <p className="text-sm text-white font-medium">{name}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-white/30 uppercase">Tipo</p>
-                      <p className="text-sm text-white font-medium">{tipo}</p>
+                      <p className="text-[10px] text-white/30 uppercase">Type</p>
+                      <p className="text-sm text-white font-medium">{type}</p>
                     </div>
                     <div>
                       <p className="text-[10px] text-white/30 uppercase">{t('wizard.manual.step3.summaryTeam')}</p>
                       <div className="flex -space-x-2 mt-1">
                         {selectedTeam.map((m, i) => (
                           <div key={i} className={`w-7 h-7 rounded-full bg-gradient-to-br ${m.color} flex items-center justify-center text-[9px] text-white font-bold border-2 border-[#161625]`}>
-                            {m.iniciales}
+                            {m.initials}
                           </div>
                         ))}
                       </div>
@@ -1585,13 +1585,13 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                     {deliveryDate && (
                       <div>
                         <p className="text-[10px] text-white/30 uppercase">{t('wizard.manual.step3.summaryDelivery')}</p>
-                        <p className="text-sm text-white font-medium">{new Date(deliveryDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                        <p className="text-sm text-white font-medium">{new Date(deliveryDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                       </div>
                     )}
-                    {descripcion && (
+                    {description && (
                       <div className="col-span-2">
                         <p className="text-[10px] text-white/30 uppercase">{t('wizard.manual.step3.summaryDescription')}</p>
-                        <p className="text-sm text-white/60">{descripcion}</p>
+                        <p className="text-sm text-white/60">{description}</p>
                       </div>
                     )}
                   </div>
@@ -1609,14 +1609,14 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
           )}
           <div className="max-w-2xl mx-auto flex items-center justify-between">
             <button
-              onClick={() => step === 1 ? onNavigate('proyectos') : setStep(step - 1)}
+              onClick={() => step === 1 ? onNavigate('projects') : setStep(step - 1)}
               className="flex items-center gap-2 px-4 py-2.5 border border-white/10 rounded-xl text-sm text-white/60 hover:text-white hover:border-white/20 transition-all"
             >
               <ArrowLeft className="w-4 h-4" />
-              {step === 1 ? 'Cancelar' : 'Atrás'}
+              {step === 1 ? 'Cancel' : 'Back'}
             </button>
 
-            <span className="text-sm text-white/30">Paso {step} de 3</span>
+            <span className="text-sm text-white/30">Step {step} of 3</span>
 
             {step < 3 ? (
               <button
@@ -1624,7 +1624,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                 disabled={!canAdvance()}
                 className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-xl transition-all disabled:opacity-30 disabled:hover:bg-violet-600"
               >
-                Siguiente
+                Next
                 <ArrowRight className="w-4 h-4" />
               </button>
             ) : (
@@ -1633,7 +1633,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                 disabled={creating}
                 className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50"
               >
-                {creating ? 'Creando...' : 'Crear proyecto'}
+                {creating ? 'Creating...' : 'Create project'}
                 {!creating && <Check className="w-4 h-4" />}
               </button>
             )}

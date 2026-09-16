@@ -1,17 +1,17 @@
 // ============================================================================
-// PlatformAdmin.tsx — Panel del super admin (staff de OneBox).
+// PlatformAdmin.tsx — Super admin panel (OneBox staff).
 // ----------------------------------------------------------------------------
-// Se renderiza SOLO si /api/me devuelve isPlatformAdmin=true. El backend
-// además blinda cada endpoint con require_capability(ADMINISTRAR_PLATAFORMA)
-// — así que aunque alguien fuerce la ruta acá, los fetches responden 403.
+// Renders ONLY if /api/me returns isPlatformAdmin=true. The backend also
+// guards every endpoint with require_capability(ADMINISTRAR_PLATAFORMA) —
+// so even if someone forces the route here, the fetches respond 403.
 //
-// Estructura visual:
-//   ┌─ Métricas globales (4 cards)
-//   ├─ Filtros de estado + buscador + botón "+ Nueva organización"
-//   ├─ Grid de cards de organizaciones (click → drill-down)
-//   └─ Modales:
-//       - Crear org nueva (concierge)
-//       - Detalle de org (miembros + invitaciones pendientes + acciones)
+// Visual structure:
+//   ┌─ Global metrics (4 cards)
+//   ├─ Status filters + search + "+ New organization" button
+//   ├─ Grid of organization cards (click → drill-down)
+//   └─ Modals:
+//       - Create new org (concierge)
+//       - Org detail (members + pending invitations + actions)
 // ============================================================================
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from 'react-oidc-context'
@@ -50,8 +50,8 @@ interface Metrics {
   pendingInvitationsTotal: number
 }
 
-// Solo las clases visuales viven acá. El label lo resuelve cada consumidor
-// con t('platform.status.<key>') para respetar el idioma vigente.
+// Only the visual classes live here. The label is resolved by each consumer
+// with t('platform.status.<key>') to respect the current language.
 const STATUS_CLASSES: Record<string, string> = {
   active:    'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25',
   suspended: 'bg-amber-500/15 text-amber-400 border border-amber-500/25',
@@ -65,7 +65,7 @@ function formatDate(iso: string): string {
   if (!iso) return '—'
   try {
     const d = new Date(iso)
-    return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+    return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
   } catch {
     return iso.slice(0, 10)
   }
@@ -83,7 +83,7 @@ export default function PlatformAdmin() {
   const [statusFilter, setStatusFilter] = useState<'all' | OrgStatus>('all')
   const [search, setSearch] = useState('')
 
-  // Modales
+  // Modals
   const [showCreate, setShowCreate] = useState(false)
   const [detailOrgId, setDetailOrgId] = useState<string | null>(null)
 
@@ -99,7 +99,7 @@ export default function PlatformAdmin() {
       setMetrics(m)
       setOrgs(list.orgs)
     } catch (e: any) {
-      setError(e?.message?.slice(0, 200) || t('platform.errors.loadData', 'Error cargando datos'))
+      setError(e?.message?.slice(0, 200) || t('platform.errors.loadData', 'Error loading data'))
     } finally {
       setLoading(false)
     }
@@ -123,35 +123,35 @@ export default function PlatformAdmin() {
 
   return (
     <div className="max-w-[1400px] mx-auto px-6 py-8">
-      {/* Encabezado */}
+      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
           <ShieldCheck className="w-5 h-5 text-violet-400" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white">{t('platform.title', 'Administración de organizaciones')}</h1>
-          <p className="text-sm text-white/50">{t('platform.subtitle', 'Gestión de cuentas, miembros e invitaciones — solo staff de OneBox.')}</p>
+          <h1 className="text-2xl font-bold text-white">{t('platform.title', 'Organization management')}</h1>
+          <p className="text-sm text-white/50">{t('platform.subtitle', 'Account, member and invitation management — OneBox staff only.')}</p>
         </div>
       </div>
 
-      {/* Métricas */}
+      {/* Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <MetricCard label={t('platform.metrics.orgsTotal', 'Orgs totales')} value={metrics?.orgsTotal} loading={loading} />
-        <MetricCard label={t('platform.metrics.orgsActive', 'Orgs activas')} value={metrics?.orgsActive} loading={loading} accent="emerald" />
-        <MetricCard label={t('platform.metrics.membersTotal', 'Miembros totales')} value={metrics?.membersTotal} loading={loading} />
-        <MetricCard label={t('platform.metrics.pendingInvitations', 'Invitaciones pendientes')} value={metrics?.pendingInvitationsTotal} loading={loading} accent="amber" />
+        <MetricCard label={t('platform.metrics.orgsTotal', 'Total orgs')} value={metrics?.orgsTotal} loading={loading} />
+        <MetricCard label={t('platform.metrics.orgsActive', 'Active orgs')} value={metrics?.orgsActive} loading={loading} accent="emerald" />
+        <MetricCard label={t('platform.metrics.membersTotal', 'Total members')} value={metrics?.membersTotal} loading={loading} />
+        <MetricCard label={t('platform.metrics.pendingInvitations', 'Pending invitations')} value={metrics?.pendingInvitationsTotal} loading={loading} accent="amber" />
       </div>
 
-      {/* Toolbar: filtro + búsqueda + crear */}
+      {/* Toolbar: filter + search + create */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
         <div className="flex items-center gap-1 bg-[#161625] border border-white/5 rounded-xl p-1">
           {(['all', 'active', 'suspended', 'archived'] as const).map(s => {
             const isActive = statusFilter === s
             const labels: Record<string, string> = {
-              all:       t('platform.filters.all', 'Todas'),
-              active:    t('platform.filters.active', 'Activas'),
-              suspended: t('platform.filters.suspended', 'Suspendidas'),
-              archived:  t('platform.filters.archived', 'Archivadas'),
+              all:       t('platform.filters.all', 'All'),
+              active:    t('platform.filters.active', 'Active'),
+              suspended: t('platform.filters.suspended', 'Suspended'),
+              archived:  t('platform.filters.archived', 'Archived'),
             }
             return (
               <button
@@ -174,7 +174,7 @@ export default function PlatformAdmin() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder={t('platform.searchPlaceholder', 'Buscar por nombre, dominio, email del propietario…')}
+            placeholder={t('platform.searchPlaceholder', 'Search by name, domain, owner email…')}
             className="w-full pl-10 pr-3 py-2.5 bg-[#161625] border border-white/5 rounded-xl text-sm text-white placeholder-white/30 outline-none focus:border-violet-500/40"
           />
         </div>
@@ -184,11 +184,11 @@ export default function PlatformAdmin() {
           className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-xl transition-colors whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
-          {t('platform.newOrg', 'Nueva organización')}
+          {t('platform.newOrg', 'New organization')}
         </button>
       </div>
 
-      {/* Estado global */}
+      {/* Global state */}
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 bg-red-500/10 border border-red-500/25 rounded-xl mb-4">
           <AlertCircle className="w-4 h-4 text-red-400" />
@@ -196,17 +196,17 @@ export default function PlatformAdmin() {
         </div>
       )}
 
-      {/* Grid de orgs */}
+      {/* Orgs grid */}
       {loading && orgs.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-white/40">
           <Loader2 className="w-5 h-5 animate-spin mr-2" />
-          {t('platform.loading', 'Cargando organizaciones…')}
+          {t('platform.loading', 'Loading organizations…')}
         </div>
       ) : filteredOrgs.length === 0 ? (
         <div className="text-center py-16 text-white/40 text-sm">
           {search
-            ? t('platform.noSearchMatch', 'Ninguna organización coincide con la búsqueda.')
-            : t('platform.noResults', 'Aún no hay organizaciones con este filtro.')}
+            ? t('platform.noSearchMatch', 'No organization matches the search.')
+            : t('platform.noResults', 'No organizations yet with this filter.')}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -216,7 +216,7 @@ export default function PlatformAdmin() {
         </div>
       )}
 
-      {/* Modales */}
+      {/* Modals */}
       {showCreate && (
         <CreateOrgModal
           token={token}
@@ -237,7 +237,7 @@ export default function PlatformAdmin() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Sub-componentes
+// Sub-components
 // ────────────────────────────────────────────────────────────────────────────
 
 function MetricCard({
@@ -286,7 +286,7 @@ function OrgCard({ org, onClick }: { org: OrgListItem; onClick: () => void }) {
       <div className="grid grid-cols-2 gap-2 text-xs text-white/50">
         <div className="flex items-center gap-1.5">
           <Users className="w-3.5 h-3.5" />
-          <span>{t('platform.memberCount', { count: org.memberCount, defaultValue: `${org.memberCount} miembros` })}</span>
+          <span>{t('platform.memberCount', { count: org.memberCount, defaultValue: `${org.memberCount} members` })}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="uppercase text-[10px] font-bold text-white/40">{t('platform.planLabel', 'plan')}</span>
@@ -294,7 +294,7 @@ function OrgCard({ org, onClick }: { org: OrgListItem; onClick: () => void }) {
         </div>
         <div className="flex items-center gap-1.5 col-span-2">
           <Calendar className="w-3.5 h-3.5" />
-          <span>{t('platform.createdOn', { date: formatDate(org.createdAt), defaultValue: `Creada ${formatDate(org.createdAt)}` })}</span>
+          <span>{t('platform.createdOn', { date: formatDate(org.createdAt), defaultValue: `Created ${formatDate(org.createdAt)}` })}</span>
         </div>
         {org.propietarioEmail && (
           <div className="flex items-center gap-1.5 col-span-2 truncate">
@@ -334,53 +334,53 @@ function CreateOrgModal({
         plan: plan.trim() || 'trial',
       }, token)
       setOkMessage(res.message || 'OK.')
-      // Cerrar suavemente después de mostrar el mensaje
+      // Close smoothly after showing the message
       setTimeout(() => { onCreated() }, 900)
     } catch (e: any) {
-      setError(e?.message?.slice(0, 200) || t('platform.errors.createOrg', 'Error creando organización'))
+      setError(e?.message?.slice(0, 200) || t('platform.errors.createOrg', 'Error creating organization'))
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <ModalShell title={t('platform.createOrg.title', 'Nueva organización')} onClose={onClose}>
+    <ModalShell title={t('platform.createOrg.title', 'New organization')} onClose={onClose}>
       <p
         className="text-xs text-white/50 mb-4"
         dangerouslySetInnerHTML={{
           __html: t(
             'platform.createOrg.helper',
-            'El propietario recibe un email con link de registro. Al firmar, queda vinculado como <strong>propietario</strong> de la nueva org.'
+            'The owner receives an email with a signup link. On signup, they are linked as <strong>owner</strong> of the new org.'
           ).replace('<strong>', '<strong class="text-white/80">')
         }}
       />
 
       <div className="space-y-3">
-        <Field label={t('platform.createOrg.fieldName', 'Nombre de la org')} required>
+        <Field label={t('platform.createOrg.fieldName', 'Org name')} required>
           <input
             value={name}
             onChange={e => setName(e.target.value)}
-            placeholder={t('platform.createOrg.fieldNamePlaceholder', 'Ej: Acme Corp')}
+            placeholder={t('platform.createOrg.fieldNamePlaceholder', 'e.g., Acme Corp')}
             className="w-full px-3 py-2 bg-[#0E0E1A] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 outline-none focus:border-violet-500/40"
           />
         </Field>
 
-        <Field label={t('platform.createOrg.fieldOwnerEmail', 'Email del propietario')} required>
+        <Field label={t('platform.createOrg.fieldOwnerEmail', 'Owner email')} required>
           <input
             value={email}
             onChange={e => setEmail(e.target.value)}
-            placeholder={t('platform.createOrg.fieldOwnerEmailPlaceholder', 'dueño@empresa.com')}
+            placeholder={t('platform.createOrg.fieldOwnerEmailPlaceholder', 'owner@company.com')}
             type="email"
             className="w-full px-3 py-2 bg-[#0E0E1A] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 outline-none focus:border-violet-500/40"
           />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label={t('platform.createOrg.fieldDomain', 'Dominio (opcional)')}>
+          <Field label={t('platform.createOrg.fieldDomain', 'Domain (optional)')}>
             <input
               value={domain}
               onChange={e => setDomain(e.target.value)}
-              placeholder={t('platform.createOrg.fieldDomainPlaceholder', 'empresa.com')}
+              placeholder={t('platform.createOrg.fieldDomainPlaceholder', 'company.com')}
               className="w-full px-3 py-2 bg-[#0E0E1A] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 outline-none focus:border-violet-500/40"
             />
           </Field>
@@ -416,7 +416,7 @@ function CreateOrgModal({
           className="px-4 py-2 text-sm text-white/60 hover:text-white/90 transition-colors"
           disabled={submitting}
         >
-          {t('platform.createOrg.cancel', 'Cancelar')}
+          {t('platform.createOrg.cancel', 'Cancel')}
         </button>
         <button
           onClick={submit}
@@ -424,7 +424,7 @@ function CreateOrgModal({
           className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-white/30 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
         >
           {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-          {t('platform.createOrg.submit', 'Crear y notificar')}
+          {t('platform.createOrg.submit', 'Create and notify')}
         </button>
       </div>
     </ModalShell>
@@ -448,7 +448,7 @@ function OrgDetailPanel({
       const d = await api.getPlatformOrgDetail(orgId, token)
       setDetail(d)
     } catch (e: any) {
-      setError(e?.message?.slice(0, 200) || t('platform.detail.errorLoad', 'Error cargando detalle'))
+      setError(e?.message?.slice(0, 200) || t('platform.detail.errorLoad', 'Error loading details'))
     } finally {
       setLoading(false)
     }
@@ -470,7 +470,7 @@ function OrgDetailPanel({
       onChanged()
     } catch (e: any) {
       setActionMsg(t('platform.detail.msg.statusError', {
-        error: e?.message?.slice(0, 200) || t('platform.detail.msg.memberRemoveErrorFallback', 'no se pudo eliminar'),
+        error: e?.message?.slice(0, 200) || t('platform.detail.msg.memberRemoveErrorFallback', 'could not remove'),
       }))
     } finally {
       setActionBusy(false)
@@ -488,12 +488,12 @@ function OrgDetailPanel({
     setActionMsg('')
     try {
       await api.cancelPlatformInvitation(invitationId, token)
-      setActionMsg(t('platform.detail.msg.invitationCancelled', 'Invitación cancelada.'))
+      setActionMsg(t('platform.detail.msg.invitationCancelled', 'Invitation cancelled.'))
       await load()
       onChanged()
     } catch (e: any) {
       setActionMsg(t('platform.detail.msg.statusError', {
-        error: e?.message?.slice(0, 200) || t('platform.detail.msg.invitationCancelErrorFallback', 'no se pudo cancelar'),
+        error: e?.message?.slice(0, 200) || t('platform.detail.msg.invitationCancelErrorFallback', 'could not cancel'),
       }))
     } finally {
       setActionBusy(false)
@@ -517,7 +517,7 @@ function OrgDetailPanel({
       onChanged()
     } catch (e: any) {
       setActionMsg(t('platform.detail.msg.statusError', {
-        error: e?.message?.slice(0, 150) || t('platform.detail.msg.statusErrorFallback', 'no se pudo cambiar el estado'),
+        error: e?.message?.slice(0, 150) || t('platform.detail.msg.statusErrorFallback', 'could not change status'),
       }))
     } finally {
       setActionBusy(false)
@@ -529,11 +529,11 @@ function OrgDetailPanel({
   const badgeClasses = STATUS_CLASSES[statusKey]
 
   return (
-    <ModalShell title={t('platform.detail.title', 'Detalle de organización')} onClose={onClose} wide>
+    <ModalShell title={t('platform.detail.title', 'Organization details')} onClose={onClose} wide>
       {loading ? (
         <div className="flex items-center justify-center py-12 text-white/40">
           <Loader2 className="w-5 h-5 animate-spin mr-2" />
-          {t('platform.detail.loading', 'Cargando…')}
+          {t('platform.detail.loading', 'Loading…')}
         </div>
       ) : error ? (
         <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/25 rounded-xl p-4">
@@ -541,7 +541,7 @@ function OrgDetailPanel({
         </div>
       ) : detail ? (
         <div className="space-y-5">
-          {/* Encabezado */}
+          {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 border border-white/10 flex items-center justify-center flex-shrink-0">
@@ -563,30 +563,30 @@ function OrgDetailPanel({
             </span>
           </div>
 
-          {/* Acciones */}
+          {/* Actions */}
           <div className="flex flex-wrap gap-2 border-y border-white/5 py-3">
             {currentStatus !== 'active' && (
-              <ActionButton icon={PlayCircle} label={t('platform.detail.actions.reactivate', 'Reactivar')} onClick={() => changeStatus('active')} busy={actionBusy} color="emerald" />
+              <ActionButton icon={PlayCircle} label={t('platform.detail.actions.reactivate', 'Reactivate')} onClick={() => changeStatus('active')} busy={actionBusy} color="emerald" />
             )}
             {currentStatus === 'active' && (
-              <ActionButton icon={PauseCircle} label={t('platform.detail.actions.suspend', 'Suspender')} onClick={() => changeStatus('suspended')} busy={actionBusy} color="amber" />
+              <ActionButton icon={PauseCircle} label={t('platform.detail.actions.suspend', 'Suspend')} onClick={() => changeStatus('suspended')} busy={actionBusy} color="amber" />
             )}
             {currentStatus !== 'archived' && (
-              <ActionButton icon={Archive} label={t('platform.detail.actions.archive', 'Archivar')} onClick={() => changeStatus('archived')} busy={actionBusy} color="white" />
+              <ActionButton icon={Archive} label={t('platform.detail.actions.archive', 'Archive')} onClick={() => changeStatus('archived')} busy={actionBusy} color="white" />
             )}
           </div>
           {actionMsg && (
             <div className="text-xs text-white/60 -mt-2">{actionMsg}</div>
           )}
 
-          {/* Miembros */}
+          {/* Members */}
           <section>
             <h3 className="text-[11px] font-bold uppercase tracking-wider text-white/40 mb-2 flex items-center gap-2">
               <Users className="w-3.5 h-3.5" />{' '}
               {t('platform.detail.membersHeader', { count: detail.memberCount })}
             </h3>
             {detail.members.length === 0 ? (
-              <p className="text-xs text-white/40">{t('platform.detail.membersEmpty', 'Ningún miembro registrado todavía.')}</p>
+              <p className="text-xs text-white/40">{t('platform.detail.membersEmpty', 'No members registered yet.')}</p>
             ) : (
               <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                 {detail.members.map((m, i) => (
@@ -606,7 +606,7 @@ function OrgDetailPanel({
                       </p>
                     </div>
                     <button
-                      title={t('platform.detail.actions.removeMember', 'Quitar miembro de la org')}
+                      title={t('platform.detail.actions.removeMember', 'Remove member from org')}
                       disabled={actionBusy}
                       onClick={() => removeMember(m.userId, m.email || m.userId)}
                       className="p-1.5 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-40"
@@ -619,14 +619,14 @@ function OrgDetailPanel({
             )}
           </section>
 
-          {/* Invitaciones pendientes */}
+          {/* Pending invitations */}
           <section>
             <h3 className="text-[11px] font-bold uppercase tracking-wider text-white/40 mb-2 flex items-center gap-2">
               <Mail className="w-3.5 h-3.5" />{' '}
               {t('platform.detail.invitationsHeader', { count: detail.pendingInvitationsCount })}
             </h3>
             {detail.pendingInvitations.length === 0 ? (
-              <p className="text-xs text-white/40">{t('platform.detail.invitationsEmpty', 'Sin invitaciones pendientes.')}</p>
+              <p className="text-xs text-white/40">{t('platform.detail.invitationsEmpty', 'No pending invitations.')}</p>
             ) : (
               <div className="space-y-1.5">
                 {detail.pendingInvitations.map((inv, i) => {
@@ -640,13 +640,13 @@ function OrgDetailPanel({
                         <p className="text-[11px] text-white/40">
                           {t('platform.detail.invitationLine', {
                             context,
-                            role: inv.rolGlobal || inv.rol || '—',
+                            role: inv.rolGlobal || inv.role || '—',
                             date: formatDate(inv.createdAt || ''),
                           })}
                         </p>
                       </div>
                       <button
-                        title={t('platform.detail.actions.cancelInvitation', 'Cancelar invitación')}
+                        title={t('platform.detail.actions.cancelInvitation', 'Cancel invitation')}
                         disabled={actionBusy}
                         onClick={() => cancelInvitation(inv.invitationId, inv.email)}
                         className="p-1.5 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-40"
@@ -666,7 +666,7 @@ function OrgDetailPanel({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Primitivas de UI
+// UI primitives
 // ────────────────────────────────────────────────────────────────────────────
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
