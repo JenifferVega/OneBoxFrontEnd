@@ -112,6 +112,16 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
     return Array.from(seen.entries()).map(([name, count]) => ({ name, count }))
   }, [scheduledAll])
 
+  // Tasks the date filter above removed. A task with no start or end date —
+  // or with an end before its start — cannot be drawn on a timeline, and the
+  // agent creates tasks without dates routinely (create_task takes them as
+  // optional). The Gantt used to count only what it could draw, so it said
+  // "5 of 5" on a project with 8 blocked tasks: the other three were neither
+  // shown nor counted, and the user had no way to know they existed. That is
+  // what a client reported on 2026-09-22 as "the dashboard says 8 and the
+  // gantt says 5".
+  const unscheduledCount = tasks.length - scheduledAll.length
+
   if (scheduledAll.length === 0) {
     return (
       <div className="bg-[#0E0E18] border border-white/5 rounded-2xl p-8 text-center">
@@ -120,6 +130,11 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
         <p className="text-xs text-white/30 mt-1">
           {t('gantt.emptyHint')}
         </p>
+        {unscheduledCount > 0 && (
+          <p className="text-xs text-amber-400/70 mt-2">
+            {t('gantt.unscheduled', { count: unscheduledCount })}
+          </p>
+        )}
       </div>
     )
   }
@@ -191,7 +206,15 @@ export default function ProjectGantt({ tasks, onTaskClick }: Props) {
           )
         })}
         <span className="ml-auto text-white/30">
-          {t('gantt.countSummary', { shown: scheduled.length, total: scheduledAll.length, count: scheduledAll.length })}
+          {t('gantt.countSummary', { shown: scheduled.length, total: tasks.length, count: tasks.length })}
+          {unscheduledCount > 0 && (
+            <span
+              className="ml-2 text-amber-400/70"
+              title={t('gantt.unscheduledHint')}
+            >
+              {t('gantt.unscheduled', { count: unscheduledCount })}
+            </span>
+          )}
         </span>
       </div>
 

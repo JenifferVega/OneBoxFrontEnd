@@ -163,7 +163,10 @@
     "assignedTo": "Assigned to: {{name}}",
     "participantsHeader": "Participants",
     "filterByAssignee": "See only {{name}}'s tasks",
-    "clearAssigneeFilter": "Clear filter"
+    "clearAssigneeFilter": "Clear filter",
+    "unscheduled_one": "· {{count}} without dates",
+    "unscheduled_other": "· {{count}} without dates",
+    "unscheduledHint": "A task only appears on the Gantt if it has both a start and an end date. Edit it and set them to see it here."
   },
   "uploader": {
     "processing": "Processing...",
@@ -279,7 +282,10 @@
       "unknown": "Unknown error",
       "generic": "There was an error processing your query.",
       "network": "⚠️ Couldn’t connect to the agent. Verify that the backend URL is correct in VITE_AGENT_API."
-    }
+    },
+    "expandTooltip": "Expand chat",
+    "collapseTooltip": "Shrink chat",
+    "closeTooltip": "Close chat"
   },
   "wizard": {
     "chooseTitle": "New project",

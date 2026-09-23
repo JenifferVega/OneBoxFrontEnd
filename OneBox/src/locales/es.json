@@ -163,7 +163,10 @@
     "assignedTo": "Asignada a: {{name}}",
     "participantsHeader": "Participantes",
     "filterByAssignee": "Ver solo tareas de {{name}}",
-    "clearAssigneeFilter": "Quitar filtro"
+    "clearAssigneeFilter": "Quitar filtro",
+    "unscheduled_one": "· {{count}} sin fechas",
+    "unscheduled_other": "· {{count}} sin fechas",
+    "unscheduledHint": "Una tarea solo aparece en el Gantt si tiene fecha de inicio y de fin. Edítala y asígnale fechas para verla aquí."
   },
   "uploader": {
     "processing": "Procesando...",
@@ -279,7 +282,10 @@
       "unknown": "Error desconocido",
       "generic": "Hubo un error al procesar tu consulta.",
       "network": "⚠️ No se pudo conectar con el agente. Verifica que la URL del backend sea correcta en VITE_AGENT_API."
-    }
+    },
+    "expandTooltip": "Ampliar chat",
+    "collapseTooltip": "Reducir chat",
+    "closeTooltip": "Cerrar chat"
   },
   "wizard": {
     "chooseTitle": "Nuevo proyecto",

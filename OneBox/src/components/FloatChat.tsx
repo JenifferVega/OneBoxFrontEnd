@@ -11,6 +11,7 @@ import {
   Bot,
   User,
   Minimize2,
+  Maximize2,
   Mail,
   Paperclip,
   AlertCircle,
@@ -137,6 +138,20 @@ export default function ChatFloat() {
   }
 
   const [open, setOpen] = useState(false)
+  // Expanded ("full size") chat. Remembered, because someone who prefers the
+  // big panel prefers it every time, and re-expanding on every page load is
+  // exactly the friction this removes. localStorage can throw in private
+  // mode, so both sides are guarded and the default is the small panel.
+  const [expanded, setExpanded] = useState<boolean>(() => {
+    try { return localStorage.getItem('onebox_chat_expanded') === '1' } catch { return false }
+  })
+  const toggleExpanded = useCallback(() => {
+    setExpanded(prev => {
+      const next = !prev
+      try { localStorage.setItem('onebox_chat_expanded', next ? '1' : '0') } catch { /* private mode */ }
+      return next
+    })
+  }, [])
   // Initial state without touching localStorage. Once uid is ready, an
   // effect loads what was saved. This way we avoid: (1) reading the 'anon'
   // key by mistake, and (2) the initial render breaking if the stored data
@@ -376,7 +391,11 @@ export default function ChatFloat() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 w-[calc(100vw-2rem)] md:w-[440px] h-[600px] bg-slate-900 rounded-2xl border border-slate-700/50 shadow-2xl shadow-black/50 flex flex-col overflow-hidden"
+            className={`fixed z-50 bg-slate-900 rounded-2xl border border-slate-700/50 shadow-2xl shadow-black/50 flex flex-col overflow-hidden ${
+              expanded
+                ? 'inset-2 md:inset-6'
+                : 'bottom-4 right-4 md:bottom-6 md:right-6 w-[calc(100vw-2rem)] md:w-[440px] h-[600px]'
+            }`}
           >
             <div className="flex items-center justify-between px-4 py-3 bg-slate-800/80 border-b border-slate-700/50">
               <div className="flex items-center gap-3">
@@ -403,14 +422,20 @@ export default function ChatFloat() {
                   <RotateCcw className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setOpen(false)}
+                  onClick={toggleExpanded}
                   className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
+                  title={expanded ? t('chat.collapseTooltip') : t('chat.expandTooltip')}
+                  aria-label={expanded ? t('chat.collapseTooltip') : t('chat.expandTooltip')}
                 >
-                  <Minimize2 className="w-4 h-4" />
+                  {expanded
+                    ? <Minimize2 className="w-4 h-4" />
+                    : <Maximize2 className="w-4 h-4" />}
                 </button>
                 <button
                   onClick={() => setOpen(false)}
                   className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
+                  title={t('chat.closeTooltip')}
+                  aria-label={t('chat.closeTooltip')}
                 >
                   <X className="w-4 h-4" />
                 </button>
