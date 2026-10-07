@@ -10,7 +10,9 @@
 // the dark dashboard).
 // ============================================================================
 import { useState } from 'react'
+import { useAuth } from 'react-oidc-context'
 import { useTranslation } from 'react-i18next'
+import { api } from '../services/api'
 import { Globe } from 'lucide-react'
 import { setAppLocale, getAppLocale, AppLocale } from '../i18n'
 
@@ -20,6 +22,7 @@ interface Props {
 
 export default function LocaleSwitcher({ variant = 'dark' }: Props) {
   const { t } = useTranslation()
+  const auth = useAuth()
   const [locale, setLocale] = useState<AppLocale>(() => getAppLocale())
   const [open, setOpen] = useState(false)
   const label = locale === 'en' ? 'EN' : 'ES'
@@ -28,6 +31,10 @@ export default function LocaleSwitcher({ variant = 'dark' }: Props) {
     setAppLocale(next)
     setLocale(next)
     setOpen(false)
+    // Logged in: remember it in the profile too, so it follows the user to
+    // other devices. Before login (landing page) it stays in this browser.
+    const token = auth.user?.access_token
+    if (token) api.updateUserSettings({ language: next }, token).catch(() => {})
   }
 
   const buttonClass = variant === 'light'

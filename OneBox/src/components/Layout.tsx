@@ -1,8 +1,9 @@
 import { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import { useAuth } from 'react-oidc-context'
+import UpdateChatModal from './UpdateChatModal'
 import { useTranslation } from 'react-i18next'
-import { Plus, LogOut } from 'lucide-react'
+import { Plus, LogOut, Settings } from 'lucide-react'
 import { PageType } from '../App'
 import NotificationsPanel from './NotificationsPanel'
 import Logo from './Logo'
@@ -50,6 +51,8 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
 
   return (
     <div className="min-h-screen bg-[#0B0B14]">
+      {/* Mandatory report on pending work: blocks the app until answered. */}
+      <UpdateChatModal token={auth.user?.access_token || ''} userName={userName} />
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#12121E]/90 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-full mx-auto px-6">
           <div className="flex items-center justify-between h-20">
@@ -98,6 +101,17 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
                 <span className="hidden md:block text-sm font-medium text-white/80">
                   {userName}
                 </span>
+                <button
+                  onClick={() => onNavigate('settings')}
+                  className={`ml-1 p-1.5 rounded-lg transition-all ${
+                    currentPage === 'settings'
+                      ? 'text-violet-300 bg-white/5'
+                      : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+                  }`}
+                  title={t('settings.title', 'Settings')}
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
                 <button
                   onClick={handleLogout}
                   className="ml-1 p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-white/5 transition-all"

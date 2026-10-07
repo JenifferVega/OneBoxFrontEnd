@@ -101,11 +101,12 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
       const result = await api.uploadAttachment(projectId, file, { userId, token })
       const ig = result?.insightsGenerated || {}
       const count = ig.count || 0
+      const planNote = ig.planning ? ' The task plan is being updated; you will get a notification in a few minutes.' : ''
       if (count > 0) {
-        setUploadResult({ msg: `✓ Document attached and the AI generated ${count} new insights.`, ok: true })
+        setUploadResult({ msg: `✓ Document attached and the AI generated ${count} new insights.${planNote}`, ok: true })
         onInsightsGenerated?.(count)
       } else {
-        setUploadResult({ msg: '✓ Document attached.', ok: true })
+        setUploadResult({ msg: `✓ Document attached.${planNote}`, ok: true })
       }
       await fetchAttachments()
       setTimeout(() => {
@@ -127,11 +128,12 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
       const result = await api.analyzeTextForProject(projectId, { text, source }, token)
       const ig = result?.insightsGenerated || {}
       const count = ig.count || 0
+      const planNote = ig.planning ? ' The task plan is being updated; you will get a notification in a few minutes.' : ''
       if (count > 0) {
-        setUploadResult({ msg: `✓ Text analyzed: the AI generated ${count} new insights.`, ok: true })
+        setUploadResult({ msg: `✓ Text analyzed: the AI generated ${count} new insights.${planNote}`, ok: true })
         onInsightsGenerated?.(count)
       } else {
-        setUploadResult({ msg: '✓ Text saved.', ok: true })
+        setUploadResult({ msg: `✓ Text saved.${planNote}`, ok: true })
       }
       await fetchAttachments()
       setTimeout(() => {

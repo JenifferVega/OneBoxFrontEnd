@@ -50,6 +50,13 @@ const TYPE_CONFIG: Record<string, { icon: any; color: string; bg: string; labelK
   email:               { icon: Mail,         color: 'text-blue-400',    bg: 'bg-blue-500/10',    labelKey: 'email' },
   document_analyzed:   { icon: Sparkles,     color: 'text-amber-400',   bg: 'bg-amber-500/10',   labelKey: 'document_analyzed' },
   text_analyzed:       { icon: Sparkles,     color: 'text-amber-400',   bg: 'bg-amber-500/10',   labelKey: 'text_analyzed' },
+  plan_updated:        { icon: ListTodo,     color: 'text-emerald-400', bg: 'bg-emerald-500/10', labelKey: 'plan_updated' },
+  plan_error:          { icon: AlertTriangle,color: 'text-red-400',     bg: 'bg-red-500/10',     labelKey: 'plan_error' },
+  plan_proposal:       { icon: Sparkles,     color: 'text-amber-400',   bg: 'bg-amber-500/10',   labelKey: 'plan_proposal' },
+  checkin_report:      { icon: ListTodo,     color: 'text-sky-400',     bg: 'bg-sky-500/10',     labelKey: 'checkin_report' },
+  checkin_overdue:     { icon: AlertTriangle,color: 'text-amber-400',   bg: 'bg-amber-500/10',   labelKey: 'checkin_overdue' },
+  update_urgent:       { icon: AlertTriangle,color: 'text-red-400',     bg: 'bg-red-500/10',     labelKey: 'update_urgent' },
+  updates_digest:      { icon: ListTodo,     color: 'text-sky-400',     bg: 'bg-sky-500/10',     labelKey: 'updates_digest' },
   system:              { icon: Bell,         color: 'text-white/60',    bg: 'bg-white/5',        labelKey: 'system' },
 }
 

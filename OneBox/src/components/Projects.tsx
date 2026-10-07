@@ -7,7 +7,7 @@ import {
   Search, ArrowLeft, CheckCircle2, AlertTriangle, Clock, Settings,
   MessageCircle, Mail, Users, Hash, ChevronRight, Sparkles, X,
   FolderKanban, Zap, Eye, Shield, TrendingUp, AlertCircle,
-  Phone, Send, Bell, Trash2, Loader2, UserPlus, Ban, Unlock, Plus, Pencil, Calendar
+  Phone, Send, Bell, Trash2, Loader2, UserPlus, Ban, Unlock, Plus, Pencil, Calendar, Download
 } from 'lucide-react'
 import { PageType } from '../App'
 // ChannelsPanel — import commented out. The component still lives in
@@ -17,6 +17,8 @@ import { PageType } from '../App'
 import ProjectInsightsSidebar from './ProjectInsightsSidebar'
 import ProjectGantt from './ProjectGantt'
 import ProjectAttachments from './ProjectAttachments'
+import PersonAutocomplete from './PersonAutocomplete'
+import { refreshContacts } from '../hooks/useContacts'
 
 interface ProjectTeamMember {
   name: string; initials: string; role: string; email: string; phone: string; color: string; tasks: number;
@@ -146,6 +148,34 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
   const [projectSearch, setProjectSearch] = useState('')
   const [showAllActions, setShowAllActions] = useState(false)
   const [deletingProject, setDeletingProject] = useState<string | null>(null)
+  // Project export: downloads everything stored about the project as JSON.
+  const [exportingProject, setExportingProject] = useState<string | null>(null)
+  const [exportError, setExportError] = useState('')
+
+  const handleExportProject = async (projectId: string, projectName: string) => {
+    setExportingProject(projectId)
+    setExportError('')
+    try {
+      const data = await api.exportProject(projectId, token)
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const slug = (projectName || projectId).toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || projectId
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `onebox-${slug}-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('[export] could not export project:', err)
+      setExportError(t('projects.detail.exportError'))
+    } finally {
+      setExportingProject(null)
+    }
+  }
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null)
   // "Edit project" modal — UPDATE of basic fields (name, description,
   // type, status, deliveryDate, timing). Only accessible for the owner.
@@ -194,10 +224,58 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
 
   const userId = auth.user?.profile?.sub || ''
 
+  // ── The open project lives in the URL (?project=<id>) ─────────────────
+  // Opening a project used to be React state only: no history entry, so the
+  // browser's Back button left the app instead of returning to the list.
+  // openProject/closeProject are the ONLY way to open or close one; the many
+  // setSelectedProject(updated) calls below only refresh the open project's
+  // data and must not touch history.
+  const projectIdFromUrl = () => new URLSearchParams(window.location.search).get('project')
+
+  const urlWithProject = (projectId: string | null) => {
+    const params = new URLSearchParams(window.location.search)
+    if (projectId) params.set('project', projectId)
+    else params.delete('project')
+    const qs = params.toString()
+    return window.location.pathname + (qs ? `?${qs}` : '')
+  }
+
+  const openProject = (project: Project) => {
+    if (projectIdFromUrl() !== project.projectId) {
+      window.history.pushState(window.history.state, '', urlWithProject(project.projectId))
+    }
+    setSelectedProject(project)
+  }
+
+  // replace=true when the project no longer exists (deleted): Back must not
+  // lead to it.
+  const closeProject = (replace = false) => {
+    if (projectIdFromUrl()) {
+      const url = urlWithProject(null)
+      if (replace) window.history.replaceState(window.history.state, '', url)
+      else window.history.pushState(window.history.state, '', url)
+    }
+    setSelectedProject(null)
+  }
+
+  // Back / Forward, and a link that arrives with ?project=: follow the URL
+  // once the projects are loaded.
+  useEffect(() => {
+    const sync = () => {
+      const id = projectIdFromUrl()
+      if (!id) { setSelectedProject(null); return }
+      const found = projects.find(pr => pr.projectId === id)
+      if (found) setSelectedProject(prev => (prev?.projectId === id ? prev : found))
+    }
+    sync()
+    window.addEventListener('popstate', sync)
+    return () => window.removeEventListener('popstate', sync)
+  }, [projects])
+
   // Reset the view when the navbar sends a signal (user clicks "Projects" from within one)
   useEffect(() => {
     if (resetSignal !== undefined && resetSignal > 0) {
-      setSelectedProject(null)
+      closeProject()
       setTaskFilter('all')
       setShowAllTasks(false)
       setShowAllActions(false)
@@ -269,8 +347,9 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
       // Refresh list
       const data = await api.getProjects(token)
       if (Array.isArray(data)) setProjects(data)
-      // Return to the list
-      setSelectedProject(null)
+      // Return to the list. Replace, not push: Back must not reopen a
+      // project that no longer exists.
+      closeProject(true)
       setConfirmDelete(null)
     } catch (err) {
       console.error('[Projects] Error deleting project:', err)
@@ -853,7 +932,10 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-white/60">{t('projects.modals.invite.name')}</label>
-                    <input type="text" value={inviteForm.name} onChange={e => setInviteForm({ ...inviteForm, name: e.target.value })}
+                    <PersonAutocomplete value={inviteForm.name} onChange={v => setInviteForm({ ...inviteForm, name: v })}
+                      onPick={c => setInviteForm({ ...inviteForm, name: c.name, email: c.email || inviteForm.email,
+                        role: inviteForm.role || c.role })}
+                      exclude={(p.team || []).map((m: any) => m.email).filter(Boolean)}
                       placeholder={t('projects.modals.invite.namePlaceholder')} autoFocus disabled={sendingInvite}
                       className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500 disabled:opacity-50" />
                   </div>
@@ -866,7 +948,11 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                 </div>
                 <div>
                   <label className="text-xs text-white/60 flex items-center gap-1.5"><Mail className="w-3 h-3 text-sky-400" /> Email</label>
-                  <input type="email" value={inviteForm.email} onChange={e => setInviteForm({ ...inviteForm, email: e.target.value })}
+                  <PersonAutocomplete type="email" value={inviteForm.email} onChange={v => setInviteForm({ ...inviteForm, email: v })}
+                    onPick={c => setInviteForm({ ...inviteForm, email: c.email, name: inviteForm.name || c.name,
+                      role: inviteForm.role || c.role })}
+                    exclude={(p.team || []).map((m: any) => m.email).filter(Boolean)}
+                    suggestFor={inviteForm.name} requireEmail
                     placeholder={t('projects.modals.invite.emailPlaceholder')} disabled={sendingInvite}
                     className="w-full mt-1 px-3 py-2 bg-[#0E0E18] border border-white/10 rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:border-sky-500 disabled:opacity-50" />
                   <p className="text-[10px] text-white/30 mt-0.5">{t('projects.modals.invite.emailHint')}</p>
@@ -953,6 +1039,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                           role: inviteForm.role.trim() || t('projects.modals.invite.defaultRole'),
                           sendNotification: inviteForm.sendNotification,
                         }, token)
+                        refreshContacts(token)
                         // Compose message according to what was done
                         const parts: string[] = []
                         if (res?.notified) {
@@ -1005,7 +1092,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
           projectId={p.projectId}
           projectName={p.name}
           channels={projectChannels}
-          onBack={() => setSelectedProject(null)}
+          onBack={() => closeProject()}
           searchQuery={projectSearch}
         />
 
@@ -1014,7 +1101,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
           {/* Breadcrumb + header */}
           <div className="mb-6">
             <div className="flex items-center gap-2 text-sm text-white/40 mb-2">
-              <button onClick={() => setSelectedProject(null)} className="hover:text-white/70 transition-colors">{t('nav.projects')}</button>
+              <button onClick={() => closeProject()} className="hover:text-white/70 transition-colors">{t('nav.projects')}</button>
               <span>/</span>
               <span className="text-white/60">{p.name}</span>
             </div>
@@ -1022,6 +1109,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
               <div>
                 <h1 className="text-2xl font-bold text-white">{p.name}</h1>
                 <p className="text-white/50 mt-1 text-sm">{p.description}</p>
+                {exportError && <p className="text-red-400 mt-1 text-xs">{exportError}</p>}
               </div>
               <div className="flex items-center gap-2">
                 <StatusBadge status={p.status} />
@@ -1031,6 +1119,20 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                     <Clock className="w-3.5 h-3.5" /> {t('projects.detail.daysLeft', { count: p.daysLeft })}
                   </span>
                 )}
+                {/* Export: everyone with access to the project. */}
+                <button
+                  onClick={() => handleExportProject(p.projectId, p.name)}
+                  disabled={exportingProject === p.projectId}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={t('projects.detail.exportTooltip')}
+                >
+                  {exportingProject === p.projectId ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5" />
+                  )}
+                  {t('projects.detail.export')}
+                </button>
                 {/* Owner-only: edit project (name, description, type,
                     status, dates). Appears next to delete and shares the
                     isOwner check. */}
@@ -1785,6 +1887,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                           phone: (phoneEdits[m.name] ?? m.phone ?? '').trim(),
                         }))
                         await api.updateParticipants(p.projectId, updatedParticipants, token)
+                        refreshContacts(token)
                         const updated = {
                           ...p,
                           team: p.team.map(m => ({
@@ -1885,10 +1988,14 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                     <div className="ml-10 mt-1 space-y-1">
                       <div className="flex items-center gap-1.5">
                         <Mail className="w-3 h-3 text-sky-400 flex-shrink-0" />
-                        <input
+                        <PersonAutocomplete
                           type="email"
                           value={emailEdits[member.name] ?? ''}
-                          onChange={e => setEmailEdits({ ...emailEdits, [member.name]: e.target.value })}
+                          onChange={v => setEmailEdits({ ...emailEdits, [member.name]: v })}
+                          onPick={c => setEmailEdits({ ...emailEdits, [member.name]: c.email })}
+                          suggestFor={member.name}
+                          requireEmail
+                          wrapperClassName="relative flex-1 [&>input]:w-full"
                           className="flex-1 px-2.5 py-1.5 bg-[#161625] border border-white/10 rounded-lg text-xs text-white/70 placeholder-white/20 focus:border-sky-500/40 outline-none transition-all"
                           placeholder={t('projects.detail.team.emailPlaceholder')}
                         />
@@ -2213,7 +2320,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                     {groups.map(g => (
                       <div key={g.project.projectId} className="bg-[#0E0E1A] rounded-lg p-3 border border-white/5">
                         <button
-                          onClick={() => { setSelectedProject(g.project); setGlobalTaskFilter(null) }}
+                          onClick={() => { openProject(g.project); setGlobalTaskFilter(null) }}
                           className="flex items-center gap-2 mb-2 group"
                         >
                           <FolderKanban className="w-3.5 h-3.5 text-white/40" />
@@ -2281,7 +2388,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
-              onClick={() => setSelectedProject(project)}
+              onClick={() => openProject(project)}
               className="bg-[#161625] rounded-xl border border-white/5 p-5 hover:border-white/15 hover:bg-[#1a1a2e] transition-all cursor-pointer group"
             >
               {/* Header */}

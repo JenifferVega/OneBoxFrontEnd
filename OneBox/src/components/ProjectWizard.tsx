@@ -11,6 +11,8 @@ import {
 import { PageType } from '../App'
 import DocumentUploader from './DocumentUploader'
 import TextPaster from './TextPaster'
+import PersonAutocomplete from './PersonAutocomplete'
+import { matchContacts, useContacts } from '../hooks/useContacts'
 
 // Gradient palette assigned deterministically by email — the backend
 // doesn't send a color per member, we derive it here so each person always
@@ -436,13 +438,30 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
     return () => { cancelled = true }
   }, [token])
 
-  const searchResults = teamSearch.length >= 2
-    ? orgMembers.filter(p =>
-        (p.name.toLowerCase().includes(teamSearch.toLowerCase()) ||
-         p.email.toLowerCase().includes(teamSearch.toLowerCase())) &&
-        !selectedTeam.some(s => s.email === p.email)
-      )
-    : []
+  // People from the user's other projects. /api/org/members does not exist
+  // on this backend yet, so the org list above is empty and this search used
+  // to find nobody, however well the name was typed.
+  const contacts = useContacts()
+  const searchResults: TeamMember[] = (() => {
+    if (!teamSearch.trim()) return []
+    const taken = selectedTeam.map(s => s.email)
+    const fromOrg = orgMembers.filter(p =>
+      matchContacts([{ ...p, projects: [] }], teamSearch).length > 0 &&
+      !taken.includes(p.email))
+    const fromContacts: TeamMember[] = matchContacts(
+      contacts.filter(c => c.email), teamSearch, taken, 8)
+      .filter(c => !fromOrg.some(o => o.email === c.email))
+      .map(c => ({
+        name: c.name || c.email.split('@')[0],
+        email: c.email,
+        phone: c.phone || '',
+        role: ROLES.includes(c.role) ? c.role : 'Partner',
+        initials: (c.name || c.email).split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase(),
+        color: gradientForEmail(c.email),
+        projectCount: c.projects.length,
+      }))
+    return [...fromOrg, ...fromContacts].slice(0, 8)
+  })()
 
   const addTeamMember = (member: TeamMember) => {
     setSelectedTeam([...selectedTeam, member])
@@ -933,14 +952,21 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                         {p.include && (
                           <>
                             <div className="ml-5">
-                              <input
+                              <PersonAutocomplete
                                 type="email"
                                 value={p.email}
-                                onChange={e => {
+                                onChange={v => {
                                   const updated = [...detectedParticipants]
-                                  updated[idx] = { ...updated[idx], email: e.target.value }
+                                  updated[idx] = { ...updated[idx], email: v }
                                   setDetectedParticipants(updated)
                                 }}
+                                onPick={c => {
+                                  const updated = [...detectedParticipants]
+                                  updated[idx] = { ...updated[idx], email: c.email }
+                                  setDetectedParticipants(updated)
+                                }}
+                                suggestFor={p.name}
+                                requireEmail
                                 disabled={docDraftCreating}
                                 placeholder={t('wizard.manual.detectedTasks.emailPlaceholder')}
                                 className={`w-full px-2.5 py-1.5 bg-[#0B0B14] border rounded-md text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-cyan-400 ${
@@ -1016,10 +1042,12 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                 <div className="rounded-md border border-cyan-500/30 bg-[#0E0E1A] p-3 space-y-2">
                   <p className="text-[11px] font-bold text-cyan-300 uppercase tracking-wider mb-1">{t('wizard.manual.detectedTasks.addPersonTitle')}</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <input
-                      type="text"
+                    <PersonAutocomplete
                       value={extraForm.name}
-                      onChange={e => setExtraForm({ ...extraForm, name: e.target.value })}
+                      onChange={v => setExtraForm({ ...extraForm, name: v })}
+                      onPick={c => setExtraForm({ ...extraForm, name: c.name,
+                        email: c.email || extraForm.email, role: extraForm.role || c.role })}
+                      wrapperClassName="relative [&>input]:w-full"
                       disabled={docDraftCreating}
                       placeholder={t('wizard.manual.detectedTasks.namePlaceholder')}
                       className="px-2.5 py-1.5 bg-[#0B0B14] border border-white/10 rounded-md text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-cyan-400"
@@ -1033,10 +1061,15 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                       placeholder={t('wizard.manual.detectedTasks.rolePlaceholder')}
                       className="px-2.5 py-1.5 bg-[#0B0B14] border border-white/10 rounded-md text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-cyan-400"
                     />
-                    <input
+                    <PersonAutocomplete
                       type="email"
                       value={extraForm.email}
-                      onChange={e => setExtraForm({ ...extraForm, email: e.target.value })}
+                      onChange={v => setExtraForm({ ...extraForm, email: v })}
+                      onPick={c => setExtraForm({ ...extraForm, email: c.email,
+                        name: extraForm.name || c.name, role: extraForm.role || c.role })}
+                      suggestFor={extraForm.name}
+                      requireEmail
+                      wrapperClassName="relative [&>input]:w-full"
                       disabled={docDraftCreating}
                       placeholder={t('wizard.manual.detectedTasks.emailPlaceholderOptional')}
                       className="px-2.5 py-1.5 bg-[#0B0B14] border border-white/10 rounded-md text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-cyan-400"
@@ -1473,20 +1506,27 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <input
+                  <PersonAutocomplete
                     value={externalName}
-                    onChange={e => setExternalName(e.target.value)}
-                    className="w-40 px-4 py-3 bg-[#161625] border border-white/10 rounded-xl text-white placeholder-white/20 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 outline-none transition-all"
+                    onChange={setExternalName}
+                    onPick={c => { setExternalName(c.name); if (c.email) setExternalEmail(c.email) }}
+                    exclude={selectedTeam.map(m => m.email)}
+                    wrapperClassName="relative w-40"
+                    className="w-full px-4 py-3 bg-[#161625] border border-white/10 rounded-xl text-white placeholder-white/20 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 outline-none transition-all"
                     placeholder="Name"
-                    onKeyDown={e => e.key === 'Enter' && addExternal()}
+                    onEnter={addExternal}
                     maxLength={80}
                   />
-                  <input
+                  <PersonAutocomplete
                     value={externalEmail}
-                    onChange={e => setExternalEmail(e.target.value)}
-                    className="flex-1 px-4 py-3 bg-[#161625] border border-white/10 rounded-xl text-white placeholder-white/20 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 outline-none transition-all"
+                    onChange={setExternalEmail}
+                    onPick={c => { if (c.email) setExternalEmail(c.email); if (c.name) setExternalName(c.name) }}
+                    exclude={selectedTeam.map(m => m.email)}
+                    requireEmail
+                    wrapperClassName="relative flex-1"
+                    className="w-full px-4 py-3 bg-[#161625] border border-white/10 rounded-xl text-white placeholder-white/20 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 outline-none transition-all"
                     placeholder={t('wizard.manual.step2.externalPlaceholder')}
-                    onKeyDown={e => e.key === 'Enter' && addExternal()}
+                    onEnter={addExternal}
                   />
                   <button
                     onClick={addExternal}

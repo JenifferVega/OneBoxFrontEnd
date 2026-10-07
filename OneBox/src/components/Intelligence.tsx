@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from 'react-oidc-context'
 import { useTranslation } from 'react-i18next'
 import { api } from '../services/api'
+import PlanningChat from './PlanningChat'
 import {
   Zap, CheckCircle2, Eye, X, AlertTriangle, Clock,
-  MessageCircle, Mail, Users, Hash, TrendingUp, Phone
+  MessageCircle, Mail, Users, Hash, TrendingUp, Phone, ListTree, Workflow
 } from 'lucide-react'
 
 interface ActionTag {
@@ -42,6 +43,19 @@ export default function Intelligence() {
   const [filterTime, setFilterTime] = useState<'hoy' | '48h' | 'semana' | 'mes' | 'todo'>('todo')
 
   const userId = auth.user?.profile?.sub || ''
+  // Two tabs: the log of what the AI did, and the planning chat that moves a
+  // whole project. The tab lives in the URL so Back and reload keep it.
+  const [tab, setTab] = useState<'log' | 'replan'>(() => {
+    try { return new URLSearchParams(window.location.search).get('tab') === 'replan' ? 'replan' : 'log' } catch { return 'log' }
+  })
+  const switchTab = (next: 'log' | 'replan') => {
+    setTab(next)
+    try {
+      const url = new URL(window.location.href)
+      if (next === 'replan') url.searchParams.set('tab', 'replan'); else { url.searchParams.delete('tab'); url.searchParams.delete('planProject') }
+      window.history.replaceState(window.history.state, '', url.toString())
+    } catch { /* ignore */ }
+  }
   useEffect(() => {
     if (!token || !userId) return
     const fetchInsights = async () => {
@@ -152,8 +166,37 @@ export default function Intelligence() {
     return days.map(d => ({ ...d, value: Math.round((d.count / max) * 100) }))
   }, [actions])
 
+  const tabs = (
+    <div className="flex items-center gap-1 px-4 border-b border-white/5 bg-[#0E0E1A] flex-shrink-0">
+      {([
+        { id: 'log', label: t('intelligence.tabs.log', 'Log'), icon: ListTree },
+        { id: 'replan', label: t('intelligence.tabs.replan', 'Replanning'), icon: Workflow },
+      ] as const).map(tb => {
+        const Icon = tb.icon
+        return (
+          <button key={tb.id} onClick={() => switchTab(tb.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-sm border-b-2 -mb-px transition-all ${
+                    tab === tb.id ? 'border-violet-500 text-white' : 'border-transparent text-white/50 hover:text-white/80'}`}>
+            <Icon className="w-4 h-4" />{tb.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  if (tab === 'replan') {
+    return (
+      <div className="flex flex-col h-[calc(100vh-80px)]">
+        {tabs}
+        <div className="flex-1 min-h-0"><PlanningChat token={token} /></div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex h-[calc(100vh-56px)]">
+    <div className="flex flex-col h-[calc(100vh-80px)]">
+    {tabs}
+    <div className="flex flex-1 min-h-0">
       <aside className="w-56 border-r border-white/5 bg-[#0E0E1A] flex-shrink-0 overflow-y-auto">
         <div className="p-4 space-y-6">
           <div>
@@ -409,6 +452,7 @@ export default function Intelligence() {
           </div>
         </div>
       </aside>
+    </div>
     </div>
   )
 }

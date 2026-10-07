@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from 'react-oidc-context'
 import Layout from './components/Layout'
 import Projects from './components/Projects'
@@ -12,13 +12,15 @@ import FloatChat from './components/FloatChat'
 import NotificationsPage from './components/NotificationsPage'
 import TrelloConnection from './components/TrelloConnection'
 import IntegrationsPage from './components/IntegrationsPage'
+import SettingsPage, { browserTimezone } from './components/SettingsPage'
+import { setAppLocale, getAppLocale } from './i18n'
 import { captureTrelloToken } from './services/trello'
 import PlatformAdmin from './components/PlatformAdmin'
 import { setUserId, setUserEmail, getUserId, getUserEmail, clearUserSession, api } from './services/api'
 
 const PENDING_PROJECT_KEY = 'onebox_pending_project'
 
-export type PageType = 'projects' | 'intelligence' | 'platform' | 'orders-center' | 'wizard' | 'connect-gmail' | 'connect-trello' | 'integrations' | 'notifications'
+export type PageType = 'projects' | 'intelligence' | 'platform' | 'orders-center' | 'wizard' | 'connect-gmail' | 'connect-trello' | 'integrations' | 'notifications' | 'settings'
 
 // ── Internal navigation and the browser Back button ─────────────────────────
 // The current page used to live only in React state, so navigating created no
@@ -29,7 +31,7 @@ export type PageType = 'projects' | 'intelligence' | 'platform' | 'orders-center
 // A query param, not a hash: Trello hands its token back in the fragment
 // (#token=...), so a hash-based route would collide with it.
 const PAGES: PageType[] = ['projects', 'intelligence', 'platform', 'orders-center',
-  'wizard', 'connect-gmail', 'connect-trello', 'integrations', 'notifications']
+  'wizard', 'connect-gmail', 'connect-trello', 'integrations', 'notifications', 'settings']
 const DEFAULT_PAGE: PageType = 'projects'
 
 function pageFromUrl(): PageType {
@@ -41,6 +43,11 @@ function pageFromUrl(): PageType {
 function urlForPage(page: PageType): string {
   const params = new URLSearchParams(window.location.search)
   for (const junk of ['code', 'state', 'gmail', 'error', 'token']) params.delete(junk)
+  // An open project belongs to the Projects page; changing page closes it.
+  params.delete('project')
+  // Intelligence's tab and planning project belong to that page too.
+  params.delete('tab')
+  params.delete('planProject')
   if (page === DEFAULT_PAGE) params.delete('page')
   else params.set('page', page)
   const qs = params.toString()
@@ -66,13 +73,18 @@ export default function App() {
   // THE single entry point for changing page. Everything navigates through
   // here -- children included -- or the history entry is not created and Back
   // silently skips that step.
+  //
+  // pushState must NOT run inside a setState updater: React StrictMode runs
+  // updaters twice in development, which pushed every page twice and made
+  // Back look like it did nothing. A ref holds the page actually shown.
+  const pageRef = useRef<PageType>(currentPage)
+  useEffect(() => { pageRef.current = currentPage }, [currentPage])
   const navigate = useCallback((page: PageType) => {
-    setCurrentPage(prev => {
-      if (page !== prev) {
-        window.history.pushState({ page }, '', urlForPage(page))
-      }
-      return page
-    })
+    if (page !== pageRef.current) {
+      window.history.pushState({ page }, '', urlForPage(page))
+      pageRef.current = page
+    }
+    setCurrentPage(page)
   }, [])
 
   const handleNavigate = (page: PageType) => {
@@ -87,7 +99,11 @@ export default function App() {
   // pushState here -- the entry already exists, adding another would trap the
   // user in a loop where Back never leaves the page.
   useEffect(() => {
-    const onPop = () => setCurrentPage(pageFromUrl())
+    const onPop = () => {
+      const page = pageFromUrl()
+      pageRef.current = page
+      setCurrentPage(page)
+    }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -318,6 +334,31 @@ export default function App() {
     return () => { cancelled = true }
   }, [auth.isAuthenticated, auth.user?.access_token])
 
+  // The user's saved preferences. The language saved in the backend wins over
+  // this browser's localStorage, so it follows the user to other devices.
+  // The timezone is filled in from the browser the first time: the agent
+  // needs one for WhatsApp turns and scheduled sends, and asking every user to
+  // open Settings first would leave most of them on the server's default.
+  useEffect(() => {
+    if (!auth.isAuthenticated || !auth.user?.access_token) return
+    const token = auth.user.access_token
+    let cancelled = false
+    api.getUserSettings(token)
+      .then(s => {
+        if (cancelled) return
+        if (s.language && s.language !== getAppLocale()) setAppLocale(s.language)
+        const missing: { timezone?: string; language?: 'es' | 'en' } = {}
+        const tz = browserTimezone()
+        if (!s.timezone && tz) missing.timezone = tz
+        if (!s.language) missing.language = getAppLocale()
+        if (Object.keys(missing).length) {
+          api.updateUserSettings(missing, token).catch(() => { /* retried next login */ })
+        }
+      })
+      .catch(() => { /* settings unavailable: defaults apply */ })
+    return () => { cancelled = true }
+  }, [auth.isAuthenticated, auth.user?.access_token])
+
   if (!isPreview) {
     if (auth.isLoading) {
       return (
@@ -401,6 +442,8 @@ export default function App() {
         return <TrelloConnection onNavigate={navigate} />
       case 'notifications':
         return <NotificationsPage onNavigate={navigate} />
+      case 'settings':
+        return <SettingsPage />
       case 'orders-center':
         return (
           <div className="flex items-center justify-center h-[calc(100vh-56px)]">

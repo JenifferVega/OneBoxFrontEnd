@@ -259,7 +259,14 @@
       "email": "Email",
       "document_analyzed": "Documento analizado",
       "text_analyzed": "Texto analizado",
-      "system": "Sistema"
+      "plan_updated": "Plan actualizado",
+      "plan_error": "Error al actualizar el plan",
+      "system": "Sistema",
+      "plan_proposal": "Propuesta de plan",
+      "checkin_report": "Reporte de avances",
+      "checkin_overdue": "Sin reportar avances",
+      "update_urgent": "Urgente del equipo",
+      "updates_digest": "Resumen de updates"
     }
   },
   "chat": {
@@ -492,6 +499,76 @@
       "notification": "Notificaciones",
       "classification": "Auto-clasificación",
       "summary": "Resúmenes"
+    },
+    "tabs": {
+      "log": "Log",
+      "replan": "Replanificación"
+    },
+    "planning": {
+      "title": "Replanificación",
+      "subtitle": "Replanifica el proyecto con contexto nuevo (mensaje, texto, documento o Trello). Revisa la propuesta antes de que cambie algo.",
+      "emptyTitle": "¿Qué puedes pedir aquí?",
+      "example1": "\"Replanifica con este contexto\" + pega un chat o adjunta un documento",
+      "example2": "\"Compara el plan con Trello y actualízalo\"",
+      "example3": "\"Todo lo de Meta está cerrado; mueve diseño una semana\"",
+      "emptyHint": "Aquí solo se replanifica con contexto. Nada cambia hasta que apruebes la propuesta; los updates diarios del equipo también llegan aquí.",
+      "contextPlaceholder": "Pega contexto: un chat, un correo, notas de reunión…",
+      "attach": "Adjuntar documento",
+      "includeTrello": "Incluir tablero de Trello",
+      "noTrello": "Este proyecto no tiene tablero de Trello vinculado",
+      "rereadAll": "Releer todos los documentos del proyecto",
+      "rereadHint": "Más lento y más caro: vuelve a leer todos los documentos del proyecto",
+      "context": "Contexto",
+      "placeholder": "Ej.: \"Replanéame {{project}} con este contexto\"",
+      "send": "Enviar (Ctrl+Enter)",
+      "questions": "Preguntas para ti: decide al aprobar, o replanifica aquí con la respuesta como contexto",
+      "notes": "{{count}} notas",
+      "approveAll": "Aprobar todo",
+      "approveSome": "Aprobar {{count}}",
+      "reject": "Rechazar",
+      "revert": "Revertir esta replanificación",
+      "revertConfirm": "¿Revertir esta replanificación? Cada tarea que tocó vuelve a como estaba.",
+      "errors": {
+        "projects": "No se pudieron cargar los proyectos"
+      },
+      "status": {
+        "pending": "Pendiente",
+        "applied": "Aplicada",
+        "partially_applied": "Aplicada en parte",
+        "rejected": "Rechazada",
+        "reverted": "Revertida",
+        "stale": "Desactualizada",
+        "superseded": "Reemplazada"
+      },
+      "ops": {
+        "create": "Nuevas",
+        "update": "Actualizar",
+        "close": "Cerrar",
+        "block": "Bloquear",
+        "reopen": "Reabrir",
+        "delete": "Eliminar",
+        "link": "Dependencias"
+      },
+      "steps": {
+        "start": "Iniciando…",
+        "load_project": "Cargando el proyecto…",
+        "interpret_request": "Entendiendo tu mensaje…",
+        "load_sources": "Leyendo el material…",
+        "extract_facts": "Extrayendo hechos…",
+        "consolidate": "Consolidando temas…",
+        "reconcile": "Decidiendo tareas…",
+        "link_dependencies": "Enlazando dependencias…",
+        "validate": "Validando…",
+        "schedule": "Calculando fechas…",
+        "propose": "Armando la propuesta…",
+        "narrate": "Redactando la respuesta…",
+        "analyze_plan": "Analizando el plan…",
+        "answer": "Respondiendo…",
+        "apply": "Aplicando…"
+      },
+      "consolidate": "Consolidar updates",
+      "consolidateHint": "Convierte ahora los updates del equipo en un resumen y una propuesta (también corre una vez al día)",
+      "noUpdates": "No hay updates nuevos del equipo para consolidar."
     }
   },
   "projects": {
@@ -552,6 +629,9 @@
     },
     "detail": {
       "editTooltip": "Editar proyecto",
+      "export": "Descargar",
+      "exportTooltip": "Descargar toda la información del proyecto en un archivo JSON",
+      "exportError": "No se pudo descargar el proyecto. Inténtalo de nuevo.",
       "deleteTooltip": "Eliminar proyecto",
       "invitedTooltip": "Estás invitado a este proyecto",
       "invitedBadge": "Invitado",
@@ -927,5 +1007,53 @@
     "footer": {
       "rights": "© 2026 OneBox. Todos los derechos reservados."
     }
+  },
+  "settings": {
+    "title": "Configuración",
+    "subtitle": "Tus preferencias. Aplican en la app, el chat y WhatsApp.",
+    "timezone": "Zona horaria",
+    "timezoneHint": "El asistente la usa para \"hoy\", las fechas de entrega y los mensajes programados (\"mañana a las 9\", \"todos los lunes\").",
+    "useDetected": "Usar {{tz}}",
+    "searchTimezone": "Busca una ciudad o región (ej. Bogota, Madrid)",
+    "noTimezone": "Ninguna zona horaria coincide con la búsqueda.",
+    "language": "Idioma",
+    "save": "Guardar",
+    "saved": "Guardado",
+    "loadError": "No se pudo cargar tu configuración.",
+    "saveError": "No se pudo guardar. Inténtalo de nuevo."
+  },
+  "autocomplete": {
+    "knownAs": "Ya está en tus proyectos",
+    "noEmail": "sin correo"
+  },
+  "checkin": {
+    "title": "¿Cómo van tus tareas?",
+    "progress": "Faltan {{count}} proyectos",
+    "subtitle": "Reporta el estado de cada tarea asignada a ti. Tu líder lo revisa antes de que cambie el plan.",
+    "urgent": "Tienes tareas vencidas o que vencen en los próximos días.",
+    "status": {
+      "done": "Hecha",
+      "in_progress": "En curso",
+      "pending": "Sin empezar",
+      "blocked": "Bloqueada"
+    },
+    "blockedReason": "¿Qué la bloquea? (obligatorio)",
+    "newDate": "Nueva fecha estimada (opcional)",
+    "comment": "Comentario (opcional)",
+    "general": "¿Algo más que deba saber el líder? (opcional)",
+    "answerAll": "Responde todas las tareas para continuar.",
+    "send": "Enviar reporte"
+  },
+  "updates": {
+    "title": "¿Cómo vas?",
+    "subtitle": "Cuéntalo con tus palabras. Nada cambia en el plan hasta que el dueño del proyecto lo apruebe.",
+    "greeting": "¡Hola {{name}}! ¿Cómo van tus cosas en este proyecto?",
+    "done": "Update registrado. El dueño del proyecto lo revisará.",
+    "next": "Siguiente proyecto",
+    "close": "Continuar",
+    "placeholder": "p. ej. \"los gráficos ya, outlook casi, me falta la cuenta de azure\"",
+    "hint": "Cuando termines, di \"eso es todo\".",
+    "later": "Ahora no",
+    "laterHint": "Eres el dueño del proyecto: puedes dar tu update más tarde"
   }
 }

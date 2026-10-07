@@ -46,7 +46,101 @@ export async function fetchAPI(path: string, token: string, options?: RequestIni
   return res.json()
 }
 
+// IDs that go in a URL path MUST be encoded. Attachment, notification and
+// conversation ids contain '#' (e.g. "2026-07-14T15:41:31.053721#19e6710d"),
+// and an unencoded '#' starts the URL fragment: the browser silently dropped
+// everything after it, so download/delete hit a truncated, non-existent id.
+export interface UserSettings {
+  /** IANA name ("America/Bogota"); null when the user never saved one. */
+  timezone: string | null
+  language: 'es' | 'en' | null
+  defaults?: { timezone: string; language: string }
+}
+
+/** Someone the user already works with (a participant of one of their projects). */
+export interface Contact {
+  name: string
+  email: string
+  phone: string
+  role: string
+  /** Names of the projects this person is in. */
+  projects: string[]
+}
+
+/** Planning chat (Intelligence > Replanificación). */
+export interface PlanningOperation {
+  op: 'create' | 'update' | 'close' | 'reopen' | 'delete' | 'link' | 'block'
+  task_id: string; text?: string; status?: string; assigned_to?: string
+  start_date?: string; due_date?: string; date_status?: string
+  depends_on?: string[]; duplicate_of?: string; reason?: string; confidence?: string
+}
+export interface PlanningProposal {
+  proposalId: string
+  status: 'pending' | 'applied' | 'partially_applied' | 'rejected' | 'reverted' | 'stale' | 'superseded'
+  source: string; createdAt: string; summary: string; counts: Record<string, number>
+  operations: PlanningOperation[]
+  questions: { id: string; text: string; options?: string[] }[]
+  notes: { kind: string; text: string; date?: string }[]
+  approved?: number[]
+}
+export interface PlanningMessage {
+  itemId: string; role: 'user' | 'assistant'; content: string; createdAt: string
+  userEmail?: string; proposalId?: string; sources?: string[]; error?: boolean
+  /** 'updates_digest' = the daily summary of the members' updates */
+  kind?: string
+}
+export interface PlanningState {
+  messages: PlanningMessage[]; proposals: PlanningProposal[]
+  revertible: string | null; job: { jobId: string; step: string } | null
+  trello: boolean; planVersion: number
+  /** Text of the existing tasks the proposals mention (operations only carry the id). */
+  taskTexts: Record<string, string>
+}
+export interface PlanningJob {
+  jobId: string; status: 'running' | 'done' | 'error'; step: string; steps: string[]
+  error: string; seconds: number; proposalId?: string
+}
+
+/** Projects where the member owes an update (blocking chat on login). */
+export interface CheckinTask {
+  taskId: string; text: string; status: string; startDate: string; dueDate: string; blockedReason: string
+}
+export interface CheckinProject {
+  projectId: string; projectName: string; person: string; urgent: boolean; lastReportAt: string
+  /** The owner may postpone their own update; members may not. */
+  isOwner?: boolean
+  tasks: CheckinTask[]
+}
+
+/** Member updates: the member tells how it is going in a chat; the AI asks and records items. */
+export interface UpdateItem {
+  type: string; task_id: string; text: string; owner: string; due_date: string; certainty: string
+  depends_on: string; about_person: string; decision_for_owner: boolean; urgent: boolean; quote: string
+}
+export interface UpdateTurnResult { reply: string; finished: boolean; items: UpdateItem[]; sessionId: string }
+export interface UpdateSession {
+  sessionId: string | null; items: UpdateItem[]; messages: { role: 'member' | 'assistant'; content: string }[]
+}
+
 export const api = {
+  /** People from all the user's projects, deduplicated — for autocomplete. */
+  getContacts: (token: string) =>
+    fetchAPI('/api/user/contacts', token) as Promise<{ contacts: Contact[]; count: number }>,
+
+  /** The user's preferences (table onebox-users). */
+  getUserSettings: (token: string) =>
+    fetchAPI('/api/user/settings', token) as Promise<UserSettings>,
+
+  /** Partial update: only the fields sent are changed. */
+  updateUserSettings: (
+    updates: Partial<{ timezone: string; language: 'es' | 'en' }>,
+    token: string,
+  ) =>
+    fetchAPI('/api/user/settings', token, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    }) as Promise<UserSettings>,
+
   getProjects: (token: string) =>
     fetchAPI('/api/projects', token),
   
@@ -79,6 +173,12 @@ export const api = {
 
   deleteProject: (projectId: string, token: string) =>
     fetchAPI(`/api/projects/${projectId}`, token, { method: 'DELETE' }),
+
+  /** Everything stored about one project as a single JSON document
+   *  (tasks, insights, attachments with full text, conversations, notifications).
+   *  Read-only. Owner and participants. */
+  exportProject: (projectId: string, token: string) =>
+    fetchAPI(`/api/projects/${projectId}/export`, token),
 
   /** Members of the logged-in user's organization.
    *  Excludes the user themselves. Used by the ProjectWizard to populate the
@@ -249,7 +349,7 @@ export const api = {
     fetchAPI('/api/inbox', token),
   
   assignToProject: (conversationId: string, projectId: string, token: string) =>
-    fetchAPI(`/api/inbox/${conversationId}/assign`, token, {
+    fetchAPI(`/api/inbox/${encodeURIComponent(conversationId)}/assign`, token, {
       method: 'POST', body: JSON.stringify({ projectId })
     }),
 
@@ -279,7 +379,7 @@ export const api = {
     fetchAPI(`/api/notifications${projectId ? `?projectId=${projectId}` : ''}`, token),
 
   markNotificationRead: (notificationId: string, token: string) =>
-    fetchAPI(`/api/notifications/${notificationId}/read`, token, { method: 'PUT' }),
+    fetchAPI(`/api/notifications/${encodeURIComponent(notificationId)}/read`, token, { method: 'PUT' }),
 
   markAllNotificationsRead: (token: string) =>
     fetchAPI('/api/notifications/mark-all-read', token, { method: 'POST' }),
@@ -369,6 +469,57 @@ export const api = {
   }, token: string) =>
     fetchAPI('/api/projects/from-document-draft', token, { method: 'POST', body: JSON.stringify(data) }),
 
+  // ── Member updates (chat) ──
+  getUpdatesPending: (token: string, name = '') =>
+    fetchAPI(`/api/updates/pending?name=${encodeURIComponent(name)}`, token) as Promise<{ projects: CheckinProject[]; checkinDays: number }>,
+
+  getUpdateSession: (projectId: string, token: string, name = '') =>
+    fetchAPI(`/api/updates/${encodeURIComponent(projectId)}/session?name=${encodeURIComponent(name)}`, token) as Promise<UpdateSession>,
+
+  sendUpdateMessage: (projectId: string, messages: string[], token: string, name = '') =>
+    fetchAPI(`/api/updates/${encodeURIComponent(projectId)}/message`, token,
+      { method: 'POST', body: JSON.stringify({ messages, name }) }) as Promise<UpdateTurnResult>,
+
+  consolidateUpdates: (projectId: string, token: string) =>
+    fetchAPI(`/api/projects/${encodeURIComponent(projectId)}/updates/consolidate`, token, { method: 'POST' }) as
+      Promise<{ status: string; sessions?: number; proposalId?: string | null; digest?: string }>,
+
+  // ── Planning chat ──
+  getPlanning: (projectId: string, token: string) =>
+    fetchAPI(`/api/projects/${encodeURIComponent(projectId)}/planning`, token) as Promise<PlanningState>,
+
+  /** Multipart: the instruction plus optional context (text, a file, Trello). Returns the background job. */
+  sendPlanningMessage: async (projectId: string, data: {
+    message: string; context?: string; file?: File | null; includeTrello?: boolean; rereadAll?: boolean
+  }, token: string) => {
+    const { userId, userEmail } = readUserCreds()
+    const form = new FormData()
+    form.append('message', data.message || '')
+    form.append('context', data.context || '')
+    form.append('includeTrello', String(!!data.includeTrello))
+    form.append('rereadAll', String(!!data.rereadAll))
+    if (data.file) form.append('file', data.file)
+    const res = await fetch(`${API_BASE}/api/projects/${encodeURIComponent(projectId)}/planning/messages`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'x-user-id': userId, 'x-user-email': userEmail },
+      body: form,
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json() as Promise<{ jobId: string; messageId: string }>
+  },
+
+  getPlanningJob: (projectId: string, jobId: string, token: string) =>
+    fetchAPI(`/api/projects/${encodeURIComponent(projectId)}/planning/jobs/${encodeURIComponent(jobId)}`, token) as Promise<PlanningJob>,
+
+  decidePlanningProposal: (projectId: string, proposalId: string,
+                           decision: 'approve_all' | 'approve_some' | 'reject_all', opIndexes: number[], token: string) =>
+    fetchAPI(`/api/projects/${encodeURIComponent(projectId)}/planning/proposals/${encodeURIComponent(proposalId)}/decision`,
+      token, { method: 'POST', body: JSON.stringify({ decision, opIndexes }) }),
+
+  revertPlanningProposal: (projectId: string, proposalId: string, token: string) =>
+    fetchAPI(`/api/projects/${encodeURIComponent(projectId)}/planning/proposals/${encodeURIComponent(proposalId)}/revert`,
+      token, { method: 'POST' }),
+
   /** Attaches a document to an existing project. */
   uploadAttachment: async (projectId: string, file: File, opts: { userId: string; token: string }) => {
     const formData = new FormData()
@@ -392,10 +543,10 @@ export const api = {
     fetchAPI(`/api/projects/${projectId}/attachments`, token),
 
   getAttachmentDownloadUrl: (projectId: string, attachmentId: string, token: string) =>
-    fetchAPI(`/api/attachments/${projectId}/${attachmentId}/download`, token),
+    fetchAPI(`/api/attachments/${projectId}/${encodeURIComponent(attachmentId)}/download`, token),
 
   deleteAttachment: (projectId: string, attachmentId: string, token: string) =>
-    fetchAPI(`/api/attachments/${projectId}/${attachmentId}`, token, { method: 'DELETE' }),
+    fetchAPI(`/api/attachments/${projectId}/${encodeURIComponent(attachmentId)}`, token, { method: 'DELETE' }),
 
   /** Creates a project from pasted text (WhatsApp/Gmail conversation/notes). */
   createProjectFromText: (data: { text: string; name?: string; channels?: string[]; source?: string }, token: string) =>

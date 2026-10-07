@@ -259,7 +259,14 @@
       "email": "Email",
       "document_analyzed": "Document analyzed",
       "text_analyzed": "Text analyzed",
-      "system": "System"
+      "plan_updated": "Plan updated",
+      "plan_error": "Plan update failed",
+      "system": "System",
+      "plan_proposal": "Plan proposal",
+      "checkin_report": "Progress report",
+      "checkin_overdue": "No progress report",
+      "update_urgent": "Urgent from the team",
+      "updates_digest": "Updates digest"
     }
   },
   "chat": {
@@ -492,6 +499,76 @@
       "notification": "Notifications",
       "classification": "Auto-classification",
       "summary": "Summaries"
+    },
+    "tabs": {
+      "log": "Log",
+      "replan": "Replanning"
+    },
+    "planning": {
+      "title": "Replanning",
+      "subtitle": "Replan the project with new context (a message, text, a document or Trello). Review the proposal before anything changes.",
+      "emptyTitle": "What can you ask here?",
+      "example1": "\"Replan with this context\" + paste a chat or attach a document",
+      "example2": "\"Compare the plan with Trello and update it\"",
+      "example3": "\"Everything about Meta is closed; push design back one week\"",
+      "emptyHint": "Only replanning with context is done here. Nothing changes until you approve the proposal; the members' daily updates arrive here as well.",
+      "contextPlaceholder": "Paste context: a chat, an email, meeting notes…",
+      "attach": "Attach document",
+      "includeTrello": "Include Trello board",
+      "noTrello": "This project has no Trello board linked",
+      "rereadAll": "Re-read all project documents",
+      "rereadHint": "Slower and more expensive: reads every document of the project again",
+      "context": "Context",
+      "placeholder": "E.g. \"Replan {{project}} with this context\"",
+      "send": "Send (Ctrl+Enter)",
+      "questions": "Questions for you — decide when approving, or replan here with the answer as context",
+      "notes": "{{count}} notes",
+      "approveAll": "Approve all",
+      "approveSome": "Approve {{count}}",
+      "reject": "Reject",
+      "revert": "Revert this replan",
+      "revertConfirm": "Revert this replan? Every task it touched goes back to how it was.",
+      "errors": {
+        "projects": "Could not load projects"
+      },
+      "status": {
+        "pending": "Pending",
+        "applied": "Applied",
+        "partially_applied": "Partly applied",
+        "rejected": "Rejected",
+        "reverted": "Reverted",
+        "stale": "Outdated",
+        "superseded": "Superseded"
+      },
+      "ops": {
+        "create": "New",
+        "update": "Update",
+        "close": "Close",
+        "block": "Block",
+        "reopen": "Reopen",
+        "delete": "Delete",
+        "link": "Dependencies"
+      },
+      "steps": {
+        "start": "Starting…",
+        "load_project": "Loading the project…",
+        "interpret_request": "Understanding your message…",
+        "load_sources": "Reading the material…",
+        "extract_facts": "Extracting facts…",
+        "consolidate": "Consolidating topics…",
+        "reconcile": "Deciding tasks…",
+        "link_dependencies": "Linking dependencies…",
+        "validate": "Validating…",
+        "schedule": "Computing dates…",
+        "propose": "Building the proposal…",
+        "narrate": "Writing the answer…",
+        "analyze_plan": "Analysing the plan…",
+        "answer": "Answering…",
+        "apply": "Applying…"
+      },
+      "consolidate": "Consolidate updates",
+      "consolidateHint": "Turn the members' updates into a summary and a proposal now (it also runs once a day)",
+      "noUpdates": "No new member updates to consolidate."
     }
   },
   "projects": {
@@ -552,6 +629,9 @@
     },
     "detail": {
       "editTooltip": "Edit project",
+      "export": "Download",
+      "exportTooltip": "Download everything about this project as a JSON file",
+      "exportError": "Could not download the project. Try again.",
       "deleteTooltip": "Delete project",
       "invitedTooltip": "You’re invited to this project",
       "invitedBadge": "Guest",
@@ -927,5 +1007,53 @@
     "footer": {
       "rights": "© 2026 OneBox. All rights reserved."
     }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Your preferences. They apply in the app, the chat and WhatsApp.",
+    "timezone": "Timezone",
+    "timezoneHint": "Used by the assistant for \"today\", due dates and scheduled messages (\"tomorrow at 9\", \"every Monday\").",
+    "useDetected": "Use {{tz}}",
+    "searchTimezone": "Search a city or region (e.g. Bogota, Madrid)",
+    "noTimezone": "No timezone matches that search.",
+    "language": "Language",
+    "save": "Save",
+    "saved": "Saved",
+    "loadError": "Could not load your settings.",
+    "saveError": "Could not save. Please try again."
+  },
+  "autocomplete": {
+    "knownAs": "Already in your projects",
+    "noEmail": "no email"
+  },
+  "checkin": {
+    "title": "How are your tasks going?",
+    "progress": "{{count}} projects left",
+    "subtitle": "Report the state of each task assigned to you. Your leader reviews it before the plan changes.",
+    "urgent": "You have tasks overdue or due in the next days.",
+    "status": {
+      "done": "Done",
+      "in_progress": "In progress",
+      "pending": "Not started",
+      "blocked": "Blocked"
+    },
+    "blockedReason": "What is blocking it? (required)",
+    "newDate": "New expected date (optional)",
+    "comment": "Comment (optional)",
+    "general": "Anything else the leader should know? (optional)",
+    "answerAll": "Answer every task to continue.",
+    "send": "Send report"
+  },
+  "updates": {
+    "title": "How is it going?",
+    "subtitle": "Tell it in your own words. Nothing changes in the plan until the project owner approves.",
+    "greeting": "Hi {{name}}! How are your things going in this project?",
+    "done": "Update recorded. The project owner will review it.",
+    "next": "Next project",
+    "close": "Continue",
+    "placeholder": "e.g. \"the charts are done, Outlook almost, I need the Azure account\"",
+    "hint": "When you are done, say \"that's all\".",
+    "later": "Not now",
+    "laterHint": "You own this project: you can give your update later"
   }
 }
