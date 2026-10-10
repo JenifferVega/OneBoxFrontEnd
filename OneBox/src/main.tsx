@@ -7,6 +7,10 @@ import './index.css'
 // Initialize i18n before the first render. In Phase 0 nobody uses t() yet;
 // the import only guarantees that the language dropdown has i18n ready.
 import './i18n'
+// DEVELOPMENT ONLY: "view as" another user (?as=email&key=...). Remove before full production.
+import { installViewAs } from './devViewAs'
+import ViewAsBanner from './components/ViewAsBanner'
+installViewAs()
 
 
 const cognitoAuthConfig = {
@@ -28,6 +32,7 @@ const cognitoAuthConfig = {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AuthProvider {...cognitoAuthConfig}>
+      <ViewAsBanner />
       <App />
     </AuthProvider>
   </React.StrictMode>

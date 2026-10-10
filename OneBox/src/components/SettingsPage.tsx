@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next'
 import { Clock, Globe, Check, Loader2, Search, LocateFixed } from 'lucide-react'
 import { api } from '../services/api'
 import { AppLocale, getAppLocale, setAppLocale } from '../i18n'
+import SystemDetails from './SystemDetails'
 
 /** Every IANA zone the browser knows, with a short list if it knows none. */
 function allTimezones(): string[] {
@@ -232,6 +233,8 @@ export default function SettingsPage() {
           )}
           {error && <span className="text-xs text-red-400">{error}</span>}
         </div>
+
+        <SystemDetails />
       </div>
     </div>
   )

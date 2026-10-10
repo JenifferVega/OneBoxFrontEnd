@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Send, Paperclip, FileText, Trello, RefreshCw, CheckCircle2, XCircle, Undo2,
-  Loader2, ChevronDown, ChevronRight, AlertTriangle, StickyNote, HelpCircle, Inbox,
+  Loader2, ChevronDown, ChevronRight, AlertTriangle, StickyNote, HelpCircle, Inbox, MessageCircleQuestion,
 } from 'lucide-react'
 import {
   api, PlanningState, PlanningProposal, PlanningMessage, PlanningOperation, PlanningJob,
@@ -54,6 +54,12 @@ export default function PlanningChat({ token }: Props) {
   const [busy, setBusy] = useState(false)
 
   const [message, setMessage] = useState('')
+  const messageRef = useRef<HTMLTextAreaElement>(null)
+  // Ask about a proposal: the question goes into the composer, editable.
+  const ask = (q: string) => {
+    setMessage(q)
+    setTimeout(() => { const el = messageRef.current; if (el) { el.focus(); el.setSelectionRange(q.length, q.length) } }, 0)
+  }
   const [showContext, setShowContext] = useState(false)
   const [context, setContext] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -119,6 +125,20 @@ export default function PlanningChat({ token }: Props) {
   }, [state])
 
   const running = job?.status === 'running'
+  // "Prepare a proposal with this": replan with a message already answered.
+  const replanWith = async (text: string) => {
+    if (!projectId || running) return
+    setBusy(true); setError('')
+    try {
+      const r = await api.sendPlanningMessage(projectId, { message: text, replan: true }, token)
+      setJob({ jobId: r.jobId, status: 'running', step: '', steps: [], error: '', seconds: 0 })
+      await load()
+    } catch (e: any) {
+      setError(String(e?.message || e).slice(0, 300))
+    } finally {
+      setBusy(false)
+    }
+  }
   const project = projects.find(p => p.projectId === projectId)
 
   const send = async () => {
@@ -215,7 +235,7 @@ export default function PlanningChat({ token }: Props) {
             taskTexts={state.taskTexts || {}}
             revertible={state.revertible}
             busy={busy || running}
-            onDecide={decide} onRevert={revert}
+            onDecide={decide} onRevert={revert} onAsk={ask} onReplan={replanWith}
           />
         ))}
         {running && (
@@ -271,6 +291,7 @@ export default function PlanningChat({ token }: Props) {
             <FileText className="w-4 h-4" />
           </button>
           <textarea
+            ref={messageRef}
             value={message}
             onChange={e => setMessage(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send() }}
@@ -293,12 +314,15 @@ export default function PlanningChat({ token }: Props) {
   )
 }
 
-function MessageBubble({ m, proposal, taskTexts, revertible, busy, onDecide, onRevert }: {
+function MessageBubble({ m, proposal, taskTexts, revertible, busy, onDecide, onRevert, onAsk, onReplan }: {
   m: PlanningMessage; proposal?: PlanningProposal; taskTexts: Record<string, string>
   revertible: string | null; busy: boolean
   onDecide: (p: PlanningProposal, d: 'approve_all' | 'approve_some' | 'reject_all', idx?: number[]) => void
   onRevert: (p: PlanningProposal) => void
+  onAsk: (q: string) => void
+  onReplan: (text: string) => void
 }) {
+  const { t } = useTranslation()
   const mine = m.role === 'user'
   return (
     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
@@ -315,19 +339,26 @@ function MessageBubble({ m, proposal, taskTexts, revertible, busy, onDecide, onR
             </div>
           )}
         </div>
+        {m.replanText && (
+          <button disabled={busy} onClick={() => onReplan(m.replanText!)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-500/30 text-xs text-violet-200/90 hover:text-white hover:border-violet-400 disabled:opacity-40">
+            <RefreshCw className="w-3.5 h-3.5" />{t('intelligence.planning.replanWith', 'Prepare a plan proposal with this')}
+          </button>
+        )}
         {proposal && (
           <ProposalCard p={proposal} taskTexts={taskTexts} canRevert={revertible === proposal.proposalId}
-                        busy={busy} onDecide={onDecide} onRevert={onRevert} />
+                        busy={busy} onDecide={onDecide} onRevert={onRevert} onAsk={onAsk} />
         )}
       </div>
     </div>
   )
 }
 
-function ProposalCard({ p, taskTexts, canRevert, busy, onDecide, onRevert }: {
+function ProposalCard({ p, taskTexts, canRevert, busy, onDecide, onRevert, onAsk }: {
   p: PlanningProposal; taskTexts: Record<string, string>; canRevert: boolean; busy: boolean
   onDecide: (p: PlanningProposal, d: 'approve_all' | 'approve_some' | 'reject_all', idx?: number[]) => void
   onRevert: (p: PlanningProposal) => void
+  onAsk: (q: string) => void
 }) {
   const { t } = useTranslation()
   const pending = p.status === 'pending'
@@ -371,7 +402,7 @@ function ProposalCard({ p, taskTexts, canRevert, busy, onDecide, onRevert }: {
           {open[g.kind] && (
             <ul className="space-y-1 pl-5">
               {g.items.map(({ op, idx }) => (
-                <li key={idx} className="flex items-start gap-2">
+                <li key={idx} className="group flex items-start gap-2">
                   {pending && <input type="checkbox" className="mt-1" checked={selected.has(idx)} onChange={() => toggle(idx)} />}
                   <div className="min-w-0">
                     <p className="text-white/85">{label(op)}</p>
@@ -382,6 +413,15 @@ function ProposalCard({ p, taskTexts, canRevert, busy, onDecide, onRevert }: {
                         op.reason].filter(Boolean).join(' · ')}
                     </p>
                   </div>
+                  <button disabled={busy}
+                          onClick={() => onAsk(t('intelligence.planning.askWhyOp', {
+                            kind: t(`intelligence.planning.ops.${op.op}`, op.op), task: label(op),
+                            defaultValue: `Why did you propose "${op.op}: ${label(op)}"? What evidence is there?`,
+                          }))}
+                          title={t('intelligence.planning.askWhy', 'Ask why')}
+                          className="ml-auto shrink-0 p-1 rounded text-white/30 hover:text-violet-300 opacity-60 group-hover:opacity-100 disabled:opacity-20">
+                    <MessageCircleQuestion className="w-3.5 h-3.5" />
+                  </button>
                 </li>
               ))}
             </ul>
@@ -407,6 +447,17 @@ function ProposalCard({ p, taskTexts, canRevert, busy, onDecide, onRevert }: {
           ))}
         </div>
       )}
+
+      <div className="flex items-center gap-2 flex-wrap">
+        {[t('intelligence.planning.askWhyAll', 'Why these changes? Explain the main decisions and what they are based on.'),
+          t('intelligence.planning.askCheck', 'Before approving: which changes are weakest, and what should I confirm with whom?')]
+          .map(q => (
+            <button key={q} disabled={busy} onClick={() => onAsk(q)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-violet-500/30 text-[11px] text-violet-200/80 hover:text-white hover:border-violet-400 disabled:opacity-40">
+              <MessageCircleQuestion className="w-3 h-3" />{q.length > 48 ? q.slice(0, 46) + '…' : q}
+            </button>
+          ))}
+      </div>
 
       {pending && (
         <div className="flex items-center gap-2 pt-1 flex-wrap">

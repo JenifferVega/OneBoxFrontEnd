@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Paperclip, Upload, Download, Trash2, FileText, Image as ImageIcon,
   FileType, File, Loader2, Sparkles, X, AlertCircle, CheckCircle2,
-  ClipboardPaste
+  ClipboardPaste, ListChecks
 } from 'lucide-react'
 import { api } from '../services/api'
 import DocumentUploader from './DocumentUploader'
@@ -76,6 +76,28 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
   const [panelMode, setPanelMode] = useState<'closed' | 'document' | 'paste'>('closed')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  // After an upload the OWNER is asked whether this document should update
+  // the task plan. It used to happen on every upload, unannounced.
+  const [replanOffer, setReplanOffer] = useState<{ attachmentId: string; fileName: string } | null>(null)
+  const [replanningId, setReplanningId] = useState<string | null>(null)
+  const [replanMsg, setReplanMsg] = useState<{ msg: string; ok: boolean } | null>(null)
+
+  const handleReplan = async (attachmentId: string, fileName: string) => {
+    setReplanningId(attachmentId)
+    setReplanMsg(null)
+    try {
+      await api.replanFromAttachment(projectId, attachmentId, token)
+      setReplanOffer(null)
+      setReplanMsg({ ok: true, msg: t('attachments.replanStarted', {
+        file: fileName,
+        defaultValue: `Updating the task plan with "${fileName}". It takes a few minutes; you will get a notification, and changes to existing tasks wait for your approval in Intelligence > Replanning.`,
+      }) })
+    } catch (err: any) {
+      setReplanMsg({ ok: false, msg: err?.message?.substring(0, 200) || 'Could not start the update.' })
+    } finally {
+      setReplanningId(null)
+    }
+  }
 
   const fetchAttachments = useCallback(async () => {
     if (!token || !projectId) return
@@ -101,14 +123,16 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
       const result = await api.uploadAttachment(projectId, file, { userId, token })
       const ig = result?.insightsGenerated || {}
       const count = ig.count || 0
-      const planNote = ig.planning ? ' The task plan is being updated; you will get a notification in a few minutes.' : ''
       if (count > 0) {
-        setUploadResult({ msg: `✓ Document attached and the AI generated ${count} new insights.${planNote}`, ok: true })
+        setUploadResult({ msg: `✓ Document attached and the AI generated ${count} new insights.`, ok: true })
         onInsightsGenerated?.(count)
       } else {
-        setUploadResult({ msg: `✓ Document attached.${planNote}`, ok: true })
+        setUploadResult({ msg: `✓ Document attached.`, ok: true })
       }
       await fetchAttachments()
+      if (result?.replanAvailable && result?.attachment?.attachmentId) {
+        setReplanOffer({ attachmentId: result.attachment.attachmentId, fileName: result.attachment.fileName || file.name })
+      }
       setTimeout(() => {
         setPanelMode('closed')
         setUploadResult(null)
@@ -128,14 +152,16 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
       const result = await api.analyzeTextForProject(projectId, { text, source }, token)
       const ig = result?.insightsGenerated || {}
       const count = ig.count || 0
-      const planNote = ig.planning ? ' The task plan is being updated; you will get a notification in a few minutes.' : ''
       if (count > 0) {
-        setUploadResult({ msg: `✓ Text analyzed: the AI generated ${count} new insights.${planNote}`, ok: true })
+        setUploadResult({ msg: `✓ Text analyzed: the AI generated ${count} new insights.`, ok: true })
         onInsightsGenerated?.(count)
       } else {
-        setUploadResult({ msg: `✓ Text saved.${planNote}`, ok: true })
+        setUploadResult({ msg: `✓ Text saved.`, ok: true })
       }
       await fetchAttachments()
+      if (result?.replanAvailable && result?.attachmentId) {
+        setReplanOffer({ attachmentId: result.attachmentId, fileName: result.savedAs || 'pasted text' })
+      }
       setTimeout(() => {
         setPanelMode('closed')
         setUploadResult(null)
@@ -282,6 +308,41 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
         )}
       </AnimatePresence>
 
+      {/* "Update the plan with this document?" -- owner only, after an upload */}
+      {isOwner && replanOffer && (
+        <div className="mb-4 p-3 rounded-lg border border-violet-500/30 bg-violet-500/10 text-sm">
+          <p className="text-white/85 flex items-start gap-2">
+            <ListChecks className="w-4 h-4 text-violet-300 mt-0.5 flex-shrink-0" />
+            <span>
+              {t('attachments.replanQuestion', {
+                file: replanOffer.fileName,
+                defaultValue: `Do you want to update the task plan with "${replanOffer.fileName}"? OneBox will compare it with the current tasks; changes to existing tasks wait for your approval.`,
+              })}
+            </span>
+          </p>
+          <div className="flex gap-2 mt-3 justify-end">
+            <button onClick={() => setReplanOffer(null)} disabled={!!replanningId}
+                    className="px-3 py-1.5 rounded-lg border border-white/10 text-xs text-white/70 hover:text-white">
+              {t('attachments.replanNo', 'No, just keep the document')}
+            </button>
+            <button onClick={() => handleReplan(replanOffer.attachmentId, replanOffer.fileName)} disabled={!!replanningId}
+                    className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs flex items-center gap-1.5 disabled:opacity-50">
+              {replanningId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ListChecks className="w-3.5 h-3.5" />}
+              {t('attachments.replanYes', 'Update the plan')}
+            </button>
+          </div>
+        </div>
+      )}
+      {replanMsg && (
+        <div className={`mb-4 p-3 rounded-lg text-xs flex items-start gap-2 ${replanMsg.ok
+          ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+          : 'border border-red-500/20 bg-red-500/10 text-red-300'}`}>
+          {replanMsg.ok ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
+          <span className="flex-1">{replanMsg.msg}</span>
+          <button onClick={() => setReplanMsg(null)} className="text-white/40 hover:text-white/70"><X className="w-3.5 h-3.5" /></button>
+        </div>
+      )}
+
       {/* Attachments list */}
       {loading && attachments.length === 0 ? (
         <div className="flex items-center justify-center py-8">
@@ -340,6 +401,17 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
                   >
                     {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                   </button>
+                  {/* Update the plan with this document later: owner-only. */}
+                  {isOwner && att.extractedTextLength >= 100 && (
+                    <button
+                      onClick={() => handleReplan(att.attachmentId, att.fileName)}
+                      disabled={!!replanningId || isDeleting}
+                      className="p-2 text-white/40 hover:text-violet-300 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50"
+                      title={t('attachments.replanTooltip', 'Update the task plan with this document')}
+                    >
+                      {replanningId === att.attachmentId ? <Loader2 className="w-4 h-4 animate-spin" /> : <ListChecks className="w-4 h-4" />}
+                    </button>
+                  )}
                   {/* Delete attachment: owner-only. */}
                   {isOwner && (
                     <button

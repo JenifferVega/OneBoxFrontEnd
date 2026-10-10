@@ -23,7 +23,15 @@ export default function UpdateChatModal({ token, userName }: Props) {
   const [sending, setSending] = useState(false)
   const [finished, setFinished] = useState(false)
   const [error, setError] = useState('')
+  // True while the opening questions are being prepared. The backend may ask
+  // the AI to write them on the spot (20-40 s). Until they arrive the input is
+  // disabled: the list used to be REPLACED when they came, which erased a
+  // message the person had already sent (and the reply then appeared alone).
+  const [opening, setOpening] = useState(false)
   const bottom = useRef<HTMLDivElement>(null)
+  const box = useRef<HTMLTextAreaElement>(null)
+  // A disabled field loses autoFocus: focus it once it can be typed in.
+  useEffect(() => { if (!opening) box.current?.focus() }, [opening])
 
   const load = useCallback(async () => {
     if (!token) return
@@ -42,10 +50,21 @@ export default function UpdateChatModal({ token, userName }: Props) {
 
   useEffect(() => {
     if (!current) return
-    setMsgs([]); setFinished(false); setError('')
+    let alive = true
+    setMsgs([]); setFinished(false); setError(''); setOpening(true)
+    // Never wait forever: after 60 s the person can start anyway with the
+    // built-in greeting. If the questions arrive later they are added ABOVE
+    // what was already written, never in place of it.
+    const giveUp = window.setTimeout(() => { if (alive) setOpening(false) }, 60000)
     api.getUpdateSession(current.projectId, token, userName)
-      .then(s => setMsgs((s.messages || []) as Msg[]))
-      .catch(() => setMsgs([]))
+      .then(s => {
+        if (!alive) return
+        const prepared = (s.messages || []) as Msg[]
+        setMsgs(prev => prev.length ? [...prepared, ...prev] : prepared)
+      })
+      .catch(() => {})
+      .finally(() => { if (alive) { window.clearTimeout(giveUp); setOpening(false) } })
+    return () => { alive = false; window.clearTimeout(giveUp) }
   }, [current?.projectId, token, userName])
 
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, sending])
@@ -54,7 +73,7 @@ export default function UpdateChatModal({ token, userName }: Props) {
 
   const send = async () => {
     const text = input.trim()
-    if (!text || sending || finished) return
+    if (!text || sending || finished || opening) return
     setInput(''); setError(''); setSending(true)
     setMsgs(m => [...m, { role: 'member', content: text }])
     try {
@@ -100,7 +119,13 @@ export default function UpdateChatModal({ token, userName }: Props) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
-          {!msgs.length && (
+          {!msgs.length && opening && (
+            <div className="flex items-center gap-2 text-sm text-white/50 p-4">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {t('updates.preparing', 'Preparing your questions…')}
+            </div>
+          )}
+          {!msgs.length && !opening && (
             <div className="bg-[#161625] border border-white/5 rounded-xl p-4 text-sm text-white/70 space-y-2">
               <p>{t('updates.greeting', { name: firstName, defaultValue: `Hi ${firstName}! How are your things going in this project?` })}</p>
               <ul className="text-xs text-white/40 list-disc pl-5 space-y-0.5">
@@ -136,11 +161,11 @@ export default function UpdateChatModal({ token, userName }: Props) {
             </div>
           ) : (
             <div className="flex items-end gap-2">
-              <textarea value={input} onChange={e => setInput(e.target.value)} rows={2} autoFocus
+              <textarea ref={box} value={input} onChange={e => setInput(e.target.value)} rows={2} autoFocus disabled={opening}
                         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
                         placeholder={t('updates.placeholder', 'e.g. "the charts are done, Outlook almost, I need the Azure account"')}
                         className="flex-1 resize-none bg-transparent border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:border-violet-500/50 outline-none" />
-              <button onClick={send} disabled={sending || !input.trim()}
+              <button onClick={send} disabled={sending || opening || !input.trim()}
                       className="p-3 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white">
                 <Send className="w-4 h-4" />
               </button>

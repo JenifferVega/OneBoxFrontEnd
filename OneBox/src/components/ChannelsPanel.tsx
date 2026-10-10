@@ -21,6 +21,8 @@ interface ChannelStatus {
   loading: boolean
   meta?: string
   action?: () => void
+  /** Not this user's to connect: shown for information, not clickable. */
+  managed?: boolean
 }
 
 interface ChannelsPanelProps {
@@ -39,6 +41,11 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
   const [trelloConnected, setTrelloConnected] = useState(false)
   const [trelloUser, setTrelloUser] = useState<string>('')
   const [trelloLoading, setTrelloLoading] = useState(true)
+  // Does this user OWN any project? Trello is connected by project owners
+  // only: OneBox reaches a project's board with its owner's connection, so a
+  // member's connection would never be used -- offering it only invited
+  // members to set up boards in their own accounts. null = not known yet.
+  const [ownsProject, setOwnsProject] = useState<boolean | null>(null)
 
   // Check Gmail email
   useEffect(() => {
@@ -60,6 +67,11 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
         })
       })
       setWhatsappCount(numbers.size)
+      // Only a user who is ON projects and owns none of them is "just a
+      // member". Someone with no projects yet is about to own one, and a
+      // member who creates a project becomes its owner: both see Connect.
+      const list = projects || []
+      setOwnsProject(list.length === 0 || list.some((p: any) => p.isOwner === true))
     }).catch(() => {})
   }, [auth.user?.access_token])
 
@@ -89,6 +101,10 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
       setRefreshing(false)
     }
   }
+
+  // A member who is not connected sees Trello as managed by the owner. One
+  // who IS connected (from before this rule) can still open it to disconnect.
+  const trelloManaged = ownsProject === false && !trelloConnected
 
   const channels: ChannelStatus[] = [
     {
@@ -120,19 +136,27 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
     {
       id: 'trello',
       label: 'Trello',
-      description: 'Send project tasks to a Trello board',
+      description: trelloManaged
+        ? 'Managed by the project owner'
+        : 'Send project tasks to a Trello board',
       icon: Trello,
       color: 'text-blue-400',
       bg: 'bg-blue-500/10',
       bgHover: 'hover:bg-blue-500/15',
       connected: trelloConnected,
       loading: trelloLoading,
-      meta: trelloUser ? `@${trelloUser}` : undefined,
-      action: () => onNavigate?.('connect-trello')
+      meta: trelloManaged
+        ? 'Managed by the project owner'
+        : (trelloUser ? `@${trelloUser}` : undefined),
+      managed: trelloManaged,
+      action: trelloManaged ? undefined : () => onNavigate?.('connect-trello')
     },
   ]
 
-  const connectedCount = channels.filter(c => c.connected).length
+  // A channel managed by someone else is neither "active" nor "missing" for
+  // this user, so it is left out of the count.
+  const counted = channels.filter(c => !c.managed)
+  const connectedCount = counted.filter(c => c.connected).length
 
   return (
     <div className="bg-[#161625] rounded-xl border border-white/5 p-3">
@@ -140,7 +164,7 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
         <div className="min-w-0">
           <h3 className="text-xs font-bold text-white truncate">Connected channels</h3>
           <p className="text-[10px] text-white/40 mt-0.5">
-            {connectedCount} of {channels.length} active
+            {connectedCount} of {counted.length} active
           </p>
         </div>
         <button
@@ -159,12 +183,17 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
             <motion.button
               key={channel.id}
               onClick={channel.action}
+              disabled={channel.managed}
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.2, delay: idx * 0.05 }}
-              title={channel.connected ? `${channel.label} connected${channel.meta ? ' · ' + channel.meta : ''}` : `${channel.label} not connected — click to connect`}
+              title={channel.managed
+                ? `${channel.label} is managed by the owner of each project. Your task updates reach the board automatically; you do not need to connect it.`
+                : channel.connected ? `${channel.label} connected${channel.meta ? ' · ' + channel.meta : ''}` : `${channel.label} not connected — click to connect`}
               className={`w-full flex items-center gap-2 p-2 rounded-lg border transition-all text-left ${
-                channel.connected
+                channel.managed
+                  ? 'bg-white/[0.02] border-white/5 cursor-default'
+                  : channel.connected
                   ? `${channel.bg} border-white/5 ${channel.bgHover}`
                   : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06] border-dashed'
               }`}
@@ -197,7 +226,7 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
                 )}
               </div>
 
-              {!channel.connected ? (
+              {channel.managed ? null : !channel.connected ? (
                 <Plus className="w-3.5 h-3.5 text-white/40 flex-shrink-0" />
               ) : (
                 <ExternalLink className="w-3 h-3 text-white/30 flex-shrink-0" />
@@ -207,7 +236,7 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
         })}
       </div>
 
-      {connectedCount === channels.length && (
+      {connectedCount === counted.length && (
         <div className="mt-2 p-1.5 bg-emerald-500/5 border border-emerald-500/10 rounded-md flex items-center gap-1.5">
           <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />
           <p className="text-[10px] text-emerald-400 truncate">All channels ready</p>

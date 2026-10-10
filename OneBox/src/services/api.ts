@@ -88,6 +88,19 @@ export interface PlanningMessage {
   userEmail?: string; proposalId?: string; sources?: string[]; error?: boolean
   /** 'updates_digest' = the daily summary of the members' updates */
   kind?: string
+  /** On a conversational reply: the leader's message, to replan with it if they press the button */
+  replanText?: string
+}
+export interface SystemNode {
+  node: string; what: string; provider?: string; model?: string; source?: string
+  fallbacks?: string[]; warning?: string | null; error?: string
+  /** 'fallback' | 'missing_key' | '' -- translated in the interface */
+  warningCode?: string; wanted?: string
+}
+export interface SystemInfo {
+  environment: string; startedAt: string; python: string
+  nodes: SystemNode[]; keys: Record<string, boolean>; providers: Record<string, boolean>
+  env: Record<string, string>
 }
 export interface PlanningState {
   messages: PlanningMessage[]; proposals: PlanningProposal[]
@@ -128,6 +141,10 @@ export const api = {
     fetchAPI('/api/user/contacts', token) as Promise<{ contacts: Contact[]; count: number }>,
 
   /** The user's preferences (table onebox-users). */
+  /** Settings > System details: models per node, key presence (never values). */
+  getSystemInfo: (token: string) =>
+    fetchAPI('/api/system/info', token) as Promise<SystemInfo>,
+
   getUserSettings: (token: string) =>
     fetchAPI('/api/user/settings', token) as Promise<UserSettings>,
 
@@ -170,6 +187,14 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(updates),
     }),
+
+  /** Owner only: close a discontinued project, with the reason. Reversible with reopenProject. */
+  closeProject: (projectId: string, note: string, token: string) =>
+    fetchAPI(`/api/projects/${projectId}/close`, token, { method: 'POST', body: JSON.stringify({ note }) }),
+
+  /** Owner only: reactivate a closed project with the status it had before. */
+  reopenProject: (projectId: string, token: string) =>
+    fetchAPI(`/api/projects/${projectId}/reopen`, token, { method: 'POST' }),
 
   deleteProject: (projectId: string, token: string) =>
     fetchAPI(`/api/projects/${projectId}`, token, { method: 'DELETE' }),
@@ -491,6 +516,8 @@ export const api = {
   /** Multipart: the instruction plus optional context (text, a file, Trello). Returns the background job. */
   sendPlanningMessage: async (projectId: string, data: {
     message: string; context?: string; file?: File | null; includeTrello?: boolean; rereadAll?: boolean
+    /** true = replan with the message as context, no classification */
+    replan?: boolean
   }, token: string) => {
     const { userId, userEmail } = readUserCreds()
     const form = new FormData()
@@ -498,6 +525,7 @@ export const api = {
     form.append('context', data.context || '')
     form.append('includeTrello', String(!!data.includeTrello))
     form.append('rereadAll', String(!!data.rereadAll))
+    form.append('replan', String(!!data.replan))
     if (data.file) form.append('file', data.file)
     const res = await fetch(`${API_BASE}/api/projects/${encodeURIComponent(projectId)}/planning/messages`, {
       method: 'POST',
@@ -529,6 +557,9 @@ export const api = {
       headers: {
         'Authorization': `Bearer ${opts.token}`,
         'x-user-id': opts.userId,
+        // Without the email the backend cannot recognise an invited member,
+        // so members' uploads were refused with 403.
+        'x-user-email': getUserEmail(),
       },
       body: formData
     })
@@ -544,6 +575,11 @@ export const api = {
 
   getAttachmentDownloadUrl: (projectId: string, attachmentId: string, token: string) =>
     fetchAPI(`/api/attachments/${projectId}/${encodeURIComponent(attachmentId)}/download`, token),
+
+  /** Owner only: update the task plan with this attachment (runs in the background). */
+  replanFromAttachment: (projectId: string, attachmentId: string, token: string) =>
+    fetchAPI(`/api/attachments/${projectId}/${encodeURIComponent(attachmentId)}/replan`, token, { method: 'POST' }) as
+      Promise<{ started: boolean; fileName: string }>,
 
   deleteAttachment: (projectId: string, attachmentId: string, token: string) =>
     fetchAPI(`/api/attachments/${projectId}/${encodeURIComponent(attachmentId)}`, token, { method: 'DELETE' }),

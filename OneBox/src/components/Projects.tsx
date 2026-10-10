@@ -7,7 +7,7 @@ import {
   Search, ArrowLeft, CheckCircle2, AlertTriangle, Clock, Settings,
   MessageCircle, Mail, Users, Hash, ChevronRight, Sparkles, X,
   FolderKanban, Zap, Eye, Shield, TrendingUp, AlertCircle,
-  Phone, Send, Bell, Trash2, Loader2, UserPlus, Ban, Unlock, Plus, Pencil, Calendar, Download
+  Phone, Send, Bell, Trash2, Loader2, UserPlus, Ban, Unlock, Plus, Pencil, Calendar, Download, Archive, RotateCcw
 } from 'lucide-react'
 import { PageType } from '../App'
 // ChannelsPanel — import commented out. The component still lives in
@@ -58,6 +58,9 @@ interface Project {
   notifications?: ProjectNotification[];
   // Permissions computed by the backend:
   isOwner?: boolean;            // true → owner; false → invited
+  /** Set when the project was closed as discontinued (status 'closed'). */
+  closedNote?: string;
+  closedAt?: string;
   role?: 'owner' | 'invitedByEmail' | 'invitedByLink' | 'collaborator';
 }
 
@@ -97,6 +100,7 @@ const STATUS_STYLES: Record<string, { color: string; bg: string; border: string;
   active:   { color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', key: 'active' },
   paused:   { color: 'text-white/50',    bg: 'bg-white/5',        border: 'border-white/10',       key: 'paused' },
   finished: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', key: 'finished' },
+  closed:   { color: 'text-red-300',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     key: 'closed' },
 }
 
 const StatusBadge = ({ status }: { status: string }) => {
@@ -177,6 +181,11 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
     }
   }
   const [confirmDelete, setConfirmDelete] = useState<Project | null>(null)
+  // Close a discontinued project (with the reason) / reopen it.
+  const [closingProject, setClosingProject] = useState<Project | null>(null)
+  const [closeNote, setCloseNote] = useState('')
+  const [closeBusy, setCloseBusy] = useState(false)
+  const [closeError, setCloseError] = useState('')
   // "Edit project" modal — UPDATE of basic fields (name, description,
   // type, status, deliveryDate, timing). Only accessible for the owner.
   const [editingProject, setEditingProject] = useState<Project | null>(null)
@@ -323,7 +332,11 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
   const filteredProjects = useMemo(() => {
     let result = projects
     if (search) result = result.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.client.toLowerCase().includes(search.toLowerCase()))
+    // Closed (discontinued) projects are hidden everywhere except under
+    // their own filter, so they stop cluttering the list but are never lost.
+    if (statusFilter !== 'closed') result = result.filter(p => p.status !== 'closed')
     switch (statusFilter) {
+      case 'closed': result = result.filter(p => p.status === 'closed'); break
       case 'active': result = result.filter(p => p.status === 'active'); break
       case 'at_risk': result = result.filter(p => p.sla === 'at_risk'); break
       case 'overdue': result = result.filter(p => p.sla === 'sla_overdue'); break
@@ -336,6 +349,41 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
     if (sla === 'sla_overdue') return 'bg-red-500'
     if (sla === 'at_risk') return 'bg-orange-500'
     return 'bg-emerald-500'
+  }
+
+  const refreshSelected = async (projectId: string) => {
+    const data = await api.getProjects(token)
+    if (Array.isArray(data)) {
+      setProjects(data)
+      const updated = data.find((proj: Project) => proj.projectId === projectId)
+      if (updated) setSelectedProject(updated)
+    }
+  }
+
+  const handleCloseProject = async () => {
+    if (!closingProject || !token) return
+    if (closeNote.trim().length < 3) { setCloseError(t('projects.close.noteRequired', 'Write why the project is being closed.')); return }
+    setCloseBusy(true); setCloseError('')
+    try {
+      await api.closeProject(closingProject.projectId, closeNote.trim(), token)
+      await refreshSelected(closingProject.projectId)
+      setClosingProject(null); setCloseNote('')
+    } catch (err: any) {
+      setCloseError(String(err?.message || err).slice(0, 200))
+    } finally {
+      setCloseBusy(false)
+    }
+  }
+
+  const handleReopenProject = async (p: Project) => {
+    if (!token) return
+    if (!window.confirm(t('projects.close.reopenConfirm', { name: p.name, defaultValue: `Reopen "${p.name}"? It becomes active again: reminders, check-ins and Trello sync resume.` }))) return
+    try {
+      await api.reopenProject(p.projectId, token)
+      await refreshSelected(p.projectId)
+    } catch (err: any) {
+      alert(String(err?.message || err).slice(0, 200))
+    }
   }
 
   // Project delete handler
@@ -386,6 +434,44 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
     const matchingActions = p.aiActions.filter(actionMatches)
     return (
       <div className="flex h-[calc(100vh-56px)]">
+        {/* Close (discontinued) confirmation modal */}
+        {closingProject && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+               onClick={() => !closeBusy && setClosingProject(null)}>
+            <div className="bg-[#12121E] border border-white/10 rounded-2xl p-6 max-w-lg w-full" onClick={e => e.stopPropagation()}>
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                  <Archive className="w-5 h-5 text-red-300" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">
+                    {t('projects.close.title', { name: closingProject.name, defaultValue: `Close "${closingProject.name}"?` })}
+                  </h3>
+                  <p className="text-sm text-white/60 mt-1">
+                    {t('projects.close.explain', 'Use this when the project was discontinued. It is deactivated completely: no reminders, check-ins, notifications or Trello sync, and nobody can change tasks or the plan. It is hidden from your list (filter "Closed"). Nothing is deleted, and you can reopen it at any time.')}
+                  </p>
+                </div>
+              </div>
+              <label className="block text-xs text-white/50 mb-1">{t('projects.close.noteLabel', 'Why is it being closed? (required)')}</label>
+              <textarea value={closeNote} onChange={e => setCloseNote(e.target.value)} rows={7} autoFocus
+                        placeholder={t('projects.close.notePlaceholder', 'e.g. The client cancelled the contract in October')}
+                        className="w-full min-h-[160px] resize-y bg-transparent border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:border-red-400/50 outline-none" />
+              {closeError && <p className="text-xs text-red-300 mt-2">{closeError}</p>}
+              <div className="flex items-center justify-end gap-2 mt-5">
+                <button onClick={() => setClosingProject(null)} disabled={closeBusy}
+                        className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 transition-all disabled:opacity-50">
+                  {t('projects.modals.cancel')}
+                </button>
+                <button onClick={handleCloseProject} disabled={closeBusy || closeNote.trim().length < 3}
+                        className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-all flex items-center gap-2 disabled:opacity-50">
+                  {closeBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
+                  {t('projects.close.confirm', 'Close project')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Delete confirmation modal */}
         {confirmDelete && (
           <div
@@ -1110,6 +1196,25 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                 <h1 className="text-2xl font-bold text-white">{p.name}</h1>
                 <p className="text-white/50 mt-1 text-sm">{p.description}</p>
                 {exportError && <p className="text-red-400 mt-1 text-xs">{exportError}</p>}
+                {p.status === 'closed' && (
+                  <div className="mt-3 p-3 rounded-lg border border-red-500/20 bg-red-500/10 text-sm flex items-start gap-3 max-w-2xl">
+                    <Archive className="w-4 h-4 text-red-300 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-red-200 font-medium">
+                        {t('projects.close.banner', 'Closed (discontinued)')}
+                        {p.closedAt ? ` · ${new Date(p.closedAt).toLocaleDateString()}` : ''}
+                      </p>
+                      {p.closedNote && <p className="text-white/70 mt-0.5 whitespace-pre-wrap">{p.closedNote}</p>}
+                      <p className="text-white/40 text-xs mt-1">{t('projects.close.bannerHint', 'Read-only: no reminders, notifications, Trello sync or changes while it is closed.')}</p>
+                    </div>
+                    {p.isOwner !== false && (
+                      <button onClick={() => handleReopenProject(p)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-white/10 hover:bg-white/20 text-white flex-shrink-0">
+                        <RotateCcw className="w-3.5 h-3.5" />{t('projects.close.reopen', 'Reopen')}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <StatusBadge status={p.status} />
@@ -1136,7 +1241,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                 {/* Owner-only: edit project (name, description, type,
                     status, dates). Appears next to delete and shares the
                     isOwner check. */}
-                {p.isOwner !== false && (
+                {p.isOwner !== false && p.status !== 'closed' && (
                   <button
                     onClick={() => {
                       setProjectEditForm({
@@ -1155,6 +1260,17 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                     title={t('projects.detail.editTooltip')}
                   >
                     <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {/* Owner-only: close a discontinued project (reversible). */}
+                {p.isOwner !== false && p.status !== 'closed' && (
+                  <button
+                    onClick={() => { setClosingProject(p); setCloseNote(''); setCloseError('') }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-white/5 border border-white/10 text-white/70 hover:text-red-300 hover:border-red-500/30 transition-all"
+                    title={t('projects.close.tooltip', 'Close this project as discontinued (can be reopened)')}
+                  >
+                    <Archive className="w-3.5 h-3.5" />
+                    {t('projects.close.button', 'Close project')}
                   </button>
                 )}
                 {/* Owner-only: only the project owner can delete it. */}
@@ -1479,8 +1595,15 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                             task.status === 'in_progress' ? 'blocked' :
                             task.status === 'pending' ? 'in_progress' :
                             'pending'
+                          // A member's status change must say why (the backend requires it).
+                          let comment: string | undefined
+                          if (p.isOwner === false) {
+                            const c = window.prompt(t('projects.statusCommentPrompt', 'Add a comment: what happened or why is the status changing?'))
+                            if (!c || c.trim().length < 3) return
+                            comment = c.trim()
+                          }
                           try {
-                            await api.updateTask(task.id, { status: newStatus, projectId: p.projectId }, token)
+                            await api.updateTask(task.id, { status: newStatus, comment, projectId: p.projectId }, token)
                             // Update the selected project in memory
                             const data = await api.getProjects(token)
                             if (Array.isArray(data)) {
@@ -1647,8 +1770,15 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                             <button
                               onClick={async (e) => {
                                 e.stopPropagation()
+                                // A member's status change must say why (the backend requires it).
+                                let comment: string | undefined
+                                if (p.isOwner === false) {
+                                  const c = window.prompt(t('projects.statusCommentPrompt', 'Add a comment: what happened or why is the status changing?'))
+                                  if (!c || c.trim().length < 3) return
+                                  comment = c.trim()
+                                }
                                 try {
-                                  await api.updateTask(task.id, { status: 'pending', blocked_reason: '', projectId: p.projectId }, token)
+                                  await api.updateTask(task.id, { status: 'pending', blocked_reason: '', comment, projectId: p.projectId }, token)
                                   const data = await api.getProjects(token)
                                   if (Array.isArray(data)) {
                                     setProjects(data)
@@ -2187,6 +2317,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
               { id: 'at_risk',  labelKey: 'atRisk',  dot: 'bg-orange-400' },
               { id: 'overdue',  labelKey: 'overdue', dot: 'bg-red-400' },
               { id: 'paused',   labelKey: 'paused',  dot: 'bg-white/30' },
+              { id: 'closed',   labelKey: 'closed',  dot: 'bg-red-400/60' },
             ] as const).map(pill => {
               const isActive = statusFilter === pill.id
               return (
@@ -2201,6 +2332,9 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                 >
                   {pill.dot && <span className={`w-2 h-2 rounded-full ${pill.dot}`} />}
                   {t(`projects.list.filters.${pill.labelKey}`)}
+                  {pill.id === 'closed' && (
+                    <span className="text-white/30">({projects.filter(p => p.status === 'closed').length})</span>
+                  )}
                 </button>
               )
             })}

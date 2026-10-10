@@ -506,12 +506,12 @@
     },
     "planning": {
       "title": "Replanning",
-      "subtitle": "Replan the project with new context (a message, text, a document or Trello). Review the proposal before anything changes.",
+      "subtitle": "Ask about the plan and why the AI made each decision, or replan with new context (a message, text, a document or Trello). Nothing changes until you approve a proposal.",
       "emptyTitle": "What can you ask here?",
-      "example1": "\"Replan with this context\" + paste a chat or attach a document",
-      "example2": "\"Compare the plan with Trello and update it\"",
-      "example3": "\"Everything about Meta is closed; push design back one week\"",
-      "emptyHint": "Only replanning with context is done here. Nothing changes until you approve the proposal; the members' daily updates arrive here as well.",
+      "example1": "\"Which tasks are pending or blocked?\"",
+      "example2": "\"Why did you propose closing the Meta task?\"",
+      "example3": "\"Everything about Meta is closed; push design back one week\" or attach a document",
+      "emptyHint": "You can talk here: ask what is going on with something, why the AI proposed a change or what the documents say. It only replans when you ask explicitly, attach context or press \"Prepare a proposal\". Nothing changes until you approve.",
       "contextPlaceholder": "Paste context: a chat, an email, meeting notes…",
       "attach": "Attach document",
       "includeTrello": "Include Trello board",
@@ -519,7 +519,7 @@
       "rereadAll": "Re-read all project documents",
       "rereadHint": "Slower and more expensive: reads every document of the project again",
       "context": "Context",
-      "placeholder": "E.g. \"Replan {{project}} with this context\"",
+      "placeholder": "Ask something about {{project}} or request a change",
       "send": "Send (Ctrl+Enter)",
       "questions": "Questions for you — decide when approving, or replan here with the answer as context",
       "notes": "{{count}} notes",
@@ -568,7 +568,12 @@
       },
       "consolidate": "Consolidate updates",
       "consolidateHint": "Turn the members' updates into a summary and a proposal now (it also runs once a day)",
-      "noUpdates": "No new member updates to consolidate."
+      "noUpdates": "No new member updates to consolidate.",
+      "askWhy": "Ask why",
+      "askWhyOp": "Why did you propose \"{{kind}}: {{task}}\"? What is it based on?",
+      "askWhyAll": "Why these changes? Explain the main decisions and what they are based on.",
+      "askCheck": "Before approving: which changes are weakest, and what should I confirm with whom?",
+      "replanWith": "Prepare a plan proposal with this"
     }
   },
   "projects": {
@@ -582,7 +587,8 @@
     "status": {
       "active": "Active",
       "paused": "Paused",
-      "finished": "Finished"
+      "finished": "Finished",
+      "closed": "Closed"
     },
     "list": {
       "title": "Your projects",
@@ -592,7 +598,8 @@
         "active": "Active",
         "atRisk": "At risk",
         "overdue": "Overdue",
-        "paused": "Paused"
+        "paused": "Paused",
+        "closed": "Closed"
       },
       "stats": {
         "totalProjects": "Total projects",
@@ -1020,7 +1027,33 @@
     "save": "Save",
     "saved": "Saved",
     "loadError": "Could not load your settings.",
-    "saveError": "Could not save. Please try again."
+    "saveError": "Could not save. Please try again.",
+    "system": {
+      "title": "System details",
+      "subtitle": "Models used by the assistant",
+      "loading": "Loading…",
+      "started": "Server started",
+      "refresh": "Refresh",
+      "part": "Part",
+      "model": "Model",
+      "source": "Set by",
+      "fallbacks": "Fallbacks",
+      "keys": "API keys (values are never shown)",
+      "env": "Model variables in the environment",
+      "noEnv": "(none: everything comes from the routing table in the code)",
+      "what": {
+        "context_resolver": "Understands which project, task or person the message is about",
+        "planner": "Decides the actions (the most important node)",
+        "validator": "Checks the plan before anything is done",
+        "narrator": "Writes the reply to the user",
+        "planning": "Replanning chat, uploads and daily consolidation (Intelligence)",
+        "documents": "Document analysis, insights and Gmail classification"
+      },
+      "warn": {
+        "fallback": "Meant to run on '{{wanted}}' but its credentials are missing: it is using the default provider ({{provider}}).",
+        "missing_key": "{{provider}} has no API key: calls will fail."
+      }
+    }
   },
   "autocomplete": {
     "knownAs": "Already in your projects",

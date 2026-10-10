@@ -506,12 +506,12 @@
     },
     "planning": {
       "title": "Replanificación",
-      "subtitle": "Replanifica el proyecto con contexto nuevo (mensaje, texto, documento o Trello). Revisa la propuesta antes de que cambie algo.",
+      "subtitle": "Pregunta sobre el plan y sobre por qué la IA tomó cada decisión, o replanifica con contexto nuevo (mensaje, texto, documento o Trello). Nada cambia sin que apruebes una propuesta.",
       "emptyTitle": "¿Qué puedes pedir aquí?",
-      "example1": "\"Replanifica con este contexto\" + pega un chat o adjunta un documento",
-      "example2": "\"Compara el plan con Trello y actualízalo\"",
-      "example3": "\"Todo lo de Meta está cerrado; mueve diseño una semana\"",
-      "emptyHint": "Aquí solo se replanifica con contexto. Nada cambia hasta que apruebes la propuesta; los updates diarios del equipo también llegan aquí.",
+      "example1": "\"¿Qué tareas están pendientes o bloqueadas?\"",
+      "example2": "\"¿Por qué propusiste cerrar la tarea de Meta?\"",
+      "example3": "\"Todo lo de Meta está cerrado; mueve diseño una semana\" o adjunta un documento",
+      "emptyHint": "Aquí puedes conversar: preguntar qué pasa con algo, por qué la IA propuso un cambio o qué dicen los documentos. Solo se replanifica si lo pides explícitamente, adjuntas contexto o pulsas \"Preparar una propuesta\". Nada cambia hasta que apruebes.",
       "contextPlaceholder": "Pega contexto: un chat, un correo, notas de reunión…",
       "attach": "Adjuntar documento",
       "includeTrello": "Incluir tablero de Trello",
@@ -519,7 +519,7 @@
       "rereadAll": "Releer todos los documentos del proyecto",
       "rereadHint": "Más lento y más caro: vuelve a leer todos los documentos del proyecto",
       "context": "Contexto",
-      "placeholder": "Ej.: \"Replanéame {{project}} con este contexto\"",
+      "placeholder": "Pregunta algo sobre {{project}} o pide un cambio",
       "send": "Enviar (Ctrl+Enter)",
       "questions": "Preguntas para ti: decide al aprobar, o replanifica aquí con la respuesta como contexto",
       "notes": "{{count}} notas",
@@ -568,7 +568,12 @@
       },
       "consolidate": "Consolidar updates",
       "consolidateHint": "Convierte ahora los updates del equipo en un resumen y una propuesta (también corre una vez al día)",
-      "noUpdates": "No hay updates nuevos del equipo para consolidar."
+      "noUpdates": "No hay updates nuevos del equipo para consolidar.",
+      "askWhy": "Preguntar por qué",
+      "askWhyOp": "¿Por qué propusiste \"{{kind}}: {{task}}\"? ¿En qué te basaste?",
+      "askWhyAll": "¿Por qué estos cambios? Explícame las decisiones principales y en qué se basan.",
+      "askCheck": "Antes de aprobar: ¿qué cambios son los más débiles y qué debo confirmar con quién?",
+      "replanWith": "Preparar una propuesta de plan con esto"
     }
   },
   "projects": {
@@ -582,7 +587,8 @@
     "status": {
       "active": "Activo",
       "paused": "En pausa",
-      "finished": "Finalizado"
+      "finished": "Finalizado",
+      "closed": "Cerrado"
     },
     "list": {
       "title": "Tus proyectos",
@@ -592,7 +598,8 @@
         "active": "Activos",
         "atRisk": "En riesgo",
         "overdue": "Vencidos",
-        "paused": "En pausa"
+        "paused": "En pausa",
+        "closed": "Cerrados"
       },
       "stats": {
         "totalProjects": "Proyectos totales",
@@ -1020,7 +1027,33 @@
     "save": "Guardar",
     "saved": "Guardado",
     "loadError": "No se pudo cargar tu configuración.",
-    "saveError": "No se pudo guardar. Inténtalo de nuevo."
+    "saveError": "No se pudo guardar. Inténtalo de nuevo.",
+    "system": {
+      "title": "Detalles del sistema",
+      "subtitle": "Modelos que usa el asistente",
+      "loading": "Cargando…",
+      "started": "Servidor iniciado",
+      "refresh": "Actualizar",
+      "part": "Parte",
+      "model": "Modelo",
+      "source": "Definido por",
+      "fallbacks": "Respaldo",
+      "keys": "Claves de API (nunca se muestran los valores)",
+      "env": "Variables de modelos en el entorno",
+      "noEnv": "(ninguna: todo viene de la tabla de rutas del código)",
+      "what": {
+        "context_resolver": "Entiende de qué proyecto, tarea o persona habla el mensaje",
+        "planner": "Decide las acciones (el nodo más importante)",
+        "validator": "Revisa el plan antes de hacer nada",
+        "narrator": "Redacta la respuesta al usuario",
+        "planning": "Chat de replanificación, archivos subidos y consolidación diaria (Inteligencia)",
+        "documents": "Análisis de documentos, insights y clasificación de Gmail"
+      },
+      "warn": {
+        "fallback": "Debería usar '{{wanted}}' pero faltan sus credenciales: está usando el proveedor por defecto ({{provider}}).",
+        "missing_key": "{{provider}} no tiene clave de API: las llamadas van a fallar."
+      }
+    }
   },
   "autocomplete": {
     "knownAs": "Ya está en tus proyectos",
