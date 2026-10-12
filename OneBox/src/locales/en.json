@@ -2,7 +2,10 @@
   "nav": {
     "projects": "Projects",
     "intelligence": "Intelligence",
-    "organizations": "Organizations"
+    "organizations": "Organizations",
+    "integrations": "Integrations",
+    "members": "Members",
+    "board": "Board"
   },
   "common": {
     "newProject": "New project",
@@ -266,8 +269,10 @@
       "checkin_report": "Progress report",
       "checkin_overdue": "No progress report",
       "update_urgent": "Urgent from the team",
-      "updates_digest": "Updates digest"
-    }
+      "updates_digest": "Updates digest",
+      "waiting_on_owner": "Waiting on you"
+    },
+    "openPlanning": "Open in Replanning"
   },
   "chat": {
     "welcome": "Hi! I’m the OneBox smart assistant. I can search your emails, analyze content and suggest actions.\n\nTry asking me:\n• \"Show me my recent emails\"\n• \"Do I have emails with attachments?\"\n• \"Search emails from Santiago\"",
@@ -292,7 +297,9 @@
     },
     "expandTooltip": "Expand chat",
     "collapseTooltip": "Shrink chat",
-    "closeTooltip": "Close chat"
+    "closeTooltip": "Close chat",
+    "replan": "Replanning",
+    "replanTooltip": "Replanning: talk about a project's plan, review and approve proposals"
   },
   "wizard": {
     "chooseTitle": "New project",
@@ -398,7 +405,11 @@
         "dueDateTooltip": "Due date",
         "ghostAssignee": "This person is no longer on the team. They’ll be left unassigned when created."
       }
-    }
+    },
+    "externalName": "Name",
+    "typeLabel": "Type",
+    "textError": "Could not process the text.",
+    "documentError": "Could not process the document."
   },
   "insightsSidebar": {
     "backToAll": "← All projects",
@@ -440,7 +451,15 @@
     "downloadTooltip": "Download",
     "deleteTooltip": "Delete",
     "confirmDelete": "Delete this attachment? This can’t be undone.",
-    "deleteError": "Couldn’t delete the attachment."
+    "deleteError": "Couldn’t delete the attachment.",
+    "replanStarted": "Updating the task plan with \"{{file}}\". Follow it in the Replanning panel: the proposal appears there for your approval.",
+    "replanNo": "No, just keep the document",
+    "replanQuestion": "Do you want to update the task plan with \"{{file}}\"? OneBox will compare it with the current tasks; changes to existing tasks wait for your approval.",
+    "replanTooltip": "Update the task plan with this document",
+    "replanYes": "Update the plan",
+    "replanError": "Could not start the update.",
+    "downloadLinkError": "Could not get the download link.",
+    "downloadError": "Could not download the file."
   },
   "intelligence": {
     "title": "Intelligence Center",
@@ -456,7 +475,11 @@
       "executed": "Executed actions",
       "needsReview": "Need review",
       "unclassified": "Unclassified",
-      "accuracy": "Classification accuracy"
+      "accuracy": "Classification accuracy",
+      "actions": "Actions",
+      "needsAttention": "Need attention",
+      "observations": "Observations",
+      "projects": "Projects"
     },
     "filters": {
       "typeHeader": "Filter by type",
@@ -465,7 +488,9 @@
       "typeAll": "All actions",
       "typeExecuted": "Executed",
       "typeNeedsReview": "Need review",
-      "typeErrors": "Errors"
+      "typeErrors": "Errors",
+      "typeActions": "Actions",
+      "typeObservations": "Observations"
     },
     "actionCard": {
       "detected": "DETECTED",
@@ -482,7 +507,9 @@
       "activity7days": "Activity last 7 days",
       "activeProjects": "Projects with AI activity",
       "registeredActions_one": "{{count}} registered action",
-      "registeredActions_other": "{{count}} registered actions"
+      "registeredActions_other": "{{count}} registered actions",
+      "breakdownDetail": "insights across {{projects}} project(s)",
+      "breakdownTitle": "What the AI produced"
     },
     "loading": "Loading data…",
     "empty": "No actions in this period.",
@@ -573,7 +600,9 @@
       "askWhyOp": "Why did you propose \"{{kind}}: {{task}}\"? What is it based on?",
       "askWhyAll": "Why these changes? Explain the main decisions and what they are based on.",
       "askCheck": "Before approving: which changes are weakest, and what should I confirm with whom?",
-      "replanWith": "Prepare a plan proposal with this"
+      "replanWith": "Prepare a plan proposal with this",
+      "waiting": "proposal waiting",
+      "close": "Close"
     }
   },
   "projects": {
@@ -632,7 +661,9 @@
       "statsDone": "Done",
       "statsPending": "Pending",
       "statsBlocked": "Blocked",
-      "statsAiMessages": "AI messages"
+      "statsAiMessages": "AI messages",
+      "lastAiAction": "Last AI action",
+      "detected": "Detected"
     },
     "detail": {
       "editTooltip": "Edit project",
@@ -751,7 +782,10 @@
         "filterSummaryCount_one": "{{count}} task found",
         "filterSummaryCount_other": "{{count}} tasks found",
         "filterSummaryMore": "Show {{count}} more",
-        "filterSummaryLess": "Show less"
+        "filterSummaryLess": "Show less",
+        "readOnly": "Read only",
+        "save": "Save",
+        "removeTooltip": "Remove {{name}} from the project"
       },
       "channels": {
         "header": "Active channels",
@@ -864,6 +898,54 @@
         "errorSaving": "Error saving",
         "defaultRole": "Guest"
       }
+    },
+    "followUp": {
+      "title": "Pause the follow-up of {{name}}?",
+      "titleAll": "Pause the follow-up of the whole team?",
+      "explain": "No status reminders, no update window at login, and you will not be told they have not reported. With no reports, nothing of theirs is consolidated or replanned. They can still report on their own, and task assignment notices are still sent.",
+      "untilLabel": "Until (optional): it resumes by itself after this day",
+      "noDateWarning": "Without a date it stays paused until you resume it.",
+      "noteLabel": "Note (optional)",
+      "notePlaceholder": "e.g. On vacation / client contact, does not report",
+      "confirm": "Pause follow-up",
+      "resume": "Resume",
+      "pauseAll": "Pause team follow-up",
+      "pauseAllHint": "Stop status reminders and check-ins for everyone in this project",
+      "allPaused": "Team follow-up paused",
+      "allPausedUntil": "Team follow-up paused until {{date}}",
+      "paused": "Follow-up paused",
+      "pausedUntil": "Follow-up paused until {{date}}",
+      "pauseOne": "Pause the follow-up of {{name}}",
+      "resumeOne": "Resume the follow-up of {{name}}"
+    },
+    "planning": {
+      "button": "Replanning",
+      "tooltip": "Talk about the plan, replan with new context, review proposals",
+      "waiting": "Proposal waiting",
+      "waitingShort": "Proposal",
+      "waitingTooltip": "A plan proposal is waiting for your approval"
+    },
+    "close": {
+      "banner": "Closed (discontinued)",
+      "bannerHint": "Read-only: no reminders, notifications, Trello sync or changes while it is closed.",
+      "button": "Close project",
+      "confirm": "Close project",
+      "explain": "Use this when the project was discontinued. It is deactivated completely: no reminders, check-ins, notifications or Trello sync, and nobody can change tasks or the plan. It is hidden from your list (filter \"Closed\"). Nothing is deleted, and you can reopen it at any time.",
+      "noteLabel": "Why is it being closed? (required)",
+      "notePlaceholder": "e.g. The client cancelled the contract in October",
+      "noteRequired": "Write why the project is being closed.",
+      "reopen": "Reopen",
+      "reopenConfirm": "Reopen \"{{name}}\"? It becomes active again: reminders, check-ins and Trello sync resume.",
+      "title": "Close \"{{name}}\"?",
+      "tooltip": "Close this project as discontinued (can be reopened)"
+    },
+    "statusCommentPrompt": "Add a comment: what happened or why is the status changing?",
+    "delete": {
+      "title": "Delete project",
+      "question": "Are you sure you want to delete",
+      "consequence": "This will also delete its insights, tasks and notifications.",
+      "irreversible": "This cannot be undone.",
+      "error": "Could not delete the project. Please try again."
     }
   },
   "onboarding": {
@@ -1047,7 +1129,8 @@
         "validator": "Checks the plan before anything is done",
         "narrator": "Writes the reply to the user",
         "planning": "Replanning chat, uploads and daily consolidation (Intelligence)",
-        "documents": "Document analysis, insights and Gmail classification"
+        "documents": "Document analysis, insights and Gmail classification",
+        "translator": "Spanish ↔ English translation of stored texts"
       },
       "warn": {
         "fallback": "Meant to run on '{{wanted}}' but its credentials are missing: it is using the default provider ({{provider}}).",
@@ -1087,6 +1170,118 @@
     "placeholder": "e.g. \"the charts are done, Outlook almost, I need the Azure account\"",
     "hint": "When you are done, say \"that's all\".",
     "later": "Not now",
-    "laterHint": "You own this project: you can give your update later"
+    "laterHint": "You own this project: you can give your update later",
+    "preparing": "Preparing your questions…"
+  },
+  "integrations": {
+    "hint": "Once Trello is connected you can say in the chat: \"send the tasks of <project> to Trello\".",
+    "subtitle": "Connect the tools OneBox reads from and writes to. Click one to set it up.",
+    "title": "Integrations",
+    "trelloConnected": "Trello connected as"
+  },
+  "channels": {
+    "title": "Connected channels",
+    "activeCount": "{{n}} of {{total}} active",
+    "refresh": "Refresh status",
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "allReady": "All channels ready",
+    "managedByOwner": "Managed by the project owner",
+    "gmailDescription": "Automatically receive and analyze emails",
+    "whatsappDescription": "Messages via Twilio for your projects",
+    "trelloDescription": "Send project tasks to a Trello board"
+  },
+  "textPaster": {
+    "clear": "Clear"
+  },
+  "ordersCenter": {
+    "title": "Order Center",
+    "soon": "Coming soon"
+  },
+  "members": {
+    "title": "Members",
+    "subtitle": "How each person is doing with their updates, in the projects you own.",
+    "allProjects": "All projects",
+    "refresh": "Refresh",
+    "loading": "Loading…",
+    "empty": "Nobody here with this filter.",
+    "never": "never",
+    "today": "today",
+    "yesterday": "yesterday",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago",
+    "noEmail": "no email",
+    "lastUpdate": "Last update",
+    "updating": "updating now",
+    "openTasks_one": "{{count}} open task",
+    "openTasks_other": "{{count}} open tasks",
+    "overdue_one": "{{count}} overdue",
+    "overdue_other": "{{count}} overdue",
+    "waitingApproval_one": "Reported done: waiting for your approval",
+    "waitingApproval_other": "{{count}} tasks reported done: waiting for your approval",
+    "waitingOther": "Waiting on someone else",
+    "pausedUntil": "until {{date}}",
+    "viewUpdates": "See their updates",
+    "resume": "Resume follow-up",
+    "pause": "Pause follow-up",
+    "openPlanning": "Open the project in Replanning",
+    "updatesTitle": "Updates from {{name}}",
+    "noUpdates": "No updates yet.",
+    "inProgress": "in progress",
+    "consolidated": "in a daily summary",
+    "noItems": "Nothing recorded.",
+    "needs": "needs {{who}}",
+    "conversation_one": "Conversation ({{count}} message)",
+    "conversation_other": "Conversation ({{count}} messages)",
+    "state": {
+      "all": "All",
+      "late": "Late",
+      "due": "Update due",
+      "waiting_you": "Waiting on you",
+      "ok": "Up to date",
+      "paused": "Paused",
+      "no_account": "No account",
+      "no_tasks": "No tasks",
+      "owner": "Owner"
+    },
+    "itemType": {
+      "done": "Done",
+      "progress": "Progress",
+      "not_started": "Not started",
+      "blocker": "Blocker",
+      "date_change": "New date",
+      "plan": "Plan",
+      "idea": "Idea",
+      "question": "Question",
+      "hearsay": "Heard from others"
+    }
+  },
+  "board": {
+    "title": "Board",
+    "subtitle": "Tasks of all your projects",
+    "refresh": "Refresh",
+    "allProjects": "All projects",
+    "everyone": "Everyone",
+    "unassigned": "Unassigned",
+    "thisWeek": "This week",
+    "nextWeek": "Next week",
+    "lastWeek": "Last week",
+    "prevWeek": "Previous week",
+    "nextWeekBtn": "Next week",
+    "allDates": "All dates",
+    "noDate": "Include tasks without a date",
+    "overdueNote": "Overdue tasks are shown in this week",
+    "loading": "Loading tasks…",
+    "empty": "No tasks",
+    "subtask": "subtask",
+    "blockedPrompt": "Why is it blocked?",
+    "moveFailed": "Could not change the status",
+    "hint": "Drag a card to another column to change its status.",
+    "col": {
+      "pending": "To do",
+      "in_progress": "In progress",
+      "blocked": "Blocked",
+      "done": "Done"
+    }
   }
 }

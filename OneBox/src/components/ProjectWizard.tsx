@@ -245,7 +245,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
       setMode('document-review')
     } catch (err: any) {
       console.error('[ProjectWizard] analyze text error:', err)
-      const msg = err?.message || 'Could not process the text.'
+      const msg = err?.message || t('wizard.textError', 'Could not process the text.')
       setUploadError(msg.length > 200 ? msg.substring(0, 200) + '...' : msg)
     } finally {
       setUploadingDoc(false)
@@ -294,7 +294,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
       setMode('document-review')
     } catch (err: any) {
       console.error('[ProjectWizard] doc analyze error:', err)
-      const msg = err?.message || 'Could not process the document.'
+      const msg = err?.message || t('wizard.documentError', 'Could not process the document.')
       setUploadError(msg.length > 200 ? msg.substring(0, 200) + '...' : msg)
     } finally {
       setUploadingDoc(false)
@@ -1513,7 +1513,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                     exclude={selectedTeam.map(m => m.email)}
                     wrapperClassName="relative w-40"
                     className="w-full px-4 py-3 bg-[#161625] border border-white/10 rounded-xl text-white placeholder-white/20 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 outline-none transition-all"
-                    placeholder="Name"
+                    placeholder={t('wizard.externalName', 'Name')}
                     onEnter={addExternal}
                     maxLength={80}
                   />
@@ -1593,7 +1593,7 @@ export default function ProjectWizard({ onNavigate, initialDraft, onWizardClose 
                       <p className="text-sm text-white font-medium">{name}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-white/30 uppercase">Type</p>
+                      <p className="text-[10px] text-white/30 uppercase">{t('wizard.typeLabel', 'Type')}</p>
                       <p className="text-sm text-white font-medium">{type}</p>
                     </div>
                     <div>

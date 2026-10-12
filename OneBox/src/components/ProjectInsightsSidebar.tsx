@@ -8,6 +8,7 @@ import {
   CheckCircle2, TrendingUp, Wrench, Target, User, Construction
 } from 'lucide-react'
 import { api } from '../services/api'
+import { loc } from '../localized'
 
 interface Insight {
   insightId?: string
@@ -64,7 +65,8 @@ export default function ProjectInsightsSidebar({
   searchQuery,
 }: ProjectInsightsSidebarProps) {
   const auth = useAuth()
-  const { t } = useTranslation()
+  const { t, i18n: tr } = useTranslation()
+  const lang = tr.language
   const token = auth.user?.access_token || ''
 
   const [insights, setInsights] = useState<Insight[]>([])
@@ -217,9 +219,11 @@ export default function ProjectInsightsSidebar({
                         //   title/detected; its description is a generic backend label
                         //   ("Real project type detected by AI", etc.), so it should NOT be shown.
                         const contentInDescription = insight.type === 'summary'
+                        // In the viewer's language when the card has that version (i18n).
+                        const f = (k: string) => loc(insight, k, lang)
                         const text = contentInDescription
-                          ? (insight.description || insight.action || insight.title || insight.detected || '')
-                          : (insight.title || insight.detected || insight.description || insight.action || '')
+                          ? (f('description') || f('action') || f('title') || f('detected') || '')
+                          : (f('title') || f('detected') || f('description') || f('action') || '')
                         return (
                           <div
                             key={key}

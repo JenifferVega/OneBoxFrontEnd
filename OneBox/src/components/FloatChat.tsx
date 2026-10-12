@@ -15,9 +15,11 @@ import {
   Mail,
   Paperclip,
   AlertCircle,
-  RotateCcw
+  RotateCcw,
+  Workflow
 } from 'lucide-react'
-import { getUserId, getUserEmail } from '../services/api'
+import { getUserId, getUserEmail, api } from '../services/api'
+import { openPlanning, PLANNING_CHANGED_EVENT } from '../planningPanel'
 
 const AGENT_API = import.meta.env.VITE_AGENT_API || 'https://TU-LAMBDA-URL.lambda-url.us-east-1.on.aws/'
 
@@ -138,6 +140,20 @@ export default function ChatFloat() {
   }
 
   const [open, setOpen] = useState(false)
+  // Plan proposals waiting for this user (owner) across projects: the
+  // Replanning button shows the count, so nothing sits there unseen.
+  const [waiting, setWaiting] = useState(0)
+  useEffect(() => {
+    const token = auth.user?.access_token
+    if (!token || !open) return
+    let alive = true
+    const count = () => api.getProjects(token).then((data: any[]) => {
+      if (alive && Array.isArray(data)) setWaiting(data.filter(p => p.isOwner !== false && p.pendingProposal).length)
+    }).catch(() => { /* badge only */ })
+    count()
+    window.addEventListener(PLANNING_CHANGED_EVENT, count)
+    return () => { alive = false; window.removeEventListener(PLANNING_CHANGED_EVENT, count) }
+  }, [open, auth.user?.access_token])
   // Expanded ("full size") chat. Remembered, because someone who prefers the
   // big panel prefers it every time, and re-expanding on every page load is
   // exactly the friction this removes. localStorage can throw in private
@@ -414,6 +430,19 @@ export default function ChatFloat() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
+                <button
+                  onClick={() => openPlanning()}
+                  className="relative flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
+                  title={t('chat.replanTooltip', 'Replanning: talk about a project\'s plan, review and approve proposals')}
+                >
+                  <Workflow className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t('chat.replan', 'Replanning')}</span>
+                  {waiting > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-[10px] font-bold text-black flex items-center justify-center">
+                      {waiting}
+                    </span>
+                  )}
+                </button>
                 <button
                   onClick={clearChat}
                   className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all"

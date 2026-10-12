@@ -43,6 +43,8 @@ export default function Layout({ children, currentPage, onNavigate, onNewProject
   const navItems: { id: PageType; label: string }[] = [
     { id: 'projects', label: t('nav.projects', 'Projects') },
     { id: 'intelligence', label: t('nav.intelligence', 'Intelligence') },
+    { id: 'members', label: t('nav.members', 'Members') },
+    { id: 'board', label: t('nav.board', 'Board') },
     { id: 'integrations', label: t('nav.integrations', 'Integrations') },
     // The "Organizations" tab is only added if the user is a super admin.
     // The backend still guards each /api/platform/* with 403.

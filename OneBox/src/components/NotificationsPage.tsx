@@ -19,6 +19,7 @@ import {
   ChevronRight, ArrowLeft, RefreshCw
 } from 'lucide-react'
 import { api } from '../services/api'
+import { openPlanning } from '../planningPanel'
 import { PageType } from '../App'
 
 interface Notification {
@@ -57,8 +58,13 @@ const TYPE_CONFIG: Record<string, { icon: any; color: string; bg: string; labelK
   checkin_overdue:     { icon: AlertTriangle,color: 'text-amber-400',   bg: 'bg-amber-500/10',   labelKey: 'checkin_overdue' },
   update_urgent:       { icon: AlertTriangle,color: 'text-red-400',     bg: 'bg-red-500/10',     labelKey: 'update_urgent' },
   updates_digest:      { icon: ListTodo,     color: 'text-sky-400',     bg: 'bg-sky-500/10',     labelKey: 'updates_digest' },
+  waiting_on_owner:    { icon: AlertTriangle,color: 'text-amber-400',   bg: 'bg-amber-500/10',   labelKey: 'waiting_on_owner' },
   system:              { icon: Bell,         color: 'text-white/60',    bg: 'bg-white/5',        labelKey: 'system' },
 }
+
+// Notifications whose next step is in the planning panel of their project.
+const PLANNING_TYPES = new Set(['plan_proposal', 'plan_updated', 'plan_error', 'updates_digest',
+                                'update_urgent', 'waiting_on_owner', 'checkin_report'])
 
 function getConfig(type: string) {
   return TYPE_CONFIG[type] || TYPE_CONFIG.system
@@ -364,6 +370,14 @@ export default function NotificationsPage({ onNavigate }: Props) {
                                 )}
                               </div>
                             </div>
+                            {n.projectId && PLANNING_TYPES.has(n.type) && (
+                              <button
+                                onClick={() => { openPlanning({ projectId: n.projectId, lock: true }); if (isUnread) handleMarkRead(n.notificationId) }}
+                                className="text-[10px] text-amber-200 hover:text-white px-2 py-1 rounded border border-amber-500/30 hover:bg-amber-500/10 flex-shrink-0"
+                              >
+                                {t('notifications.openPlanning', 'Open in Replanning')}
+                              </button>
+                            )}
                             {isUnread && (
                               <button
                                 onClick={() => handleMarkRead(n.notificationId)}

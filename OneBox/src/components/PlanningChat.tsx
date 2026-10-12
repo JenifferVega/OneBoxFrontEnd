@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { planningChanged } from '../planningPanel'
 import {
   Send, Paperclip, FileText, Trello, RefreshCw, CheckCircle2, XCircle, Undo2,
-  Loader2, ChevronDown, ChevronRight, AlertTriangle, StickyNote, HelpCircle, Inbox, MessageCircleQuestion,
+  Loader2, ChevronDown, ChevronRight, AlertTriangle, StickyNote, HelpCircle, Inbox, MessageCircleQuestion, X,
 } from 'lucide-react'
 import {
   api, PlanningState, PlanningProposal, PlanningMessage, PlanningOperation, PlanningJob,
@@ -19,8 +20,16 @@ import {
  * Runs take minutes: the page polls the job and shows the step it is on.
  */
 
-interface Props { token: string }
-interface ProjectLite { projectId: string; name: string; trelloBoardId?: string }
+interface Props {
+  token: string
+  /** Project to open on ('' = the first one). */
+  initialProjectId?: string
+  /** Opened for one project (upload, project header): no project selector. */
+  lockProject?: boolean
+  /** Panel mode (PlanningPanel): shows a close button; the URL is left alone. */
+  onClose?: () => void
+}
+interface ProjectLite { projectId: string; name: string; trelloBoardId?: string; pendingProposal?: { proposalId: string } | null }
 
 const OP_ORDER: PlanningOperation['op'][] = ['create', 'update', 'close', 'block', 'reopen', 'delete', 'link']
 const OP_STYLE: Record<string, string> = {
@@ -42,10 +51,11 @@ const STATUS_STYLE: Record<string, string> = {
   superseded: 'bg-white/10 text-white/40',
 }
 
-export default function PlanningChat({ token }: Props) {
+export default function PlanningChat({ token, initialProjectId, lockProject, onClose }: Props) {
   const { t } = useTranslation()
   const [projects, setProjects] = useState<ProjectLite[]>([])
   const [projectId, setProjectId] = useState<string>(() => {
+    if (initialProjectId || onClose) return initialProjectId || ''
     try { return new URLSearchParams(window.location.search).get('planProject') || '' } catch { return '' }
   })
   const [state, setState] = useState<PlanningState | null>(null)
@@ -77,9 +87,10 @@ export default function PlanningChat({ token }: Props) {
     }).catch(() => setError(t('intelligence.planning.errors.projects', 'Could not load projects')))
   }, [token, t])
 
-  // Keep the project in the URL so Back / reload land on the same chat.
+  // Keep the project in the URL so Back / reload land on the same chat
+  // (page mode only: the panel does not touch the URL).
   useEffect(() => {
-    if (!projectId) return
+    if (!projectId || onClose) return
     try {
       const url = new URL(window.location.href)
       url.searchParams.set('planProject', projectId)
@@ -108,7 +119,7 @@ export default function PlanningChat({ token }: Props) {
       try {
         const j = await api.getPlanningJob(projectId, job.jobId, token)
         setJob(j)
-        if (j.status !== 'running') { window.clearInterval(id); load() }
+        if (j.status !== 'running') { window.clearInterval(id); load(); planningChanged() }
       } catch {
         window.clearInterval(id); setJob(null); load()
       }
@@ -175,6 +186,7 @@ export default function PlanningChat({ token }: Props) {
     setBusy(true); setError('')
     try {
       await api.decidePlanningProposal(projectId, p.proposalId, decision, indexes, token)
+      planningChanged()
     } catch (e: any) {
       setError(String(e?.message || e).slice(0, 300))
     } finally {
@@ -187,6 +199,7 @@ export default function PlanningChat({ token }: Props) {
     setBusy(true); setError('')
     try {
       await api.revertPlanningProposal(projectId, p.proposalId, token)
+      planningChanged()
     } catch (e: any) {
       setError(String(e?.message || e).slice(0, 300))
     } finally {
@@ -207,13 +220,29 @@ export default function PlanningChat({ token }: Props) {
                 title={t('intelligence.planning.consolidateHint', 'Turn the members\' updates into a summary and a proposal now (it also runs once a day)')}>
           <Inbox className="w-4 h-4" />{t('intelligence.planning.consolidate', 'Consolidate updates')}
         </button>
-        <select
-          value={projectId}
-          onChange={e => setProjectId(e.target.value)}
-          className="bg-[#161625] border border-white/10 rounded-lg px-3 py-2 text-sm text-white max-w-xs"
-        >
-          {projects.map(p => <option key={p.projectId} value={p.projectId}>{p.name}</option>)}
-        </select>
+        {lockProject ? (
+          <span className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white max-w-xs truncate">
+            {project?.name || ''}
+          </span>
+        ) : (
+          <select
+            value={projectId}
+            onChange={e => setProjectId(e.target.value)}
+            className="bg-[#161625] border border-white/10 rounded-lg px-3 py-2 text-sm text-white max-w-xs"
+          >
+            {projects.map(p => (
+              <option key={p.projectId} value={p.projectId}>
+                {p.name}{p.pendingProposal ? ` • ${t('intelligence.planning.waiting', 'proposal waiting')}` : ''}
+              </option>
+            ))}
+          </select>
+        )}
+        {onClose && (
+          <button onClick={onClose} className="p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/5"
+                  title={t('intelligence.planning.close', 'Close')} aria-label={t('intelligence.planning.close', 'Close')}>
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Conversation */}

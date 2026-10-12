@@ -91,6 +91,26 @@ export interface PlanningMessage {
   /** On a conversational reply: the leader's message, to replan with it if they press the button */
   replanText?: string
 }
+export type TeamState = 'owner' | 'paused' | 'no_tasks' | 'no_account' | 'waiting_you' | 'late' | 'due' | 'ok'
+export interface TeamRow {
+  projectId: string; projectName: string; key: string; name: string; email: string; role: string
+  isOwner: boolean; state: TeamState; openTasks: number; overdue: number
+  lastUpdateAt: string; updates: number; openUpdate: boolean; dueAt: string; urgent: boolean
+  pausedUntil: string; datesGiven: string[]
+  waitingOnYou: { taskId: string; kind: string; owner: string; text: string }[]
+}
+export interface TeamStatus { rows: TeamRow[]; projects: { projectId: string; name: string }[]; checkinDays: number }
+export interface TeamUpdateItem {
+  type: string; task_id?: string; task_text?: string; text: string; owner?: string; due_date?: string; certainty?: string; quote?: string
+}
+export interface TeamUpdate {
+  sessionId: string; status: string; createdAt: string; closedAt: string; consolidatedAt: string
+  messages: { role: string; content: string }[]; items: TeamUpdateItem[]
+}
+export interface TeamUpdates { projectId: string; projectName: string; person: string; updates: TeamUpdate[] }
+export interface FollowUpPause { until?: string; by?: string; at?: string; note?: string }
+/** Follow-up pauses in force on a project ('all' = whole team; people keyed like the backend's person_key). */
+export interface FollowUpView { all: FollowUpPause | null; people: Record<string, FollowUpPause> }
 export interface SystemNode {
   node: string; what: string; provider?: string; model?: string; source?: string
   fallbacks?: string[]; warning?: string | null; error?: string
@@ -141,6 +161,14 @@ export const api = {
     fetchAPI('/api/user/contacts', token) as Promise<{ contacts: Contact[]; count: number }>,
 
   /** The user's preferences (table onebox-users). */
+  /** Members page (owner): follow-up status per person and project. */
+  getTeamStatus: (token: string) =>
+    fetchAPI('/api/team/status', token) as Promise<TeamStatus>,
+
+  /** A person's recent update chats in one project (owner only). */
+  getTeamUpdates: (projectId: string, person: string, token: string) =>
+    fetchAPI(`/api/team/updates?projectId=${encodeURIComponent(projectId)}&person=${encodeURIComponent(person)}`, token) as Promise<TeamUpdates>,
+
   /** Settings > System details: models per node, key presence (never values). */
   getSystemInfo: (token: string) =>
     fetchAPI('/api/system/info', token) as Promise<SystemInfo>,
@@ -191,6 +219,11 @@ export const api = {
   /** Owner only: close a discontinued project, with the reason. Reversible with reopenProject. */
   closeProject: (projectId: string, note: string, token: string) =>
     fetchAPI(`/api/projects/${projectId}/close`, token, { method: 'POST', body: JSON.stringify({ note }) }),
+
+  /** Owner only: pause / resume the status follow-up of one member (person = their key) or the whole team ('all'). */
+  setFollowUp: (projectId: string, body: { person: string; paused: boolean; until?: string; note?: string }, token: string) =>
+    fetchAPI(`/api/projects/${projectId}/follow-up`, token, { method: 'POST', body: JSON.stringify(body) }) as
+      Promise<{ projectId: string; followUp: FollowUpView }>,
 
   /** Owner only: reactivate a closed project with the status it had before. */
   reopenProject: (projectId: string, token: string) =>

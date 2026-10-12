@@ -1,14 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from 'react-oidc-context'
+import { useTranslation } from 'react-i18next'
 import Layout from './components/Layout'
 import Projects from './components/Projects'
 import Intelligence from './components/Intelligence'
+import MembersPage from './components/MembersPage'
+import BoardPage from './components/BoardPage'
 import ProjectWizard, { InitialDocumentDraft } from './components/ProjectWizard'
 import ConnectGmail from './components/GmailConection'
 import LandingPage from './components/Landingpage'
 import OnboardingForm, { PendingProject } from './components/OnboardingForm'
 import LoginPage from './components/LoginPage'
 import FloatChat from './components/FloatChat'
+import PlanningPanel from './components/PlanningPanel'
 import NotificationsPage from './components/NotificationsPage'
 import TrelloConnection from './components/TrelloConnection'
 import IntegrationsPage from './components/IntegrationsPage'
@@ -20,7 +24,7 @@ import { setUserId, setUserEmail, getUserId, getUserEmail, clearUserSession, api
 
 const PENDING_PROJECT_KEY = 'onebox_pending_project'
 
-export type PageType = 'projects' | 'intelligence' | 'platform' | 'orders-center' | 'wizard' | 'connect-gmail' | 'connect-trello' | 'integrations' | 'notifications' | 'settings'
+export type PageType = 'projects' | 'intelligence' | 'members' | 'board' | 'platform' | 'orders-center' | 'wizard' | 'connect-gmail' | 'connect-trello' | 'integrations' | 'notifications' | 'settings'
 
 // ── Internal navigation and the browser Back button ─────────────────────────
 // The current page used to live only in React state, so navigating created no
@@ -30,7 +34,7 @@ export type PageType = 'projects' | 'intelligence' | 'platform' | 'orders-center
 //
 // A query param, not a hash: Trello hands its token back in the fragment
 // (#token=...), so a hash-based route would collide with it.
-const PAGES: PageType[] = ['projects', 'intelligence', 'platform', 'orders-center',
+const PAGES: PageType[] = ['projects', 'intelligence', 'members', 'board', 'platform', 'orders-center',
   'wizard', 'connect-gmail', 'connect-trello', 'integrations', 'notifications', 'settings']
 const DEFAULT_PAGE: PageType = 'projects'
 
@@ -415,6 +419,10 @@ export default function App() {
         return <Projects onNavigate={navigate} gmailConnected={gmailConnected} resetSignal={projectsResetSignal} />
       case 'intelligence':
         return <Intelligence />
+      case 'members':
+        return <MembersPage />
+      case 'board':
+        return <BoardPage />
       case 'platform':
         // Double guard: only renders if the flag is active. If someone
         // navigates manually without being a super admin, we fall back to the default project view.
@@ -446,13 +454,7 @@ export default function App() {
         return <SettingsPage />
       case 'orders-center':
         return (
-          <div className="flex items-center justify-center h-[calc(100vh-56px)]">
-            <div className="text-center">
-              <div className="text-4xl mb-4">🚧</div>
-              <h2 className="text-xl font-bold text-white">Order Center</h2>
-              <p className="text-white/50 mt-2">Coming soon</p>
-            </div>
-          </div>
+          <ComingSoon />
         )
       default:
         return <Projects onNavigate={navigate} gmailConnected={gmailConnected} resetSignal={projectsResetSignal} />
@@ -465,6 +467,21 @@ export default function App() {
         {renderPage()}
       </Layout>
       <FloatChat />
+      <PlanningPanel />
     </>
+  )
+}
+
+/** Placeholder page (Order Center), in the app language. */
+function ComingSoon() {
+  const { t } = useTranslation()
+  return (
+    <div className="flex items-center justify-center h-[calc(100vh-56px)]">
+      <div className="text-center">
+        <div className="text-4xl mb-4">🚧</div>
+        <h2 className="text-xl font-bold text-white">{t('ordersCenter.title', 'Order Center')}</h2>
+        <p className="text-white/50 mt-2">{t('ordersCenter.soon', 'Coming soon')}</p>
+      </div>
+    </div>
   )
 }

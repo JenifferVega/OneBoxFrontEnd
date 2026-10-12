@@ -5,6 +5,7 @@ import {
   Mail, MessageCircle, Check, AlertCircle, Plus,
   ExternalLink, Settings, Loader2, Trello
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { api } from '../services/api'
 import { getTrelloStatus } from '../services/trello'
 import { PageType } from '../App'
@@ -32,6 +33,7 @@ interface ChannelsPanelProps {
 }
 
 export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefresh }: ChannelsPanelProps) {
+  const { t } = useTranslation()
   const auth = useAuth()
   const userId = auth.user?.profile?.sub || ''
 
@@ -110,7 +112,7 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
     {
       id: 'gmail',
       label: 'Gmail',
-      description: 'Automatically receive and analyze emails',
+      description: t('channels.gmailDescription', 'Automatically receive and analyze emails'),
       icon: Mail,
       color: 'text-rose-400',
       bg: 'bg-rose-500/10',
@@ -123,7 +125,7 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
     {
       id: 'whatsapp',
       label: 'WhatsApp',
-      description: 'Messages via Twilio for your projects',
+      description: t('channels.whatsappDescription', 'Messages via Twilio for your projects'),
       icon: MessageCircle,
       color: 'text-emerald-400',
       bg: 'bg-emerald-500/10',
@@ -137,8 +139,8 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
       id: 'trello',
       label: 'Trello',
       description: trelloManaged
-        ? 'Managed by the project owner'
-        : 'Send project tasks to a Trello board',
+        ? t('channels.managedByOwner', 'Managed by the project owner')
+        : t('channels.trelloDescription', 'Send project tasks to a Trello board'),
       icon: Trello,
       color: 'text-blue-400',
       bg: 'bg-blue-500/10',
@@ -146,7 +148,7 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
       connected: trelloConnected,
       loading: trelloLoading,
       meta: trelloManaged
-        ? 'Managed by the project owner'
+        ? t('channels.managedByOwner', 'Managed by the project owner')
         : (trelloUser ? `@${trelloUser}` : undefined),
       managed: trelloManaged,
       action: trelloManaged ? undefined : () => onNavigate?.('connect-trello')
@@ -162,15 +164,15 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
     <div className="bg-[#161625] rounded-xl border border-white/5 p-3">
       <div className="flex items-center justify-between mb-3">
         <div className="min-w-0">
-          <h3 className="text-xs font-bold text-white truncate">Connected channels</h3>
+          <h3 className="text-xs font-bold text-white truncate">{t('channels.title', 'Connected channels')}</h3>
           <p className="text-[10px] text-white/40 mt-0.5">
-            {connectedCount} of {counted.length} active
+            {t('channels.activeCount', { n: connectedCount, total: counted.length, defaultValue: `${connectedCount} of ${counted.length} active` })}
           </p>
         </div>
         <button
           onClick={handleRefreshGmail}
           className="p-1 rounded-md text-white/40 hover:text-white/70 hover:bg-white/5 transition-all flex-shrink-0"
-          title="Refresh status"
+          title={t('channels.refresh', 'Refresh status')}
         >
           <Settings className="w-3.5 h-3.5" />
         </button>
@@ -214,9 +216,9 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
                     {channel.label}
                   </span>
                   {channel.connected ? (
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" title="Connected" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" title={t('channels.connected', 'Connected')} />
                   ) : (
-                    <span className="w-1.5 h-1.5 rounded-full bg-white/20 flex-shrink-0" title="Not connected" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/20 flex-shrink-0" title={t('channels.notConnected', 'Not connected')} />
                   )}
                 </div>
                 {channel.meta && (
@@ -239,7 +241,7 @@ export default function ChannelsPanel({ onNavigate, gmailConnected, onGmailRefre
       {connectedCount === counted.length && (
         <div className="mt-2 p-1.5 bg-emerald-500/5 border border-emerald-500/10 rounded-md flex items-center gap-1.5">
           <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-          <p className="text-[10px] text-emerald-400 truncate">All channels ready</p>
+          <p className="text-[10px] text-emerald-400 truncate">{t('channels.allReady', 'All channels ready')}</p>
         </div>
       )}
     </div>

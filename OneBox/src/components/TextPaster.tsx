@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import {
   ClipboardPaste, Sparkles, Loader2, X, AlertCircle, CheckCircle2,
   MessageSquare, Mail, FileText
@@ -42,6 +43,7 @@ export default function TextPaster({
   label = 'Paste a conversation',
   hint = 'Paste a WhatsApp chat, email thread or any text. The AI will detect tasks, risks and decisions.',
 }: TextPasterProps) {
+  const { t } = useTranslation()
   const [text, setText] = useState('')
   const [source, setSource] = useState<'whatsapp' | 'gmail' | 'paste'>('paste')
   const [localError, setLocalError] = useState('')
@@ -152,7 +154,7 @@ export default function TextPaster({
             type="button"
             onClick={() => setText('')}
             className={`absolute top-2 right-2 p-1 rounded ${isLight ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100' : 'text-white/40 hover:text-white hover:bg-white/10'} transition-colors`}
-            title="Clear"
+            title={t('textPaster.clear', 'Clear')}
           >
             <X className="w-3.5 h-3.5" />
           </button>

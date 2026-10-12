@@ -2,12 +2,14 @@ import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from 'react-oidc-context'
 import { useTranslation } from 'react-i18next'
-import { api } from '../services/api'
+import { api, FollowUpView } from '../services/api'
+import { openPlanning, PLANNING_CHANGED_EVENT } from '../planningPanel'
+import { loc, I18nVersions } from '../localized'
 import {
   Search, ArrowLeft, CheckCircle2, AlertTriangle, Clock, Settings,
   MessageCircle, Mail, Users, Hash, ChevronRight, Sparkles, X,
   FolderKanban, Zap, Eye, Shield, TrendingUp, AlertCircle,
-  Phone, Send, Bell, Trash2, Loader2, UserPlus, Ban, Unlock, Plus, Pencil, Calendar, Download, Archive, RotateCcw
+  Phone, Send, Bell, Trash2, Loader2, UserPlus, Ban, Unlock, Plus, Pencil, Calendar, Download, Archive, RotateCcw, BellOff, BellRing, Workflow
 } from 'lucide-react'
 import { PageType } from '../App'
 // ChannelsPanel — import commented out. The component still lives in
@@ -41,6 +43,7 @@ interface ProjectTask {
 }
 interface ProjectAction {
   id: string; detected: string; executed: string; channel: string; channelIcon: string; time: string;
+  i18n?: I18nVersions;
 }
 interface ProjectNotification {
   id: string; channel: string; recipient: string; message: string; status: string; time: string;
@@ -50,7 +53,7 @@ interface Project {
   status: string; sla: string; type: string;
   deliveryDate: string; daysLeft: number; progress: number; progressBlockedReason?: string; timing?: string;
   done: number; pending: number; blocked: number; aiMessages: number;
-  lastAction: { detected: string; action: string };
+  lastAction: { detected: string; action: string; i18n?: I18nVersions };
   team: ProjectTeamMember[]; channels: ProjectChannel[];
   labels: { name: string; color: string }[];
   slaMetrics: { clientResponse: string; unassignedTasks: number; partnerResponse: string; tasksBlocked24h: number };
@@ -61,6 +64,10 @@ interface Project {
   /** Set when the project was closed as discontinued (status 'closed'). */
   closedNote?: string;
   closedAt?: string;
+  /** Status follow-up pauses in force (owner decides). */
+  followUp?: FollowUpView;
+  /** A plan proposal waiting for the owner's approval (backend marker). */
+  pendingProposal?: { proposalId: string; createdAt?: string; source?: string; summary?: string } | null;
   role?: 'owner' | 'invitedByEmail' | 'invitedByLink' | 'collaborator';
 }
 
@@ -123,7 +130,8 @@ interface ProjectsProps {
 
 export default function Projects({ onNavigate, gmailConnected, resetSignal }: ProjectsProps) {
   const auth = useAuth()
-  const { t } = useTranslation()
+  const { t, i18n: tr } = useTranslation()
+  const lang = tr.language
   const token = auth.user?.access_token || ''
 
   const [projects, setProjects] = useState<Project[]>([])
@@ -186,6 +194,12 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
   const [closeNote, setCloseNote] = useState('')
   const [closeBusy, setCloseBusy] = useState(false)
   const [closeError, setCloseError] = useState('')
+  // Pause the status follow-up of one member or the whole team ('all').
+  const [followTarget, setFollowTarget] = useState<{ person: string; name: string } | null>(null)
+  const [followUntil, setFollowUntil] = useState('')
+  const [followNote, setFollowNote] = useState('')
+  const [followBusy, setFollowBusy] = useState(false)
+  const [followError, setFollowError] = useState('')
   // "Edit project" modal — UPDATE of basic fields (name, description,
   // type, status, deliveryDate, timing). Only accessible for the owner.
   const [editingProject, setEditingProject] = useState<Project | null>(null)
@@ -351,6 +365,20 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
     return 'bg-emerald-500'
   }
 
+  // Approving / rejecting in the planning panel clears "proposal waiting".
+  useEffect(() => {
+    if (!token) return
+    const onChange = () => {
+      api.getProjects(token).then((data: Project[]) => {
+        if (!Array.isArray(data)) return
+        setProjects(data)
+        setSelectedProject(prev => prev ? (data.find(x => x.projectId === prev.projectId) || prev) : prev)
+      }).catch(() => { /* indicator only */ })
+    }
+    window.addEventListener(PLANNING_CHANGED_EVENT, onChange)
+    return () => window.removeEventListener(PLANNING_CHANGED_EVENT, onChange)
+  }, [token])
+
   const refreshSelected = async (projectId: string) => {
     const data = await api.getProjects(token)
     if (Array.isArray(data)) {
@@ -358,6 +386,40 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
       const updated = data.find((proj: Project) => proj.projectId === projectId)
       if (updated) setSelectedProject(updated)
     }
+  }
+
+  /** Same key as the backend (checkin.person_key): the email, or the
+   *  normalised name for people without email. */
+  const followKey = (m: { email?: string; name: string }) =>
+    (m.email || '').trim().toLowerCase() ||
+    m.name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+
+  const shortDate = (d?: string) => {
+    if (!d) return ''
+    try { return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) } catch { return d }
+  }
+
+  const applyFollowUp = (projectId: string, followUp: FollowUpView) => {
+    setProjects(prev => prev.map(pr => pr.projectId === projectId ? { ...pr, followUp } : pr))
+    setSelectedProject(prev => prev && prev.projectId === projectId ? { ...prev, followUp } : prev)
+  }
+
+  const saveFollowUp = async (projectId: string, person: string, paused: boolean) => {
+    if (!token) return
+    setFollowBusy(true); setFollowError('')
+    try {
+      const r = await api.setFollowUp(projectId, { person, paused, until: paused ? followUntil : '', note: paused ? followNote : '' }, token)
+      applyFollowUp(projectId, r.followUp)
+      setFollowTarget(null)
+    } catch (e: any) {
+      setFollowError(String(e?.message || e).slice(0, 200))
+    } finally {
+      setFollowBusy(false)
+    }
+  }
+
+  const openFollowPause = (person: string, name: string) => {
+    setFollowUntil(''); setFollowNote(''); setFollowError(''); setFollowTarget({ person, name })
   }
 
   const handleCloseProject = async () => {
@@ -401,7 +463,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
       setConfirmDelete(null)
     } catch (err) {
       console.error('[Projects] Error deleting project:', err)
-      alert('Could not delete the project. Please try again.')
+      alert(t('projects.delete.error', 'Could not delete the project. Please try again.'))
     } finally {
       setDeletingProject(null)
     }
@@ -466,6 +528,51 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                         className="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-all flex items-center gap-2 disabled:opacity-50">
                   {closeBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
                   {t('projects.close.confirm', 'Close project')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {followTarget && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+               onClick={() => !followBusy && setFollowTarget(null)}>
+            <div className="bg-[#12121E] border border-white/10 rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                  <BellOff className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">
+                    {followTarget.person === 'all'
+                      ? t('projects.followUp.titleAll', 'Pause the follow-up of the whole team?')
+                      : t('projects.followUp.title', { name: followTarget.name, defaultValue: `Pause the follow-up of ${followTarget.name}?` })}
+                  </h3>
+                  <p className="text-sm text-white/60 mt-1">
+                    {t('projects.followUp.explain', 'No status reminders, no update window at login, and you will not be told they have not reported. With no reports, nothing of theirs is consolidated or replanned. They can still report on their own, and task assignment notices are still sent.')}
+                  </p>
+                </div>
+              </div>
+              <label className="block text-xs text-white/50 mb-1">{t('projects.followUp.untilLabel', 'Until (optional): it resumes by itself after this day')}</label>
+              <input type="date" value={followUntil} min={new Date().toISOString().slice(0, 10)} onChange={e => setFollowUntil(e.target.value)}
+                     className="w-full bg-transparent border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-amber-400/50 outline-none [color-scheme:dark]" />
+              {!followUntil && (
+                <p className="text-[11px] text-amber-300/80 mt-1">{t('projects.followUp.noDateWarning', 'Without a date it stays paused until you resume it.')}</p>
+              )}
+              <label className="block text-xs text-white/50 mb-1 mt-3">{t('projects.followUp.noteLabel', 'Note (optional)')}</label>
+              <input value={followNote} onChange={e => setFollowNote(e.target.value)} maxLength={300}
+                     placeholder={t('projects.followUp.notePlaceholder', 'e.g. On vacation / client contact, does not report')}
+                     className="w-full bg-transparent border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:border-amber-400/50 outline-none" />
+              {followError && <p className="text-xs text-red-300 mt-2">{followError}</p>}
+              <div className="flex items-center justify-end gap-2 mt-5">
+                <button onClick={() => setFollowTarget(null)} disabled={followBusy}
+                        className="px-4 py-2 text-sm text-white/70 hover:text-white rounded-lg hover:bg-white/5 transition-all disabled:opacity-50">
+                  {t('projects.modals.cancel')}
+                </button>
+                <button onClick={() => saveFollowUp(p.projectId, followTarget.person, true)} disabled={followBusy}
+                        className="px-4 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-all flex items-center gap-2 disabled:opacity-50">
+                  {followBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellOff className="w-4 h-4" />}
+                  {t('projects.followUp.confirm', 'Pause follow-up')}
                 </button>
               </div>
             </div>
@@ -1262,6 +1369,22 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                 )}
+                {/* Owner-only: the planning panel for this project (replan, ask, approve). */}
+                {p.isOwner !== false && p.status !== 'closed' && (
+                  <button
+                    onClick={() => openPlanning({ projectId: p.projectId, lock: true })}
+                    className={`relative flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-all ${
+                      p.pendingProposal
+                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-200 hover:bg-amber-500/20'
+                        : 'bg-white/5 border-white/10 text-white/70 hover:text-white hover:border-violet-500/30'}`}
+                    title={p.pendingProposal
+                      ? t('projects.planning.waitingTooltip', 'A plan proposal is waiting for your approval')
+                      : t('projects.planning.tooltip', 'Talk about the plan, replan with new context, review proposals')}
+                  >
+                    <Workflow className="w-3.5 h-3.5" />
+                    {p.pendingProposal ? t('projects.planning.waiting', 'Proposal waiting') : t('projects.planning.button', 'Replanning')}
+                  </button>
+                )}
                 {/* Owner-only: close a discontinued project (reversible). */}
                 {p.isOwner !== false && p.status !== 'closed' && (
                   <button
@@ -1856,12 +1979,12 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                     <div className="space-y-2">
                       <div className="flex items-start gap-2">
                         <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">{t('projects.detail.aiActions.detected')}</span>
-                        <p className="text-sm text-white/80">{action.detected}</p>
+                        <p className="text-sm text-white/80">{loc(action, 'detected', lang)}</p>
                       </div>
                       <div className="pl-4 border-l-2 border-white/10 ml-1">
                         <div className="flex items-start gap-2">
                           <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">{t('projects.detail.aiActions.executed')}</span>
-                          <p className="text-sm text-white/60">{action.executed}</p>
+                          <p className="text-sm text-white/60">{loc(action, 'executed', lang)}</p>
                         </div>
                       </div>
                       <div className="flex items-center justify-between mt-2">
@@ -1959,7 +2082,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
               {/* Owner-only buttons: add/invite/edit phones. Invited users only see the list. */}
               {!editingPhones && p.isOwner === false ? (
                 <span className="text-[10px] text-white/30 italic" title={t('projects.detail.team.readOnlyHint')}>
-                  Read only
+                  {t('projects.detail.team.readOnly', 'Read only')}
                 </span>
               ) : !editingPhones ? (
                 <div className="flex items-center gap-2">
@@ -2037,7 +2160,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                     disabled={savingPhones}
                     className="text-[10px] text-emerald-400 hover:text-emerald-300 font-medium"
                   >
-                    {savingPhones ? '...' : 'Save'}
+                    {savingPhones ? '...' : t('projects.detail.team.save', 'Save')}
                   </button>
                   <button
                     onClick={() => setEditingPhones(false)}
@@ -2048,6 +2171,30 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                 </div>
               )}
             </div>
+            {/* Status follow-up of the whole team: paused banner, or the owner's switch. */}
+            {p.followUp?.all ? (
+              <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[11px] text-amber-200 flex items-start gap-2">
+                <BellOff className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  {p.followUp.all.until
+                    ? t('projects.followUp.allPausedUntil', { date: shortDate(p.followUp.all.until), defaultValue: `Team follow-up paused until ${shortDate(p.followUp.all.until)}` })
+                    : t('projects.followUp.allPaused', 'Team follow-up paused')}
+                  {p.followUp.all.note && <span className="text-amber-200/60"> · {p.followUp.all.note}</span>}
+                </div>
+                {p.isOwner !== false && (
+                  <button onClick={() => saveFollowUp(p.projectId, 'all', false)} disabled={followBusy}
+                          className="shrink-0 text-amber-100 hover:text-white underline disabled:opacity-50">
+                    {t('projects.followUp.resume', 'Resume')}
+                  </button>
+                )}
+              </div>
+            ) : (p.isOwner !== false && p.status !== 'closed' && p.team.length > 0 && !editingPhones && (
+              <button onClick={() => openFollowPause('all', '')}
+                      className="mb-3 flex items-center gap-1 text-[10px] text-white/35 hover:text-amber-300 transition-colors"
+                      title={t('projects.followUp.pauseAllHint', 'Stop status reminders and check-ins for everyone in this project')}>
+                <BellOff className="w-3 h-3" />{t('projects.followUp.pauseAll', 'Pause team follow-up')}
+              </button>
+            ))}
             {/* The old inline addingMember form was removed.
                 The unified modal (inviteModalOpen) replaces it: both cases
                 (register without notifying / invite via email/WhatsApp) use
@@ -2083,6 +2230,18 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                       <div>
                         <p className={`text-sm font-medium ${isAssigneeActive ? 'text-violet-200' : 'text-white'}`}>{member.name}</p>
                         <p className="text-[11px] text-white/40">{member.role}</p>
+                        {(() => {
+                          const pause = p.followUp?.people?.[followKey(member)]
+                          if (!pause || p.followUp?.all) return null
+                          return (
+                            <p className="text-[10px] text-amber-300 flex items-center gap-1" title={pause.note || ''}>
+                              <BellOff className="w-2.5 h-2.5" />
+                              {pause.until
+                                ? t('projects.followUp.pausedUntil', { date: shortDate(pause.until), defaultValue: `Follow-up paused until ${shortDate(pause.until)}` })
+                                : t('projects.followUp.paused', 'Follow-up paused')}
+                            </p>
+                          )
+                        })()}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 group">
@@ -2100,6 +2259,25 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                         </div>
                       )}
                       <span className="text-xs text-white/40">{t('projects.detail.team.taskCount', { count: member.tasks })}</span>
+                      {/* Pause / resume this member's status follow-up — owner only. */}
+                      {!editingPhones && p.isOwner !== false && p.status !== 'closed' && !p.followUp?.all && (() => {
+                        const paused = !!p.followUp?.people?.[followKey(member)]
+                        return (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation()
+                              if (paused) saveFollowUp(p.projectId, followKey(member), false)
+                              else openFollowPause(followKey(member), member.name)
+                            }}
+                            disabled={followBusy}
+                            className={`p-1 rounded transition-opacity ${paused ? 'text-amber-300 hover:text-white' : 'opacity-0 group-hover:opacity-100 text-white/40 hover:text-amber-300'}`}
+                            title={paused ? t('projects.followUp.resumeOne', { name: member.name, defaultValue: `Resume the follow-up of ${member.name}` })
+                                          : t('projects.followUp.pauseOne', { name: member.name, defaultValue: `Pause the follow-up of ${member.name}` })}
+                          >
+                            {paused ? <BellRing className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
+                          </button>
+                        )
+                      })()}
                       {/* Remove participant button — owner only, appears on hover.
                           Assigned tasks become "Unassigned", and if the person
                           was invited they lose access to the project. */}
@@ -2107,7 +2285,7 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                         <button
                           onClick={() => setRemoveMemberTarget(member)}
                           className="opacity-0 group-hover:opacity-100 transition-opacity p-1 -mr-1 rounded hover:bg-red-500/20 text-white/40 hover:text-red-400"
-                          title={`Remove ${member.name} from the project`}
+                          title={t('projects.detail.team.removeTooltip', { name: member.name, defaultValue: `Remove ${member.name} from the project` })}
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -2537,6 +2715,15 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {project.pendingProposal && project.isOwner !== false && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openPlanning({ projectId: project.projectId, lock: true }) }}
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[10px] font-medium text-amber-200 hover:bg-amber-500/25"
+                      title={t('projects.planning.waitingTooltip', 'A plan proposal is waiting for your approval')}
+                    >
+                      <Workflow className="w-3 h-3" />{t('projects.planning.waitingShort', 'Proposal')}
+                    </button>
+                  )}
                   <StatusBadge status={project.status} />
                   {/* Owner-only: trash icon on the grid card. */}
                   {project.isOwner !== false && (
@@ -2607,11 +2794,11 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                 <div className="flex items-start gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-violet-400 mt-0.5 flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-white/30 uppercase mb-0.5">Last AI action</p>
+                    <p className="text-[10px] font-bold text-white/30 uppercase mb-0.5">{t('projects.card.lastAiAction', 'Last AI action')}</p>
                     <p className="text-xs text-white/50 line-clamp-2">
-                      <span className="text-amber-400">Detected</span> {project.lastAction.detected} · <span className="text-emerald-400">
-                        {project.lastAction.action.split(' ')[0]}
-                      </span> {project.lastAction.action.split(' ').slice(1).join(' ')}
+                      <span className="text-amber-400">{t('projects.card.detected', 'Detected')}</span> {loc(project.lastAction, 'detected', lang)} · <span className="text-emerald-400">
+                        {loc(project.lastAction, 'action', lang).split(' ')[0]}
+                      </span> {loc(project.lastAction, 'action', lang).split(' ').slice(1).join(' ')}
                     </p>
                   </div>
                 </div>
@@ -2660,9 +2847,9 @@ export default function Projects({ onNavigate, gmailConnected, resetSignal }: Pr
                 <Trash2 className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Delete project</h3>
+                <h3 className="text-lg font-bold text-white">{t('projects.delete.title', 'Delete project')}</h3>
                 <p className="text-sm text-white/60 mt-1">
-                  Are you sure you want to delete <strong className="text-white">{confirmDelete.name}</strong>? This will also delete its insights, tasks and notifications. <strong className="text-red-400">This cannot be undone.</strong>
+                  {t('projects.delete.question', 'Are you sure you want to delete')} <strong className="text-white">{confirmDelete.name}</strong>? {t('projects.delete.consequence', 'This will also delete its insights, tasks and notifications.')} <strong className="text-red-400">{t('projects.delete.irreversible', 'This cannot be undone.')}</strong>
                 </p>
               </div>
             </div>

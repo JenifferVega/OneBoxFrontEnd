@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MessageSquareText, Loader2, AlertTriangle, Send, CheckCircle2 } from 'lucide-react'
+import { MessageSquareText, Loader2, AlertTriangle, Send, CheckCircle2, X } from 'lucide-react'
 import { api, CheckinProject } from '../services/api'
 
 /**
@@ -11,7 +11,10 @@ import { api, CheckinProject } from '../services/api'
  * consolidated for the project owner (daily digest + urgent alerts).
  * The project OWNER (who also has tasks) may postpone it ("Not now");
  * members may not.
+ * VITE_DEV_MODE=true (frontend .env, testing only): an X closes the whole
+ * window until the page is reloaded, for anyone. Remove before full production.
  */
+const DEV_CLOSE = import.meta.env.VITE_DEV_MODE === 'true'
 interface Props { token: string; userName: string }
 type Msg = { role: 'member' | 'assistant'; content: string }
 
@@ -101,6 +104,13 @@ export default function UpdateChatModal({ token, userName }: Props) {
             <h2 className="text-lg font-semibold">{t('updates.title', 'How is it going?')}</h2>
             {projects.length > 1 && (
               <span className="ml-auto text-xs text-white/40">{t('checkin.progress', { count: projects.length, defaultValue: `${projects.length} projects left` })}</span>
+            )}
+            {DEV_CLOSE && (
+              <button onClick={() => setProjects([])}
+                      className={`${projects.length > 1 || (current.isOwner && !finished) ? '' : 'ml-auto '}order-last p-1.5 rounded-lg border border-amber-500/40 text-amber-300 hover:text-white`}
+                      title="Dev mode (VITE_DEV_MODE): close without giving the update">
+                <X className="w-4 h-4" />
+              </button>
             )}
             {current.isOwner && !finished && (
               <button onClick={next} className={`${projects.length > 1 ? '' : 'ml-auto '}px-3 py-1 rounded-lg border border-white/10 text-xs text-white/60 hover:text-white`}

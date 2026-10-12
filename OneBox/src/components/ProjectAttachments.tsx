@@ -8,6 +8,7 @@ import {
   ClipboardPaste, ListChecks
 } from 'lucide-react'
 import { api } from '../services/api'
+import { openPlanning } from '../planningPanel'
 import DocumentUploader from './DocumentUploader'
 import TextPaster from './TextPaster'
 
@@ -90,10 +91,12 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
       setReplanOffer(null)
       setReplanMsg({ ok: true, msg: t('attachments.replanStarted', {
         file: fileName,
-        defaultValue: `Updating the task plan with "${fileName}". It takes a few minutes; you will get a notification, and changes to existing tasks wait for your approval in Intelligence > Replanning.`,
+        defaultValue: `Updating the task plan with "${fileName}". Follow it in the Replanning panel: the proposal appears there for your approval.`,
       }) })
+      // The panel opens on this project and shows the steps while it runs.
+      openPlanning({ projectId, lock: true })
     } catch (err: any) {
-      setReplanMsg({ ok: false, msg: err?.message?.substring(0, 200) || 'Could not start the update.' })
+      setReplanMsg({ ok: false, msg: err?.message?.substring(0, 200) || t('attachments.replanError', 'Could not start the update.') })
     } finally {
       setReplanningId(null)
     }
@@ -179,7 +182,7 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
     try {
       const result = await api.getAttachmentDownloadUrl(projectId, attachmentId, token)
       if (!result?.url) {
-        alert('Could not get the download link.')
+        alert(t('attachments.downloadLinkError', 'Could not get the download link.'))
         return
       }
       // ⚠️ Previously used window.open(url, '_blank'). Problem: after an `await`
@@ -200,7 +203,7 @@ export default function ProjectAttachments({ projectId, projectName, isOwner = t
       document.body.removeChild(a)
     } catch (err) {
       console.error('[Attachments] download error:', err)
-      alert('Could not download the file.')
+      alert(t('attachments.downloadError', 'Could not download the file.'))
     } finally {
       setDownloadingId(null)
     }

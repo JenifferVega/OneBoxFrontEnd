@@ -2,10 +2,10 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from 'react-oidc-context'
 import { useTranslation } from 'react-i18next'
 import { api } from '../services/api'
-import PlanningChat from './PlanningChat'
+import { loc, I18nVersions } from '../localized'
 import {
   Zap, CheckCircle2, Eye, X, AlertTriangle, Clock,
-  MessageCircle, Mail, Users, Hash, TrendingUp, Phone, ListTree, Workflow
+  MessageCircle, Mail, Users, Hash, TrendingUp, Phone
 } from 'lucide-react'
 
 interface ActionTag {
@@ -17,6 +17,7 @@ interface IAAction {
   detected: string; action: string; actionType: string; actionColor: string;
   tags: ActionTag[]; time: string; status: string; requiresReview: boolean;
   category: 'observation' | 'action'; chipColor: string; createdAt: string;
+  i18n?: I18nVersions;
 }
 
 const ChannelIcon = ({ type, className = 'w-3.5 h-3.5' }: { type: string; className?: string }) => {
@@ -32,7 +33,8 @@ const ChannelIcon = ({ type, className = 'w-3.5 h-3.5' }: { type: string; classN
 
 export default function Intelligence() {
   const auth = useAuth()
-  const { t } = useTranslation()
+  const { t, i18n: tr } = useTranslation()
+  const lang = tr.language
   const token = auth.user?.access_token || ''
   const [actions, setActions] = useState<IAAction[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,19 +45,8 @@ export default function Intelligence() {
   const [filterTime, setFilterTime] = useState<'hoy' | '48h' | 'semana' | 'mes' | 'todo'>('todo')
 
   const userId = auth.user?.profile?.sub || ''
-  // Two tabs: the log of what the AI did, and the planning chat that moves a
-  // whole project. The tab lives in the URL so Back and reload keep it.
-  const [tab, setTab] = useState<'log' | 'replan'>(() => {
-    try { return new URLSearchParams(window.location.search).get('tab') === 'replan' ? 'replan' : 'log' } catch { return 'log' }
-  })
-  const switchTab = (next: 'log' | 'replan') => {
-    setTab(next)
-    try {
-      const url = new URL(window.location.href)
-      if (next === 'replan') url.searchParams.set('tab', 'replan'); else { url.searchParams.delete('tab'); url.searchParams.delete('planProject') }
-      window.history.replaceState(window.history.state, '', url.toString())
-    } catch { /* ignore */ }
-  }
+  // The planning chat used to be a second tab here; it is now a side panel
+  // (PlanningPanel.tsx) opened from the chat, the project and after uploads.
   useEffect(() => {
     if (!token || !userId) return
     const fetchInsights = async () => {
@@ -166,36 +157,8 @@ export default function Intelligence() {
     return days.map(d => ({ ...d, value: Math.round((d.count / max) * 100) }))
   }, [actions])
 
-  const tabs = (
-    <div className="flex items-center gap-1 px-4 border-b border-white/5 bg-[#0E0E1A] flex-shrink-0">
-      {([
-        { id: 'log', label: t('intelligence.tabs.log', 'Log'), icon: ListTree },
-        { id: 'replan', label: t('intelligence.tabs.replan', 'Replanning'), icon: Workflow },
-      ] as const).map(tb => {
-        const Icon = tb.icon
-        return (
-          <button key={tb.id} onClick={() => switchTab(tb.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-sm border-b-2 -mb-px transition-all ${
-                    tab === tb.id ? 'border-violet-500 text-white' : 'border-transparent text-white/50 hover:text-white/80'}`}>
-            <Icon className="w-4 h-4" />{tb.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-
-  if (tab === 'replan') {
-    return (
-      <div className="flex flex-col h-[calc(100vh-80px)]">
-        {tabs}
-        <div className="flex-1 min-h-0"><PlanningChat token={token} /></div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-col h-[calc(100vh-80px)]">
-    {tabs}
     <div className="flex flex-1 min-h-0">
       <aside className="w-56 border-r border-white/5 bg-[#0E0E1A] flex-shrink-0 overflow-y-auto">
         <div className="p-4 space-y-6">
@@ -347,7 +310,7 @@ export default function Intelligence() {
 
               <div className="flex items-start gap-2 mb-2">
                 <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">{t('intelligence.actionCard.detected')}</span>
-                <p className="text-sm text-white/80">{action.detected}</p>
+                <p className="text-sm text-white/80">{loc(action, 'detected', lang)}</p>
               </div>
 
               <div className="flex items-start gap-2 mb-3 pl-4 border-l-2 border-white/10 ml-1">
@@ -357,7 +320,7 @@ export default function Intelligence() {
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0 ${action.chipColor}`}>
                   {action.actionType}
                 </span>
-                <p className="text-sm text-white/50">{action.action}</p>
+                <p className="text-sm text-white/50">{loc(action, 'action', lang)}</p>
               </div>
 
               <div className="flex items-center justify-between">
