@@ -1135,7 +1135,13 @@
       "warn": {
         "fallback": "Debería usar '{{wanted}}' pero faltan sus credenciales: está usando el proveedor por defecto ({{provider}}).",
         "missing_key": "{{provider}} no tiene clave de API: las llamadas van a fallar."
-      }
+      },
+      "test": "Probar modelos",
+      "testing": "Probando…",
+      "testCol": "Prueba",
+      "works": "Funciona",
+      "fails": "Falla",
+      "testedAt": "Probado a las {{time}} con una llamada real mínima por modelo (sin respaldos)."
     }
   },
   "autocomplete": {

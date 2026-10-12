@@ -7,8 +7,8 @@
 import { useState } from 'react'
 import { useAuth } from 'react-oidc-context'
 import { useTranslation } from 'react-i18next'
-import { Cpu, ChevronDown, ChevronRight, Loader2, AlertTriangle, RefreshCw } from 'lucide-react'
-import { api, SystemInfo } from '../services/api'
+import { Cpu, ChevronDown, ChevronRight, Loader2, AlertTriangle, RefreshCw, PlayCircle, CheckCircle2, XCircle } from 'lucide-react'
+import { api, SystemInfo, ModelCheck } from '../services/api'
 
 export default function SystemDetails() {
   const auth = useAuth()
@@ -19,6 +19,25 @@ export default function SystemDetails() {
   const [error, setError] = useState('')
   const [hidden, setHidden] = useState(false)
   const [showEnv, setShowEnv] = useState(false)
+  const [checks, setChecks] = useState<Record<string, ModelCheck>>({})
+  const [checking, setChecking] = useState(false)
+  const [checkedAt, setCheckedAt] = useState('')
+  const [checkError, setCheckError] = useState('')
+
+  const testModels = async () => {
+    const token = auth.user?.access_token
+    if (!token) return
+    setChecking(true); setCheckError(''); setChecks({})
+    try {
+      const r = await api.checkModels(token)
+      setChecks(Object.fromEntries(r.results.map(c => [c.node, c])))
+      setCheckedAt(r.checkedAt)
+    } catch (e: any) {
+      setCheckError(String(e?.message || e).slice(0, 200))
+    } finally {
+      setChecking(false)
+    }
+  }
 
   const load = async () => {
     const token = auth.user?.access_token
@@ -63,9 +82,16 @@ export default function SystemDetails() {
                 {info.environment && <span>env: <span className="text-white/70">{info.environment}</span></span>}
                 <span>{t('settings.system.started', 'Server started')}: <span className="text-white/70">{info.startedAt.replace('T', ' ')}</span></span>
                 <span>Python {info.python}</span>
-                <button onClick={load} className="ml-auto flex items-center gap-1 hover:text-white">
+                <div className="ml-auto flex items-center gap-3">
+                <button onClick={testModels} disabled={checking}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-violet-500/20 border border-violet-500/40 text-violet-200 hover:bg-violet-500/30 disabled:opacity-50">
+                  {checking ? <Loader2 className="w-3 h-3 animate-spin" /> : <PlayCircle className="w-3 h-3" />}
+                  {checking ? t('settings.system.testing', 'Testing…') : t('settings.system.test', 'Test models')}
+                </button>
+                <button onClick={load} className="flex items-center gap-1 hover:text-white">
                   <RefreshCw className="w-3 h-3" />{t('settings.system.refresh', 'Refresh')}
                 </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -90,6 +116,18 @@ export default function SystemDetails() {
                             <>
                               <span className="text-violet-300">{n.provider}</span>
                               <span className="text-white/80"> · {n.model}</span>
+                              {checks[n.node] ? (checks[n.node].ok ? (
+                                <div className="mt-1 flex items-center gap-1 text-emerald-300 whitespace-nowrap" title={checks[n.node].detail}>
+                                  <CheckCircle2 className="w-3 h-3 shrink-0" />{t('settings.system.works', 'Works')} · {(checks[n.node].ms / 1000).toFixed(1)} s
+                                </div>
+                              ) : (
+                                <div className="mt-1 text-red-300">
+                                  <span className="flex items-center gap-1"><XCircle className="w-3 h-3 shrink-0" />{t('settings.system.fails', 'Fails')}</span>
+                                  <div className="text-[11px] text-red-300/70 break-words">{checks[n.node].error}{checks[n.node].detail ? ` · ${checks[n.node].detail}` : ''}</div>
+                                </div>
+                              )) : checking ? (
+                                <div className="mt-1 flex items-center gap-1 text-white/35"><Loader2 className="w-3 h-3 animate-spin" />{t('settings.system.testing', 'Testing…')}</div>
+                              ) : null}
                               {n.warning && <div className="mt-1 text-amber-300 flex items-start gap-1"><AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                                 {n.warningCode ? t(`settings.system.warn.${n.warningCode}`, { provider: n.provider, wanted: n.wanted, defaultValue: n.warning }) : n.warning}</div>}
                             </>
@@ -102,6 +140,12 @@ export default function SystemDetails() {
                   </tbody>
                 </table>
               </div>
+
+              {(checkedAt || checkError) && (
+                <p className={`text-[11px] ${checkError ? 'text-red-400' : 'text-white/40'}`}>
+                  {checkError || t('settings.system.testedAt', { time: new Date(checkedAt).toLocaleTimeString(), defaultValue: `Tested at ${new Date(checkedAt).toLocaleTimeString()} with a tiny real call per model (fallbacks off).` })}
+                </p>
+              )}
 
               <div>
                 <p className="text-[11px] text-white/40 mb-1.5">{t('settings.system.keys', 'API keys (values are never shown)')}</p>

@@ -117,6 +117,9 @@ export interface SystemNode {
   /** 'fallback' | 'missing_key' | '' -- translated in the interface */
   warningCode?: string; wanted?: string
 }
+export interface ModelCheck {
+  node: string; provider: string; model: string; ok: boolean; ms: number; detail: string; error: string
+}
 export interface SystemInfo {
   environment: string; startedAt: string; python: string
   nodes: SystemNode[]; keys: Record<string, boolean>; providers: Record<string, boolean>
@@ -172,6 +175,10 @@ export const api = {
   /** Settings > System details: models per node, key presence (never values). */
   getSystemInfo: (token: string) =>
     fetchAPI('/api/system/info', token) as Promise<SystemInfo>,
+
+  /** One tiny real call per model the app uses (Settings > System details > Test models). */
+  checkModels: (token: string) =>
+    fetchAPI('/api/system/check-models', token, { method: 'POST' }) as Promise<{ checkedAt: string; results: ModelCheck[] }>,
 
   getUserSettings: (token: string) =>
     fetchAPI('/api/user/settings', token) as Promise<UserSettings>,

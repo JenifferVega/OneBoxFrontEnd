@@ -1135,7 +1135,13 @@
       "warn": {
         "fallback": "Meant to run on '{{wanted}}' but its credentials are missing: it is using the default provider ({{provider}}).",
         "missing_key": "{{provider}} has no API key: calls will fail."
-      }
+      },
+      "test": "Test models",
+      "testing": "Testing…",
+      "testCol": "Test",
+      "works": "Works",
+      "fails": "Fails",
+      "testedAt": "Tested at {{time}} with a tiny real call per model (fallbacks off)."
     }
   },
   "autocomplete": {
